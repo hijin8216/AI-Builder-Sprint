@@ -80,8 +80,24 @@ const recommendationDialog = document.querySelector("#recommendation-dialog");
 const recommendationError = document.querySelector("#recommendation-error");
 const recommendationSubmit = document.querySelector("#recommendation-submit");
 const toast = document.querySelector("#toast");
+const bookingName = document.querySelector("#booking-name");
+const bookingEmail = document.querySelector("#booking-email");
+const notificationButton = document.querySelector("#notification-button");
+const notificationBadge = document.querySelector("#notification-badge");
+const contractNotification = document.querySelector("#contract-notification");
+const reviewContractButton = document.querySelector("#review-contract-button");
+const contractDialog = document.querySelector("#contract-dialog");
+const contractBookingSummary = document.querySelector("#contract-booking-summary");
+const contractAgreement = document.querySelector("#contract-agreement");
+const startSignatureButton = document.querySelector("#start-signature-button");
+const signatureDialog = document.querySelector("#signature-dialog");
+const signatureFrameWrap = document.querySelector("#signature-frame-wrap");
+const signatureStatus = document.querySelector("#signature-status");
 
 let toastTimer;
+let pendingBooking = null;
+let activeDocumentId = null;
+let signatureStatusTimer = null;
 
 function formatPrice(price) {
   return `${price.toLocaleString("ko-KR")}원`;
@@ -463,11 +479,94 @@ document.querySelector("#booking-form").addEventListener("submit", (event) => {
   const people = document.querySelector("#booking-people").value;
   const experienceTitle = state.selectedExperience?.name ?? "선택한 경험";
 
+  pendingBooking = {
+    name: bookingName.value.trim(),
+    email: bookingEmail.value.trim(),
+    people,
+    date: bookingDate.value,
+    activity: experienceTitle,
+    venue: state.selectedExperience?.operator ?? "WAVEON BUSAN 제휴 업체",
+  };
+
   bookingDialog.close();
+  notificationBadge.hidden = false;
+  contractNotification.hidden = false;
   showToast(
-    `${experienceTitle} · ${bookingDate.value} · ${people}명 예약 요청이 접수됐어요.`,
+    `${experienceTitle} 예약 요청이 접수됐어요. 계약서 확인 알림을 확인해 주세요.`,
   );
 });
+
+function openContractReview() {
+  if (!pendingBooking) {
+    showToast("확인할 계약서 알림이 없습니다.");
+    return;
+  }
+  notificationBadge.hidden = true;
+  contractNotification.hidden = true;
+  contractAgreement.checked = false;
+  contractBookingSummary.textContent = `${pendingBooking.activity} · ${pendingBooking.date} · ${pendingBooking.people}명 / ${pendingBooking.venue}`;
+  contractDialog.showModal();
+}
+
+notificationButton.addEventListener("click", openContractReview);
+reviewContractButton.addEventListener("click", openContractReview);
+document.querySelector("#contract-close").addEventListener("click", () => contractDialog.close());
+
+startSignatureButton.addEventListener("click", async () => {
+  if (!contractAgreement.checked) {
+    showToast("계약서 주요 약관을 확인하고 동의해 주세요.");
+    return;
+  }
+
+  startSignatureButton.disabled = true;
+  startSignatureButton.textContent = "계약서 준비 중…";
+  try {
+    const response = await fetch("/api/signature/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(pendingBooking),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || "전자서명 요청에 실패했습니다.");
+
+    activeDocumentId = result.documentId;
+    contractDialog.close();
+    signatureStatus.textContent = "서명 완료를 확인하고 있어요.";
+    signatureFrameWrap.innerHTML = `<iframe title="모두싸인 전자서명" src="${result.embeddedUrl}"></iframe>`;
+    signatureDialog.showModal();
+    signatureStatusTimer = window.setInterval(checkSignatureStatus, 4000);
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    startSignatureButton.disabled = false;
+    startSignatureButton.innerHTML = "전자서명 진행 <span>→</span>";
+  }
+});
+
+async function checkSignatureStatus() {
+  if (!activeDocumentId) return;
+  try {
+    const response = await fetch(`/api/signature/status?documentId=${encodeURIComponent(activeDocumentId)}`);
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message);
+    if (result.status === "COMPLETED") {
+      closeSignatureDialog();
+      showToast("전자서명이 완료되어 예약이 확정되었습니다!");
+    }
+  } catch (error) {
+    signatureStatus.textContent = "서명 상태를 확인할 수 없습니다.";
+  }
+}
+
+function closeSignatureDialog() {
+  if (signatureStatusTimer) window.clearInterval(signatureStatusTimer);
+  signatureStatusTimer = null;
+  activeDocumentId = null;
+  signatureDialog.close();
+  signatureFrameWrap.innerHTML = "";
+}
+
+document.querySelector("#signature-close").addEventListener("click", closeSignatureDialog);
 
 document.querySelector("#newsletter-form").addEventListener("submit", (event) => {
   event.preventDefault();

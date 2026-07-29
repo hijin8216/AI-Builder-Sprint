@@ -10,6 +10,7 @@ const projectDirectory = path.dirname(currentFilePath);
 const productFilePath = path.join(projectDirectory, "data", "products.json");
 const productData = JSON.parse(await readFile(productFilePath, "utf8"));
 const products = productData.products;
+const activeSignatureDocuments = new Set();
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
@@ -40,6 +41,42 @@ app.get("/api/health", (_request, response) => {
     solarConfigured: Boolean(process.env.UPSTAGE_API_KEY?.trim()),
     productCount: products.length,
   });
+});
+
+app.post("/api/signature/start", async (request, response) => {
+  try {
+    const booking = normalizeBooking(request.body);
+    const document = await createModusignDocument(booking);
+    const readyDocument = await waitForModusignDocument(document.id);
+    const participant =
+      readyDocument.participants?.find((item) => item.name === booking.name) ??
+      document.participants?.[0];
+
+    if (!participant?.id) throw new Error("서명 참여자 정보를 찾지 못했습니다.");
+
+    const signing = await requestModusign(
+      `/documents/${document.id}/participants/${participant.id}/embedded-view`,
+    );
+    activeSignatureDocuments.add(document.id);
+    response.json({ documentId: document.id, embeddedUrl: signing.embeddedUrl });
+  } catch (error) {
+    response.status(502).json({ message: error.message || "전자서명 요청에 실패했습니다." });
+  }
+});
+
+app.get("/api/signature/status", async (request, response) => {
+  const documentId = cleanText(request.query.documentId, 100);
+  if (!documentId || !activeSignatureDocuments.has(documentId)) {
+    response.status(404).json({ message: "확인할 전자서명 요청이 없습니다." });
+    return;
+  }
+
+  try {
+    const document = await requestModusign(`/documents/${documentId}`);
+    response.json({ status: document.status });
+  } catch (error) {
+    response.status(502).json({ message: error.message || "서명 상태를 확인하지 못했습니다." });
+  }
 });
 
 app.post("/api/recommendations", async (request, response) => {
@@ -106,6 +143,67 @@ function normalizeProfile(input = {}) {
 
 function cleanText(value, maxLength) {
   return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
+}
+
+function normalizeBooking(input = {}) {
+  const booking = {
+    name: cleanText(input.name, 30), email: cleanText(input.email, 100),
+    activity: cleanText(input.activity, 120), venue: cleanText(input.venue, 100),
+    date: cleanText(input.date, 20), people: cleanText(input.people, 10),
+  };
+  if (!booking.name || !booking.email || !booking.activity || !booking.date) {
+    throw new Error("예약자 정보와 이용 날짜를 확인해 주세요.");
+  }
+  return booking;
+}
+
+function modusignAuthorization() {
+  const email = process.env.MODUSIGN_EMAIL?.trim();
+  const apiKey = process.env.MODUSIGN_API_KEY?.trim();
+  if (!email || !apiKey || !process.env.MODUSIGN_TEMPLATE_ID?.trim()) {
+    throw new Error(".env에 모두싸인 이메일, API 키, 템플릿 ID를 입력해 주세요.");
+  }
+  return `Basic ${Buffer.from(`${email}:${apiKey}`).toString("base64")}`;
+}
+
+async function requestModusign(pathname, options = {}) {
+  const apiResponse = await fetch(`https://api.modusign.co.kr${pathname}`, {
+    ...options,
+    headers: { Accept: "application/json", Authorization: modusignAuthorization(), ...options.headers },
+  });
+  const result = await apiResponse.json().catch(() => ({}));
+  if (!apiResponse.ok) throw new Error(result.message || `모두싸인 요청 오류 (${apiResponse.status})`);
+  return result;
+}
+
+async function createModusignDocument(booking) {
+  const templateId = process.env.MODUSIGN_TEMPLATE_ID.trim();
+  const template = await requestModusign(`/templates/${templateId}`);
+  const role = process.env.MODUSIGN_SIGNER_ROLE?.trim() || template.participants?.[0]?.role;
+  if (!role) throw new Error("템플릿의 서명자 역할을 찾지 못했습니다.");
+  return requestModusign("/documents/request-with-template", {
+    method: "POST",
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify({
+      templateId,
+      document: {
+        title: `${booking.date}_${booking.activity}_${booking.name}`,
+        participantMappings: [{ role, name: booking.name, signingMethod: { type: "SECURE_LINK", value: booking.email } }],
+      },
+    }),
+  });
+}
+
+async function waitForModusignDocument(documentId) {
+  for (let attempt = 0; attempt < 15; attempt += 1) {
+    const document = await requestModusign(`/documents/${documentId}`);
+    if (document.status === "ON_GOING") return document;
+    if (["ABORTED", "PROCESSING_FAILED"].includes(document.status)) {
+      throw new Error(`계약서를 준비하지 못했습니다. 현재 상태: ${document.status}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 800));
+  }
+  throw new Error("계약서 준비 시간이 초과됐습니다. 잠시 후 다시 시도해 주세요.");
 }
 
 function selectCandidates(profile) {

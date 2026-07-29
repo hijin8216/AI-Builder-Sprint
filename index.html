@@ -47,6 +47,9 @@
           </button>
         </nav>
 
+        <button id="notification-button" class="notification-button" type="button" aria-label="알림">
+          ♧<span id="notification-badge" hidden>1</span>
+        </button>
         <button class="login-button" type="button" data-notice="로그인 기능은 데모 준비 중입니다.">
           로그인
         </button>
@@ -490,6 +493,14 @@
         </div>
         <div class="dialog-fields">
           <label>
+            <span>예약자 이름</span>
+            <input id="booking-name" type="text" placeholder="홍길동" required />
+          </label>
+          <label>
+            <span>이메일</span>
+            <input id="booking-email" type="email" placeholder="name@example.com" required />
+          </label>
+          <label>
             <span>이용 날짜</span>
             <input id="booking-date" type="date" required />
           </label>
@@ -505,8 +516,32 @@
           </label>
         </div>
         <button class="dialog-submit" type="submit">예약 요청하기 <span>→</span></button>
-        <small>결제 없이 예약 흐름을 체험하는 데모입니다.</small>
+        <small>계약서 확인과 전자서명이 완료되면 예약이 확정됩니다.</small>
       </form>
+    </dialog>
+
+    <aside id="contract-notification" class="contract-notification" hidden>
+      <strong>새 알림 · 계약서 확인이 필요합니다</strong>
+      <p>예약 확정을 위해 해양레저 이용 계약서를 확인하고 전자서명해 주세요.</p>
+      <button id="review-contract-button" type="button">계약서 확인하기</button>
+    </aside>
+
+    <dialog id="contract-dialog" class="contract-dialog">
+      <div class="contract-dialog-head">
+        <div><p>RESERVATION CONTRACT</p><h2>예약 계약서 확인</h2></div>
+        <button id="contract-close" type="button" aria-label="계약서 확인 창 닫기">×</button>
+      </div>
+      <div class="contract-dialog-body">
+        <div id="contract-booking-summary" class="contract-booking-summary"></div>
+        <section class="contract-terms"><h3>주요 약관 안내</h3><p>기상 악화 등 안전상 사유로 일정이 변경될 수 있습니다. 이용 3일 전부터는 취소 수수료가 발생할 수 있으며, 안전수칙 미준수로 인한 사고 및 장비 파손은 이용자 책임입니다.</p></section>
+        <label class="contract-agreement"><input id="contract-agreement" type="checkbox" /><span>주요 약관을 확인했으며, 전체 계약서를 읽고 전자서명하는 것에 동의합니다.</span></label>
+        <button id="start-signature-button" class="dialog-submit" type="button">전자서명 진행 <span>→</span></button>
+      </div>
+    </dialog>
+
+    <dialog id="signature-dialog" class="signature-dialog">
+      <div class="signature-dialog-head"><strong>예약 약관 전자서명</strong><span id="signature-status">계약서를 준비하고 있어요.</span><button id="signature-close" type="button" aria-label="전자서명 창 닫기">×</button></div>
+      <div id="signature-frame-wrap" class="signature-frame-wrap"></div>
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
