@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="부산의 해양레저를 한눈에 비교하고 간편하게 예약하는 WAVEON BUSAN 데모 서비스"
+    />
+    <meta name="theme-color" content="#082d46" />
+    <title>WAVEON BUSAN | 부산 바다를 예약하다</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;600;700&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="script.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">본문 바로가기</a>
+
+    <header class="site-header">
+      <div class="container nav-wrap">
+        <a class="brand" href="#top" aria-label="WAVEON BUSAN 홈">
+          WAVE<span>ON</span>
+          <small>BUSAN</small>
+        </a>
+
+        <button
+          class="menu-button"
+          type="button"
+          aria-label="메뉴 열기"
+          aria-expanded="false"
+          aria-controls="main-navigation"
+        >
+          <span></span><span></span><span></span>
+        </button>
+
+        <nav id="main-navigation" class="main-nav" aria-label="주요 메뉴">
+          <a href="#experiences">레저 찾기</a>
+          <a href="#regions">지역별 보기</a>
+          <a href="#how-it-works">이용 방법</a>
+          <button class="nav-partner" type="button" data-notice="파트너 입점 문의가 접수되었습니다.">
+            파트너 입점
+          </button>
+        </nav>
+
+        <button class="login-button" type="button" data-notice="로그인 기능은 데모 준비 중입니다.">
+          로그인
+        </button>
+      </div>
+    </header>
+
+    <main id="main-content">
+      <section id="top" class="hero">
+        <div class="hero-shade"></div>
+        <div class="container hero-content">
+          <p class="hero-kicker"><span></span> BUSAN MARINE LEISURE GUIDE</p>
+          <h1>
+            오늘, 부산의 바다가<br />
+            <em>당신의 놀이터</em>가 됩니다
+          </h1>
+          <p class="hero-copy">
+            흩어진 해양레저 정보를 한곳에서 비교하고<br class="desktop-break" />
+            내 취향에 꼭 맞는 바다 경험을 예약하세요.
+          </p>
+
+          <form id="search-form" class="search-panel" aria-label="해양레저 검색">
+            <label class="search-field">
+              <span class="field-label">지역</span>
+              <span class="field-control">
+                <span aria-hidden="true">⌖</span>
+                <select id="region-select" name="region" aria-label="지역 선택">
+                  <option value="">부산 전체</option>
+                  <option value="해운대">해운대</option>
+                  <option value="광안리">광안리</option>
+                  <option value="송정">송정</option>
+                  <option value="기장">기장</option>
+                  <option value="다대포">다대포</option>
+                </select>
+              </span>
+            </label>
+
+            <label class="search-field">
+              <span class="field-label">날짜</span>
+              <span class="field-control">
+                <span aria-hidden="true">□</span>
+                <input id="search-date" name="date" type="date" aria-label="이용 날짜 선택" />
+              </span>
+            </label>
+
+            <label class="search-field search-keyword">
+              <span class="field-label">하고 싶은 것</span>
+              <span class="field-control">
+                <span aria-hidden="true">⌕</span>
+                <input
+                  id="keyword-input"
+                  name="keyword"
+                  type="search"
+                  placeholder="요트, 서핑, 다이빙"
+                  autocomplete="off"
+                />
+              </span>
+            </label>
+
+            <button class="search-button" type="submit">
+              <span>경험 찾기</span>
+              <span aria-hidden="true">→</span>
+            </button>
+          </form>
+
+          <div class="hero-meta" aria-label="서비스 특징">
+            <span><b>64+</b> 부산 레저</span>
+            <span><b>4.9</b> 평균 평점</span>
+            <span><b>100%</b> 검증된 파트너</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="category-section" aria-labelledby="category-title">
+        <div class="container">
+          <div class="section-heading heading-row">
+            <div>
+              <p class="section-kicker">PICK YOUR WAVE</p>
+              <h2 id="category-title">오늘은 어떤 바다를 만날까요?</h2>
+            </div>
+            <div class="heading-actions">
+              <button id="open-recommendation" class="ai-recommend-button" type="button">
+                <span class="ai-spark" aria-hidden="true">✦</span>
+                AI 맞춤 추천
+              </button>
+              <button class="text-button" type="button" data-category="">
+                전체 경험 보기 <span>→</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="category-list" role="list" aria-label="레저 카테고리">
+            <button class="category-card is-active" type="button" data-category="" role="listitem">
+              <span class="category-number">01</span>
+              <span class="category-icon" aria-hidden="true">∞</span>
+              <strong>전체</strong>
+              <small>상품 불러오는 중</small>
+            </button>
+            <button class="category-card" type="button" data-category="요트" role="listitem">
+              <span class="category-number">02</span>
+              <span class="category-icon" aria-hidden="true">◒</span>
+              <strong>요트·보트</strong>
+              <small>상품 불러오는 중</small>
+            </button>
+            <button class="category-card" type="button" data-category="서핑" role="listitem">
+              <span class="category-number">03</span>
+              <span class="category-icon wave-icon" aria-hidden="true">〰</span>
+              <strong>서핑</strong>
+              <small>상품 불러오는 중</small>
+            </button>
+            <button class="category-card" type="button" data-category="다이빙" role="listitem">
+              <span class="category-number">04</span>
+              <span class="category-icon" aria-hidden="true">◉</span>
+              <strong>다이빙</strong>
+              <small>상품 불러오는 중</small>
+            </button>
+            <button class="category-card" type="button" data-category="SUP" role="listitem">
+              <span class="category-number">05</span>
+              <span class="category-icon" aria-hidden="true">⌇</span>
+              <strong>SUP·카약</strong>
+              <small>상품 불러오는 중</small>
+            </button>
+            <button class="category-card" type="button" data-category="낚시" role="listitem">
+              <span class="category-number">06</span>
+              <span class="category-icon" aria-hidden="true">⌁</span>
+              <strong>바다낚시</strong>
+              <small>상품 불러오는 중</small>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section id="experiences" class="experience-section" aria-labelledby="experience-title">
+        <div class="container">
+          <div class="section-heading heading-row">
+            <div>
+              <p class="section-kicker">CURATED FOR YOU</p>
+              <h2 id="experience-title">부산에서 가장 사랑받는 경험</h2>
+              <p id="result-description" class="section-description">
+                이번 주 여행자들이 가장 많이 선택한 해양레저예요.
+              </p>
+            </div>
+            <div class="result-tools">
+              <span id="result-count" aria-live="polite">8개의 경험</span>
+              <select id="sort-select" aria-label="경험 정렬">
+                <option value="popular">인기순</option>
+                <option value="rating">평점순</option>
+                <option value="low-price">낮은 가격순</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="experience-grid" class="experience-grid"></div>
+          <p id="empty-state" class="empty-state" hidden>
+            조건에 맞는 경험을 찾지 못했어요. 다른 지역이나 검색어를 선택해 주세요.
+          </p>
+        </div>
+      </section>
+
+      <section class="statement-section" aria-label="브랜드 메시지">
+        <div class="statement-image" role="img" aria-label="바다 위 요트에서 부산의 풍경을 즐기는 모습"></div>
+        <div class="statement-content">
+          <p class="section-kicker light">WHY WAVEON</p>
+          <h2>바다를 즐기는 일에<br />망설임이 없도록.</h2>
+          <p>
+            처음 타는 서핑 보드도, 특별한 날의 요트도<br />
+            비교부터 예약까지 쉽고 투명하게 준비합니다.
+          </p>
+          <div class="statement-points">
+            <div>
+              <span>01</span>
+              <strong>검증된 로컬 파트너</strong>
+              <p>안전 기준과 이용 후기를 꼼꼼하게 확인해요.</p>
+            </div>
+            <div>
+              <span>02</span>
+              <strong>한눈에 보는 정보</strong>
+              <p>가격, 일정, 준비물을 쉽게 비교할 수 있어요.</p>
+            </div>
+            <div>
+              <span>03</span>
+              <strong>부산다운 큐레이션</strong>
+              <p>계절과 지역에 어울리는 경험을 먼저 소개해요.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="regions" class="region-section" aria-labelledby="region-title">
+        <div class="container">
+          <div class="section-heading heading-row">
+            <div>
+              <p class="section-kicker">EXPLORE BUSAN</p>
+              <h2 id="region-title">파도 따라 만나는 부산</h2>
+            </div>
+            <p class="section-description region-description">
+              바다마다 다른 온도와 풍경,<br />당신의 하루에 맞는 지역을 골라보세요.
+            </p>
+          </div>
+
+          <div class="region-grid">
+            <button class="region-card region-large" type="button" data-region="해운대">
+              <img
+                src="https://images.unsplash.com/photo-1562281302-809108fd533c?auto=format&fit=crop&w=1200&q=86"
+                alt=""
+              />
+              <span class="region-overlay"></span>
+              <span class="region-copy">
+                <small>YACHT · PADDLE BOARD</small>
+                <strong>해운대 · 마린시티</strong>
+                <em>도시의 빛과 바다를 한 번에</em>
+              </span>
+              <span class="region-arrow" aria-hidden="true">↗</span>
+            </button>
+            <button class="region-card" type="button" data-region="송정">
+              <img
+                src="https://images.unsplash.com/photo-1502680390469-be75c86b636f?auto=format&fit=crop&w=900&q=86"
+                alt=""
+              />
+              <span class="region-overlay"></span>
+              <span class="region-copy">
+                <small>SURF · SUNRISE</small>
+                <strong>송정 · 기장</strong>
+                <em>파도를 배우기 가장 좋은 곳</em>
+              </span>
+              <span class="region-arrow" aria-hidden="true">↗</span>
+            </button>
+            <button class="region-card" type="button" data-region="광안리">
+              <img
+                src="https://images.unsplash.com/photo-1519315901367-f34ff9154487?auto=format&fit=crop&w=900&q=86"
+                alt=""
+              />
+              <span class="region-overlay"></span>
+              <span class="region-copy">
+                <small>SUP · NIGHT VIEW</small>
+                <strong>광안리</strong>
+                <em>광안대교 아래 특별한 밤</em>
+              </span>
+              <span class="region-arrow" aria-hidden="true">↗</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section id="how-it-works" class="guide-section" aria-labelledby="guide-title">
+        <div class="container guide-wrap">
+          <div class="guide-title">
+            <p class="section-kicker light">HOW IT WORKS</p>
+            <h2 id="guide-title">세 번의 선택으로<br />바다 위에 도착하세요.</h2>
+          </div>
+          <ol class="guide-steps">
+            <li>
+              <span>01</span>
+              <div>
+                <strong>내게 맞는 경험 찾기</strong>
+                <p>지역, 날짜, 하고 싶은 활동으로 검색해요.</p>
+              </div>
+            </li>
+            <li>
+              <span>02</span>
+              <div>
+                <strong>옵션 확인하고 예약하기</strong>
+                <p>가격과 준비물, 이용 후기를 꼼꼼히 비교해요.</p>
+              </div>
+            </li>
+            <li>
+              <span>03</span>
+              <div>
+                <strong>부산 바다 즐기기</strong>
+                <p>예약 시간에 맞춰 도착하면 준비는 끝이에요.</p>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="newsletter-section" aria-labelledby="newsletter-title">
+        <div class="container newsletter-wrap">
+          <div>
+            <p class="section-kicker">WEEKEND WAVE LETTER</p>
+            <h2 id="newsletter-title">이번 주말, 바다가 부르면</h2>
+            <p>새로운 부산의 바다 경험과 얼리버드 소식을 보내드려요.</p>
+          </div>
+          <form id="newsletter-form" class="newsletter-form">
+            <label class="visually-hidden" for="newsletter-email">이메일 주소</label>
+            <input
+              id="newsletter-email"
+              type="email"
+              placeholder="이메일 주소를 입력하세요"
+              required
+            />
+            <button type="submit">소식 받기 <span aria-hidden="true">→</span></button>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-main">
+        <div>
+          <a class="brand footer-brand" href="#top">WAVE<span>ON</span> <small>BUSAN</small></a>
+          <p>부산의 바다를 더 가깝고, 더 쉽게.</p>
+        </div>
+        <div class="footer-links">
+          <div>
+            <strong>서비스</strong>
+            <a href="#experiences">레저 찾기</a>
+            <a href="#regions">지역별 보기</a>
+            <a href="#how-it-works">이용 방법</a>
+          </div>
+          <div>
+            <strong>고객지원</strong>
+            <button type="button" data-notice="자주 묻는 질문을 준비 중입니다.">자주 묻는 질문</button>
+            <button type="button" data-notice="1:1 문의 기능을 준비 중입니다.">1:1 문의</button>
+            <button type="button" data-notice="안전 가이드를 준비 중입니다.">안전 가이드</button>
+          </div>
+        </div>
+      </div>
+      <div class="container footer-bottom">
+        <span>© 2026 WAVEON BUSAN</span>
+        <span>해커톤 시연을 위한 데모 서비스입니다.</span>
+      </div>
+    </footer>
+
+    <dialog id="recommendation-dialog" class="recommendation-dialog">
+      <div class="recommendation-dialog-head">
+        <div>
+          <p class="dialog-kicker">FIND YOUR WAVE</p>
+          <h2>나에게 맞는 바다 찾기</h2>
+          <p>간단한 조건을 알려주면 상품을 비교하고 Solar가 추천 이유를 설명해요.</p>
+        </div>
+        <button class="recommendation-close" type="button" aria-label="AI 추천 창 닫기">×</button>
+      </div>
+
+      <form id="recommendation-form" class="recommendation-form">
+        <div class="recommendation-fields">
+          <label>
+            <span>1인 최대 예산</span>
+            <select id="recommend-budget" required>
+              <option value="30000">3만원 이하</option>
+              <option value="50000" selected>5만원 이하</option>
+              <option value="80000">8만원 이하</option>
+              <option value="120000">12만원 이하</option>
+            </select>
+          </label>
+
+          <label>
+            <span>이용자 나이</span>
+            <input id="recommend-age" type="number" min="5" max="100" value="25" required />
+          </label>
+
+          <label>
+            <span>희망 지역</span>
+            <select id="recommend-region">
+              <option value="">부산 전체</option>
+              <option value="해운대">해운대</option>
+              <option value="광안리">광안리</option>
+              <option value="송정">송정</option>
+              <option value="기장">기장</option>
+              <option value="다대포">다대포</option>
+              <option value="영도">영도</option>
+            </select>
+          </label>
+
+          <label>
+            <span>관심 활동</span>
+            <select id="recommend-category">
+              <option value="">상관없음</option>
+              <option value="요트">요트</option>
+              <option value="서핑">서핑</option>
+              <option value="다이빙">다이빙</option>
+              <option value="SUP">SUP</option>
+              <option value="카약">카약</option>
+              <option value="낚시">낚시</option>
+            </select>
+          </label>
+
+          <label>
+            <span>경험 수준</span>
+            <select id="recommend-level">
+              <option value="beginner">처음이에요</option>
+              <option value="intermediate">몇 번 해봤어요</option>
+              <option value="advanced">숙련자예요</option>
+            </select>
+          </label>
+
+          <label>
+            <span>수영 가능 여부</span>
+            <select id="recommend-swimming">
+              <option value="false">수영을 못해요</option>
+              <option value="true">수영할 수 있어요</option>
+            </select>
+          </label>
+
+          <label>
+            <span>누구와 가나요?</span>
+            <select id="recommend-companion">
+              <option value="혼자">혼자</option>
+              <option value="연인">연인</option>
+              <option value="친구" selected>친구</option>
+              <option value="가족">가족</option>
+              <option value="단체">단체</option>
+            </select>
+          </label>
+
+          <label>
+            <span>원하는 분위기</span>
+            <select id="recommend-mood">
+              <option value="휴식">편안한 휴식</option>
+              <option value="사진">사진과 추억</option>
+              <option value="도전" selected>새로운 도전</option>
+              <option value="스릴">짜릿한 스릴</option>
+              <option value="자연">자연과 풍경</option>
+              <option value="환경">환경과 지역사회</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="recommendation-error" class="recommendation-error" role="alert" hidden></div>
+        <button id="recommendation-submit" class="recommendation-submit" type="submit">
+          <span>AI 추천 받기</span>
+          <span aria-hidden="true">→</span>
+        </button>
+        <p class="recommendation-privacy">
+          입력한 조건은 추천을 위해서만 사용하며 이름이나 연락처는 받지 않습니다.
+        </p>
+      </form>
+    </dialog>
+
+    <dialog id="booking-dialog" class="booking-dialog">
+      <div class="dialog-media">
+        <img id="dialog-image" src="" alt="" />
+        <button class="dialog-close" type="button" aria-label="예약 창 닫기">×</button>
+      </div>
+      <form id="booking-form" class="booking-form">
+        <p class="dialog-kicker">BOOK YOUR WAVE</p>
+        <h2 id="dialog-title">예약 요청</h2>
+        <p id="dialog-location" class="dialog-location"></p>
+        <div class="dialog-price">
+          <span>1인 기준</span>
+          <strong id="dialog-price"></strong>
+        </div>
+        <div class="dialog-fields">
+          <label>
+            <span>이용 날짜</span>
+            <input id="booking-date" type="date" required />
+          </label>
+          <label>
+            <span>인원</span>
+            <select id="booking-people">
+              <option value="1">1명</option>
+              <option value="2" selected>2명</option>
+              <option value="3">3명</option>
+              <option value="4">4명</option>
+              <option value="5">5명 이상</option>
+            </select>
+          </label>
+        </div>
+        <button class="dialog-submit" type="submit">예약 요청하기 <span>→</span></button>
+        <small>결제 없이 예약 흐름을 체험하는 데모입니다.</small>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

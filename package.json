@@ -1,0 +1,16 @@
+{
+  "name": "waveon-busan",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "부산 해양레저 AI 추천 및 예약 데모",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "check": "node --check server.js && node --check script.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0"
+  }
+}
