@@ -167,9 +167,14 @@ function modusignAuthorization() {
 }
 
 async function requestModusign(pathname, options = {}) {
+  const headers = {
+    Accept: "application/json",
+    Authorization: modusignAuthorization(),
+    ...(options.headers ?? {}),
+  };
   const apiResponse = await fetch(`https://api.modusign.co.kr${pathname}`, {
     ...options,
-    headers: { Accept: "application/json", Authorization: modusignAuthorization(), ...options.headers },
+    headers,
   });
   const result = await apiResponse.json().catch(() => ({}));
   if (!apiResponse.ok) throw new Error(result.message || `모두싸인 요청 오류 (${apiResponse.status})`);
@@ -177,10 +182,12 @@ async function requestModusign(pathname, options = {}) {
 }
 
 async function createModusignDocument(booking) {
-  const templateId = process.env.MODUSIGN_TEMPLATE_ID.trim();
+  const templateId = process.env.MODUSIGN_TEMPLATE_ID?.trim();
+  if (!templateId) throw new Error(".env에 모두싸인 템플릿 ID를 입력해 주세요.");
+
   const template = await requestModusign(`/templates/${templateId}`);
-  const role = process.env.MODUSIGN_SIGNER_ROLE?.trim() || template.participants?.[0]?.role;
-  if (!role) throw new Error("템플릿의 서명자 역할을 찾지 못했습니다.");
+  const role = findModusignSignerRole(template);
+
   return requestModusign("/documents/request-with-template", {
     method: "POST",
     headers: { "Content-Type": "application/json; charset=utf-8" },
@@ -192,6 +199,38 @@ async function createModusignDocument(booking) {
       },
     }),
   });
+}
+
+function findModusignSignerRole(template) {
+  const configuredRole = process.env.MODUSIGN_SIGNER_ROLE?.trim();
+  if (configuredRole) return configuredRole;
+
+  const participants = [
+    ...(Array.isArray(template.participants) ? template.participants : []),
+    ...(Array.isArray(template.signers) ? template.signers : []),
+    ...(Array.isArray(template.roles) ? template.roles : []),
+  ];
+
+  const participant = participants.find(
+    (item) =>
+      item?.role ||
+      item?.name ||
+      item?.label ||
+      item?.participantRole ||
+      item?.roleName,
+  );
+  const role =
+    participant?.role ??
+    participant?.participantRole ??
+    participant?.roleName ??
+    participant?.name ??
+    participant?.label;
+
+  if (typeof role === "string" && role.trim()) return role.trim();
+
+  throw new Error(
+    "모두싸인 템플릿의 서명자 역할을 찾지 못했습니다. .env의 MODUSIGN_SIGNER_ROLE에 템플릿 역할 이름을 입력해 주세요.",
+  );
 }
 
 async function waitForModusignDocument(documentId) {

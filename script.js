@@ -98,6 +98,7 @@ let toastTimer;
 let pendingBooking = null;
 let activeDocumentId = null;
 let signatureStatusTimer = null;
+let signatureFrameLoaded = false;
 
 function formatPrice(price) {
   return `${price.toLocaleString("ko-KR")}원`;
@@ -531,8 +532,22 @@ startSignatureButton.addEventListener("click", async () => {
 
     activeDocumentId = result.documentId;
     contractDialog.close();
-    signatureStatus.textContent = "서명 완료를 확인하고 있어요.";
-    signatureFrameWrap.innerHTML = `<iframe title="모두싸인 전자서명" src="${result.embeddedUrl}"></iframe>`;
+    signatureFrameLoaded = false;
+    signatureStatus.textContent = "계약서에 서명해 주세요.";
+    signatureFrameWrap.innerHTML = `
+      <iframe title="모두싸인 전자서명" src="${result.embeddedUrl}"></iframe>
+      <div id="signature-waiting" class="signature-waiting" hidden>
+        <strong>서명 완료를 확인하고 있어요</strong>
+        <p>전자서명 결과를 확인하는 중입니다. 창을 닫지 말고 잠시만 기다려 주세요.</p>
+      </div>
+    `;
+    signatureFrameWrap.querySelector("iframe").addEventListener("load", () => {
+      if (signatureFrameLoaded) {
+        signatureFrameWrap.querySelector("#signature-waiting").hidden = false;
+        signatureStatus.textContent = "서명 완료를 확인하고 있어요.";
+      }
+      signatureFrameLoaded = true;
+    });
     signatureDialog.showModal();
     signatureStatusTimer = window.setInterval(checkSignatureStatus, 4000);
   } catch (error) {
@@ -562,6 +577,7 @@ function closeSignatureDialog() {
   if (signatureStatusTimer) window.clearInterval(signatureStatusTimer);
   signatureStatusTimer = null;
   activeDocumentId = null;
+  signatureFrameLoaded = false;
   signatureDialog.close();
   signatureFrameWrap.innerHTML = "";
 }
