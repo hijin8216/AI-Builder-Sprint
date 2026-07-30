@@ -47,11 +47,11 @@
           </button>
         </nav>
 
-        <button id="notification-button" class="notification-button" type="button" aria-label="알림">
-          ♧<span id="notification-badge" hidden>1</span>
-        </button>
         <button id="login-button" class="login-button" type="button" aria-haspopup="dialog">
           로그인
+        </button>
+        <button id="notification-button" class="notification-button" type="button" aria-label="알림" aria-expanded="false" aria-controls="contract-notification" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg><span id="notification-badge" hidden>1</span>
         </button>
       </div>
     </header>
@@ -611,9 +611,11 @@
     </dialog>
 
     <aside id="contract-notification" class="contract-notification" hidden>
-      <strong>새 알림 · 계약서 확인이 필요합니다</strong>
-      <p>예약 확정을 위해 해양레저 이용 계약서를 확인하고 전자서명해 주세요.</p>
-      <button id="review-contract-button" type="button">계약서 확인하기</button>
+      <div class="notification-panel-head"><strong>알림</strong><span>NEW</span></div>
+      <article id="contract-notification-item" class="notification-item" role="button" tabindex="0" aria-label="계약서 확인 및 전자서명 진행">
+        <span class="notification-item-icon" aria-hidden="true">✦</span>
+        <div><strong>계약서 확인이 필요합니다</strong><p>이 알림을 누르면 계약서 확인과 전자서명을 진행할 수 있습니다.</p></div>
+      </article>
     </aside>
 
     <dialog id="contract-dialog" class="contract-dialog">

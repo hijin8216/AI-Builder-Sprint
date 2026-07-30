@@ -106,7 +106,7 @@ const bookingEmail = document.querySelector("#booking-email");
 const notificationButton = document.querySelector("#notification-button");
 const notificationBadge = document.querySelector("#notification-badge");
 const contractNotification = document.querySelector("#contract-notification");
-const reviewContractButton = document.querySelector("#review-contract-button");
+const contractNotificationItem = document.querySelector("#contract-notification-item");
 const contractDialog = document.querySelector("#contract-dialog");
 const contractBookingSummary = document.querySelector("#contract-booking-summary");
 const contractAgreement = document.querySelector("#contract-agreement");
@@ -120,6 +120,7 @@ let currentUser = null;
 let authMode = "login";
 let pendingExperienceId = null;
 let pendingBooking = null;
+let contractNotificationRead = false;
 let myReservations = [];
 let expandedReservationId = null;
 let activeReservationId = null;
@@ -308,10 +309,15 @@ function updateAuthInterface() {
     loginButton.textContent = "마이페이지";
     loginButton.classList.add("is-authenticated");
     loginButton.setAttribute("aria-label", `${currentUser.userId} 계정 마이페이지 열기`);
+    notificationButton.hidden = false;
   } else {
     loginButton.textContent = "로그인";
     loginButton.classList.remove("is-authenticated");
     loginButton.setAttribute("aria-label", "로그인 또는 회원가입");
+    notificationButton.hidden = true;
+    notificationBadge.hidden = true;
+    contractNotification.hidden = true;
+    notificationButton.setAttribute("aria-expanded", "false");
   }
 }
 
@@ -955,9 +961,12 @@ document.querySelector("#booking-form").addEventListener("submit", async (event)
     if (!response.ok) throw new Error(result.message || "예약을 저장하지 못했습니다.");
 
     pendingBooking = result.reservation;
+    contractNotificationRead = false;
     bookingDialog.close();
     notificationBadge.hidden = false;
-    contractNotification.hidden = false;
+    contractNotification.hidden = true;
+    notificationButton.setAttribute("aria-expanded", "false");
+    contractNotificationItem.classList.remove("is-read");
     showToast(
       `${experienceTitle} 예약이 저장됐어요. 계약서 확인 알림을 확인해 주세요.`,
     );
@@ -975,14 +984,32 @@ function openContractReview() {
     return;
   }
   notificationBadge.hidden = true;
+  contractNotificationRead = true;
+  contractNotificationItem.classList.add("is-read");
   contractNotification.hidden = true;
+  notificationButton.setAttribute("aria-expanded", "false");
   contractAgreement.checked = false;
   contractBookingSummary.textContent = `${pendingBooking.activity} · ${pendingBooking.date} · ${pendingBooking.people}명 / ${pendingBooking.venue}`;
   contractDialog.showModal();
 }
 
-notificationButton.addEventListener("click", openContractReview);
-reviewContractButton.addEventListener("click", openContractReview);
+notificationButton.addEventListener("click", () => {
+  if (!pendingBooking) {
+    showToast("새 알림이 없습니다.");
+    return;
+  }
+  const willOpen = contractNotification.hidden;
+  contractNotification.hidden = !willOpen;
+  notificationButton.setAttribute("aria-expanded", String(willOpen));
+  contractNotificationItem.classList.toggle("is-read", contractNotificationRead);
+});
+contractNotificationItem.addEventListener("click", openContractReview);
+contractNotificationItem.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    openContractReview();
+  }
+});
 document.querySelector("#contract-close").addEventListener("click", () => contractDialog.close());
 
 startSignatureButton.addEventListener("click", async () => {
