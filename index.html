@@ -50,7 +50,7 @@
         <button id="notification-button" class="notification-button" type="button" aria-label="알림">
           ♧<span id="notification-badge" hidden>1</span>
         </button>
-        <button class="login-button" type="button" data-notice="로그인 기능은 데모 준비 중입니다.">
+        <button id="login-button" class="login-button" type="button" aria-haspopup="dialog">
           로그인
         </button>
       </div>
@@ -478,6 +478,76 @@
       </form>
     </dialog>
 
+    <dialog id="auth-dialog" class="auth-dialog">
+      <form id="auth-form" class="auth-form">
+        <button id="auth-close" class="auth-close" type="button" aria-label="로그인 창 닫기">×</button>
+        <p class="dialog-kicker">MY WAVEON</p>
+        <h2 id="auth-title">로그인</h2>
+        <p id="auth-description" class="auth-description">
+          아이디와 비밀번호로 로그인해 주세요.
+        </p>
+        <div class="auth-mode" role="tablist" aria-label="계정 메뉴">
+          <button class="is-active" type="button" data-auth-mode="login" role="tab" aria-selected="true">
+            로그인
+          </button>
+          <button type="button" data-auth-mode="register" role="tab" aria-selected="false">
+            회원가입
+          </button>
+        </div>
+        <div class="auth-fields">
+          <label id="auth-email-field" hidden>
+            <span>이메일</span>
+            <input id="auth-email" name="email" type="email" autocomplete="email" placeholder="name@example.com" />
+          </label>
+          <label>
+            <span>아이디</span>
+            <input id="auth-user-id" name="userId" type="text" autocomplete="username" placeholder="waveon_user" minlength="3" maxlength="24" required />
+          </label>
+          <label>
+            <span>비밀번호</span>
+            <input id="auth-password" name="password" type="password" autocomplete="current-password" placeholder="영문과 숫자를 포함한 8자 이상" minlength="8" maxlength="128" required />
+          </label>
+        </div>
+        <div id="auth-error" class="auth-error" role="alert" hidden></div>
+        <button id="auth-submit" class="dialog-submit" type="submit">
+          로그인 <span>→</span>
+        </button>
+        <small>아이디는 영문 소문자, 숫자, ., _, -를 사용할 수 있습니다.</small>
+      </form>
+    </dialog>
+
+    <dialog id="mypage-dialog" class="mypage-dialog">
+      <div class="mypage-shell">
+        <header class="mypage-head">
+          <div>
+            <p class="dialog-kicker">MY WAVEON</p>
+            <h2>마이페이지</h2>
+          </div>
+          <button id="mypage-close" class="mypage-close" type="button" aria-label="마이페이지 닫기">×</button>
+        </header>
+        <section class="mypage-account" aria-label="내 계정">
+          <div>
+            <span>로그인 계정</span>
+            <strong id="mypage-user-id"></strong>
+            <p id="mypage-email"></p>
+          </div>
+          <button id="logout-button" type="button">로그아웃</button>
+        </section>
+        <section class="mypage-reservations" aria-labelledby="mypage-reservations-title">
+          <div class="mypage-section-title">
+            <div>
+              <p>RESERVATIONS</p>
+              <h3 id="mypage-reservations-title">내 예약</h3>
+            </div>
+            <span id="mypage-reservation-count">0건</span>
+          </div>
+          <div id="mypage-reservation-list" class="mypage-reservation-list">
+            <p class="mypage-loading">예약 내역을 불러오고 있어요.</p>
+          </div>
+        </section>
+      </div>
+    </dialog>
+
     <dialog id="booking-dialog" class="booking-dialog">
       <div class="dialog-media">
         <img id="dialog-image" src="" alt="" />
@@ -497,8 +567,8 @@
             <input id="booking-name" type="text" placeholder="홍길동" required />
           </label>
           <label>
-            <span>이메일</span>
-            <input id="booking-email" type="email" placeholder="name@example.com" required />
+            <span>전자서명 수신 이메일</span>
+            <input id="booking-email" type="email" readonly required />
           </label>
           <label>
             <span>이용 날짜</span>
@@ -516,8 +586,24 @@
           </label>
         </div>
         <button class="dialog-submit" type="submit">예약 요청하기 <span>→</span></button>
-        <small>계약서 확인과 전자서명이 완료되면 예약이 확정됩니다.</small>
+        <small>웹사이트에서 전자서명을 완료하면 로그인 이메일로 완료 문서를 보내드립니다.</small>
       </form>
+    </dialog>
+
+    <dialog id="reservation-detail-dialog" class="reservation-detail-dialog">
+      <div class="reservation-detail-shell">
+        <header class="reservation-detail-head">
+          <button id="reservation-detail-back" class="reservation-detail-back" type="button">
+            ← 내 예약
+          </button>
+          <div>
+            <p class="dialog-kicker">RESERVATION DETAILS</p>
+            <h2>예약내역 확인</h2>
+          </div>
+          <button id="reservation-detail-close" class="reservation-detail-close" type="button" aria-label="예약내역 확인 창 닫기">×</button>
+        </header>
+        <div id="reservation-detail-content" class="reservation-detail-content"></div>
+      </div>
     </dialog>
 
     <aside id="contract-notification" class="contract-notification" hidden>

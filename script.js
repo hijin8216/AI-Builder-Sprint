@@ -80,6 +80,25 @@ const recommendationDialog = document.querySelector("#recommendation-dialog");
 const recommendationError = document.querySelector("#recommendation-error");
 const recommendationSubmit = document.querySelector("#recommendation-submit");
 const toast = document.querySelector("#toast");
+const loginButton = document.querySelector("#login-button");
+const authDialog = document.querySelector("#auth-dialog");
+const authForm = document.querySelector("#auth-form");
+const authTitle = document.querySelector("#auth-title");
+const authDescription = document.querySelector("#auth-description");
+const authEmailField = document.querySelector("#auth-email-field");
+const authEmail = document.querySelector("#auth-email");
+const authUserId = document.querySelector("#auth-user-id");
+const authPassword = document.querySelector("#auth-password");
+const authError = document.querySelector("#auth-error");
+const authSubmit = document.querySelector("#auth-submit");
+const authModeButtons = [...document.querySelectorAll("[data-auth-mode]")];
+const mypageDialog = document.querySelector("#mypage-dialog");
+const mypageUserId = document.querySelector("#mypage-user-id");
+const mypageEmail = document.querySelector("#mypage-email");
+const mypageReservationCount = document.querySelector("#mypage-reservation-count");
+const mypageReservationList = document.querySelector("#mypage-reservation-list");
+const reservationDetailDialog = document.querySelector("#reservation-detail-dialog");
+const reservationDetailContent = document.querySelector("#reservation-detail-content");
 const bookingName = document.querySelector("#booking-name");
 const bookingEmail = document.querySelector("#booking-email");
 const notificationButton = document.querySelector("#notification-button");
@@ -95,8 +114,13 @@ const signatureFrameWrap = document.querySelector("#signature-frame-wrap");
 const signatureStatus = document.querySelector("#signature-status");
 
 let toastTimer;
+let currentUser = null;
+let authMode = "login";
+let pendingExperienceId = null;
 let pendingBooking = null;
-let activeDocumentId = null;
+let myReservations = [];
+let expandedReservationId = null;
+let activeReservationId = null;
 let signatureStatusTimer = null;
 let signatureFrameLoaded = false;
 
@@ -277,7 +301,284 @@ function showToast(message) {
   }, 2800);
 }
 
+function updateAuthInterface() {
+  if (currentUser) {
+    loginButton.textContent = "마이페이지";
+    loginButton.classList.add("is-authenticated");
+    loginButton.setAttribute("aria-label", `${currentUser.userId} 계정 마이페이지 열기`);
+  } else {
+    loginButton.textContent = "로그인";
+    loginButton.classList.remove("is-authenticated");
+    loginButton.setAttribute("aria-label", "로그인 또는 회원가입");
+  }
+}
+
+function setAuthMode(mode) {
+  authMode = mode === "register" ? "register" : "login";
+  const isRegister = authMode === "register";
+  authTitle.textContent = isRegister ? "회원가입" : "로그인";
+  authDescription.textContent = isRegister
+    ? "계정을 만들면 로그인 이메일로 전자서명 완료 문서를 보내드립니다."
+    : "아이디와 비밀번호로 로그인해 주세요.";
+  authSubmit.innerHTML = `${isRegister ? "회원가입" : "로그인"} <span>→</span>`;
+  authPassword.autocomplete = isRegister ? "new-password" : "current-password";
+  authEmailField.hidden = !isRegister;
+  authEmail.required = isRegister;
+  authError.hidden = true;
+
+  authModeButtons.forEach((button) => {
+    const isActive = button.dataset.authMode === authMode;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+  });
+}
+
+function openAuthDialog(mode = "login") {
+  setAuthMode(mode);
+  authPassword.value = "";
+  authDialog.showModal();
+  document.body.classList.add("dialog-open");
+}
+
+async function loadCurrentUser() {
+  try {
+    const response = await fetch("/api/auth/me");
+    if (!response.ok) return;
+    const result = await response.json();
+    currentUser = result.user;
+  } catch {
+    currentUser = null;
+  } finally {
+    updateAuthInterface();
+  }
+}
+
+async function logout() {
+  try {
+    await fetch("/api/auth/logout", { method: "POST" });
+  } finally {
+    currentUser = null;
+    myReservations = [];
+    expandedReservationId = null;
+    pendingBooking = null;
+    notificationBadge.hidden = true;
+    contractNotification.hidden = true;
+    if (mypageDialog.open) mypageDialog.close();
+    updateAuthInterface();
+    showToast("로그아웃되었습니다.");
+  }
+}
+
+function reservationStatusDetails(status) {
+  return {
+    CONTRACT_PENDING: { label: "계약 확인 필요", className: "pending" },
+    SIGNING: { label: "전자서명 진행 중", className: "signing" },
+    COMPLETED: { label: "예약 확정", className: "completed" },
+    ABORTED: { label: "서명 중단", className: "failed" },
+    PROCESSING_FAILED: { label: "문서 처리 실패", className: "failed" },
+  }[status] ?? { label: "상태 확인 중", className: "signing" };
+}
+
+function reservationSignatureDetails(reservation) {
+  if (reservation.documentAvailable) {
+    return {
+      label: "전자서명 완료",
+      className: "completed",
+      description: "완료된 전자서명 문서가 이 예약에 안전하게 연결되어 있습니다.",
+    };
+  }
+
+  if (reservation.status === "SIGNING") {
+    return {
+      label: "전자서명 진행 중",
+      className: "signing",
+      description: "서명을 완료하면 이곳에서 완료 문서를 확인할 수 있습니다.",
+    };
+  }
+
+  if (["ABORTED", "PROCESSING_FAILED"].includes(reservation.status)) {
+    return {
+      label: "전자서명 확인 필요",
+      className: "failed",
+      description: "전자서명 문서가 저장되지 않았습니다. 고객센터에 문의해 주세요.",
+    };
+  }
+
+  return {
+    label: "전자서명 전",
+    className: "pending",
+    description: "아직 완료된 전자서명이 없습니다. 전자서명 기능이 준비되면 이곳에 저장됩니다.",
+  };
+}
+
+function formatKoreanDate(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(date);
+}
+
+function renderMyReservations() {
+  mypageReservationCount.textContent = `${myReservations.length}건`;
+
+  if (myReservations.length === 0) {
+    mypageReservationList.innerHTML = `
+      <div class="mypage-empty">
+        <strong>아직 예약 내역이 없습니다.</strong>
+        <p>마음에 드는 부산 바다 경험을 선택해 첫 예약을 만들어 보세요.</p>
+      </div>
+    `;
+    return;
+  }
+
+  mypageReservationList.innerHTML = myReservations
+    .map((reservation) => {
+      const status = reservationStatusDetails(reservation.status);
+      const createdDate = formatKoreanDate(reservation.createdAt);
+      const isExpanded = expandedReservationId === reservation.id;
+
+      return `
+        <article class="reservation-card ${isExpanded ? "is-expanded" : ""}">
+          <button
+            class="reservation-card-toggle"
+            type="button"
+            data-toggle-reservation="${reservation.id}"
+            aria-expanded="${isExpanded}"
+          >
+            <span class="reservation-card-top">
+              <span class="reservation-status is-${status.className}">${status.label}</span>
+              <time>${createdDate} 예약</time>
+            </span>
+            <span class="reservation-card-copy">
+              <strong>${escapeHtml(reservation.activity)}</strong>
+              <span>${escapeHtml(reservation.venue)}</span>
+            </span>
+            <span class="reservation-card-open">
+              ${isExpanded ? "예약 메뉴 닫기" : "예약 메뉴 열기"}
+              <b aria-hidden="true">${isExpanded ? "⌃" : "⌄"}</b>
+            </span>
+          </button>
+          <div class="reservation-card-panel" ${isExpanded ? "" : "hidden"}>
+            <button type="button" class="is-secondary" data-reservation-product="${reservation.id}">
+              상세페이지로 가기 <span>↗</span>
+            </button>
+            <button type="button" data-view-reservation="${reservation.id}">
+              예약내역 확인하기 <span>→</span>
+            </button>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function openReservationProduct(reservation) {
+  const experience = experiences.find(
+    (item) => item.name === reservation.activity,
+  );
+  if (!experience) {
+    showToast("연결된 상품 상세정보를 찾지 못했습니다.");
+    return;
+  }
+
+  mypageDialog.close();
+  openBooking(experience.id);
+}
+
+function openReservationDetail(reservation) {
+  const status = reservationStatusDetails(reservation.status);
+  const signature = reservationSignatureDetails(reservation);
+  const documentAction = reservation.documentAvailable
+    ? `
+      <a
+        class="reservation-document-button"
+        href="/api/reservations/${encodeURIComponent(reservation.id)}/document"
+        target="_blank"
+        rel="noopener"
+      >
+        전자서명 확인하기 <span>↗</span>
+      </a>
+    `
+    : `
+      <button class="reservation-document-button" type="button" disabled>
+        저장된 전자서명 없음
+      </button>
+    `;
+
+  reservationDetailContent.innerHTML = `
+    <section class="reservation-detail-summary">
+      <span class="reservation-status is-${status.className}">${status.label}</span>
+      <p>예약번호 ${escapeHtml(reservation.id.slice(0, 10).toUpperCase())}</p>
+      <h3>${escapeHtml(reservation.activity)}</h3>
+      <span>${escapeHtml(reservation.venue)}</span>
+    </section>
+    <dl class="reservation-detail-grid">
+      <div><dt>예약 날짜</dt><dd>${escapeHtml(reservation.date)}</dd></div>
+      <div><dt>예약 인원</dt><dd>${escapeHtml(reservation.people)}명</dd></div>
+      <div><dt>예약자</dt><dd>${escapeHtml(reservation.name)}</dd></div>
+      <div><dt>예약 신청일</dt><dd>${formatKoreanDate(reservation.createdAt)}</dd></div>
+    </dl>
+    <section class="reservation-signature-card is-${signature.className}">
+      <div>
+        <p>E-SIGNATURE</p>
+        <h3>${signature.label}</h3>
+        <span>${signature.description}</span>
+      </div>
+      ${documentAction}
+    </section>
+  `;
+
+  mypageDialog.close();
+  reservationDetailDialog.showModal();
+  document.body.classList.add("dialog-open");
+}
+
+async function loadMyReservations() {
+  mypageReservationList.innerHTML =
+    '<p class="mypage-loading">예약과 전자서명 상태를 확인하고 있어요.</p>';
+
+  try {
+    const response = await fetch("/api/reservations");
+    const result = await response.json();
+    if (response.status === 401) {
+      currentUser = null;
+      updateAuthInterface();
+      mypageDialog.close();
+      openAuthDialog("login");
+    }
+    if (!response.ok) throw new Error(result.message || "예약 내역을 불러오지 못했습니다.");
+    myReservations = result.reservations;
+    renderMyReservations();
+  } catch (error) {
+    mypageReservationList.innerHTML = `
+      <div class="mypage-empty">
+        <strong>예약 내역을 불러오지 못했습니다.</strong>
+        <p>${escapeHtml(error.message)}</p>
+      </div>
+    `;
+  }
+}
+
+function openMyPage() {
+  mypageUserId.textContent = currentUser.userId;
+  mypageEmail.textContent = currentUser.email;
+  mypageDialog.showModal();
+  document.body.classList.add("dialog-open");
+  loadMyReservations();
+}
+
 function openBooking(experienceId) {
+  if (!currentUser) {
+    pendingExperienceId = experienceId;
+    openAuthDialog("login");
+    showToast("예약하려면 먼저 로그인해 주세요.");
+    return;
+  }
+
   const selectedExperience = experiences.find(
     (experience) => experience.id === experienceId,
   );
@@ -296,6 +597,8 @@ function openBooking(experienceId) {
   );
 
   bookingDate.value = searchDate.value;
+  bookingName.value = currentUser.userId;
+  bookingEmail.value = currentUser.email;
   bookingDialog.showModal();
   document.body.classList.add("dialog-open");
 }
@@ -374,6 +677,127 @@ document.querySelectorAll("[data-notice]").forEach((button) => {
   button.addEventListener("click", () => {
     showToast(button.dataset.notice);
   });
+});
+
+loginButton.addEventListener("click", () => {
+  if (currentUser) {
+    openMyPage();
+    return;
+  }
+  openAuthDialog("login");
+});
+
+authModeButtons.forEach((button) => {
+  button.addEventListener("click", () => setAuthMode(button.dataset.authMode));
+});
+
+document.querySelector("#auth-close").addEventListener("click", () => authDialog.close());
+
+authDialog.addEventListener("close", () => {
+  document.body.classList.remove("dialog-open");
+  authError.hidden = true;
+});
+
+authDialog.addEventListener("click", (event) => {
+  if (event.target === authDialog) authDialog.close();
+});
+
+authForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  authError.hidden = true;
+  authSubmit.disabled = true;
+  authSubmit.innerHTML = `${authMode === "register" ? "계정 만드는 중…" : "로그인 중…"}`;
+
+  try {
+    const response = await fetch(`/api/auth/${authMode}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...(authMode === "register" ? { email: authEmail.value } : {}),
+        userId: authUserId.value,
+        password: authPassword.value,
+      }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || "계정 요청을 처리하지 못했습니다.");
+
+    currentUser = result.user;
+    updateAuthInterface();
+    authDialog.close();
+    showToast(
+      result.existing
+        ? "이미 가입된 계정으로 로그인되었습니다."
+        : authMode === "register"
+          ? "회원가입과 로그인이 완료되었습니다."
+          : "로그인되었습니다.",
+    );
+
+    const experienceId = pendingExperienceId;
+    pendingExperienceId = null;
+    if (experienceId) openBooking(experienceId);
+  } catch (error) {
+    authError.textContent = error.message;
+    authError.hidden = false;
+  } finally {
+    authSubmit.disabled = false;
+    authSubmit.innerHTML = `${authMode === "register" ? "회원가입" : "로그인"} <span>→</span>`;
+  }
+});
+
+document.querySelector("#mypage-close").addEventListener("click", () => mypageDialog.close());
+document.querySelector("#logout-button").addEventListener("click", logout);
+
+mypageDialog.addEventListener("close", () => {
+  document.body.classList.remove("dialog-open");
+});
+
+mypageDialog.addEventListener("click", (event) => {
+  if (event.target === mypageDialog) mypageDialog.close();
+});
+
+mypageReservationList.addEventListener("click", (event) => {
+  const toggleButton = event.target.closest("[data-toggle-reservation]");
+  if (toggleButton) {
+    expandedReservationId =
+      expandedReservationId === toggleButton.dataset.toggleReservation
+        ? null
+        : toggleButton.dataset.toggleReservation;
+    renderMyReservations();
+    return;
+  }
+
+  const productButton = event.target.closest("[data-reservation-product]");
+  if (productButton) {
+    const reservation = myReservations.find(
+      (item) => item.id === productButton.dataset.reservationProduct,
+    );
+    if (reservation) openReservationProduct(reservation);
+    return;
+  }
+
+  const detailButton = event.target.closest("[data-view-reservation]");
+  if (!detailButton) return;
+  const reservation = myReservations.find(
+    (item) => item.id === detailButton.dataset.viewReservation,
+  );
+  if (reservation) openReservationDetail(reservation);
+});
+
+document.querySelector("#reservation-detail-back").addEventListener("click", () => {
+  reservationDetailDialog.close();
+  openMyPage();
+});
+
+document.querySelector("#reservation-detail-close").addEventListener("click", () => {
+  reservationDetailDialog.close();
+});
+
+reservationDetailDialog.addEventListener("close", () => {
+  document.body.classList.remove("dialog-open");
+});
+
+reservationDetailDialog.addEventListener("click", (event) => {
+  if (event.target === reservationDetailDialog) reservationDetailDialog.close();
 });
 
 document.querySelector("#open-recommendation").addEventListener("click", () => {
@@ -474,27 +898,58 @@ bookingDialog.addEventListener("click", (event) => {
   if (event.target === bookingDialog) bookingDialog.close();
 });
 
-document.querySelector("#booking-form").addEventListener("submit", (event) => {
+document.querySelector("#booking-form").addEventListener("submit", async (event) => {
   event.preventDefault();
+
+  if (!currentUser) {
+    bookingDialog.close();
+    openAuthDialog("login");
+    showToast("로그인 정보를 다시 확인해 주세요.");
+    return;
+  }
 
   const people = document.querySelector("#booking-people").value;
   const experienceTitle = state.selectedExperience?.name ?? "선택한 경험";
-
-  pendingBooking = {
+  const submitButton = event.currentTarget.querySelector(".dialog-submit");
+  const bookingDraft = {
     name: bookingName.value.trim(),
-    email: bookingEmail.value.trim(),
     people,
     date: bookingDate.value,
     activity: experienceTitle,
     venue: state.selectedExperience?.operator ?? "WAVEON BUSAN 제휴 업체",
   };
 
-  bookingDialog.close();
-  notificationBadge.hidden = false;
-  contractNotification.hidden = false;
-  showToast(
-    `${experienceTitle} 예약 요청이 접수됐어요. 계약서 확인 알림을 확인해 주세요.`,
-  );
+  submitButton.disabled = true;
+  submitButton.textContent = "예약 저장 중…";
+
+  try {
+    const response = await fetch("/api/reservations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(bookingDraft),
+    });
+    const result = await response.json();
+    if (response.status === 401) {
+      currentUser = null;
+      updateAuthInterface();
+      bookingDialog.close();
+      openAuthDialog("login");
+    }
+    if (!response.ok) throw new Error(result.message || "예약을 저장하지 못했습니다.");
+
+    pendingBooking = result.reservation;
+    bookingDialog.close();
+    notificationBadge.hidden = false;
+    contractNotification.hidden = false;
+    showToast(
+      `${experienceTitle} 예약이 저장됐어요. 계약서 확인 알림을 확인해 주세요.`,
+    );
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    submitButton.disabled = false;
+    submitButton.innerHTML = "예약 요청하기 <span>→</span>";
+  }
 });
 
 function openContractReview() {
@@ -525,20 +980,37 @@ startSignatureButton.addEventListener("click", async () => {
     const response = await fetch("/api/signature/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(pendingBooking),
+      body: JSON.stringify({ reservationId: pendingBooking.id }),
     });
     const result = await response.json();
+    if (response.status === 401) {
+      currentUser = null;
+      updateAuthInterface();
+      contractDialog.close();
+      notificationBadge.hidden = false;
+      contractNotification.hidden = false;
+      openAuthDialog("login");
+    }
     if (!response.ok) throw new Error(result.message || "전자서명 요청에 실패했습니다.");
 
-    activeDocumentId = result.documentId;
+    if (result.completed) {
+      contractDialog.close();
+      showToast("이미 전자서명이 완료된 예약입니다. 마이페이지에서 문서를 확인해 주세요.");
+      return;
+    }
+    if (!result.embeddedUrl) {
+      throw new Error("전자서명 화면 주소를 받지 못했습니다.");
+    }
+
+    activeReservationId = result.reservationId;
     contractDialog.close();
     signatureFrameLoaded = false;
     signatureStatus.textContent = "계약서에 서명해 주세요.";
     signatureFrameWrap.innerHTML = `
-      <iframe title="모두싸인 전자서명" src="${result.embeddedUrl}"></iframe>
+      <iframe title="모두싸인 전자서명" src="${escapeHtml(result.embeddedUrl)}"></iframe>
       <div id="signature-waiting" class="signature-waiting" hidden>
         <strong>서명 완료를 확인하고 있어요</strong>
-        <p>전자서명 결과를 확인하는 중입니다. 창을 닫지 말고 잠시만 기다려 주세요.</p>
+        <p>완료된 계약서는 로그인 이메일로 보내드리고 마이페이지에도 저장합니다.</p>
       </div>
     `;
     signatureFrameWrap.querySelector("iframe").addEventListener("load", () => {
@@ -559,10 +1031,14 @@ startSignatureButton.addEventListener("click", async () => {
 });
 
 async function checkSignatureStatus() {
-  if (!activeDocumentId) return;
+  if (!activeReservationId) return;
   try {
-    const response = await fetch(`/api/signature/status?documentId=${encodeURIComponent(activeDocumentId)}`);
+    const response = await fetch(`/api/signature/status?reservationId=${encodeURIComponent(activeReservationId)}`);
     const result = await response.json();
+    if (response.status === 401) {
+      currentUser = null;
+      updateAuthInterface();
+    }
     if (!response.ok) throw new Error(result.message);
     if (result.status === "COMPLETED") {
       closeSignatureDialog();
@@ -580,7 +1056,7 @@ async function checkSignatureStatus() {
 function closeSignatureDialog() {
   if (signatureStatusTimer) window.clearInterval(signatureStatusTimer);
   signatureStatusTimer = null;
-  activeDocumentId = null;
+  activeReservationId = null;
   signatureFrameLoaded = false;
   signatureDialog.close();
   signatureFrameWrap.innerHTML = "";
@@ -623,4 +1099,8 @@ const localToday = new Intl.DateTimeFormat("en-CA", {
 searchDate.min = localToday;
 bookingDate.min = localToday;
 
-loadProducts();
+async function initialize() {
+  await Promise.all([loadCurrentUser(), loadProducts()]);
+}
+
+initialize();

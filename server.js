@@ -1,16 +1,27 @@
 import "dotenv/config";
 
 import express from "express";
-import { readFile } from "node:fs/promises";
+import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const currentFilePath = fileURLToPath(import.meta.url);
 const projectDirectory = path.dirname(currentFilePath);
 const productFilePath = path.join(projectDirectory, "data", "products.json");
+const userFilePath = path.join(projectDirectory, "data", "users.local.json");
+const temporaryUserFilePath = `${userFilePath}.tmp`;
+const reservationFilePath = path.join(projectDirectory, "data", "reservations.local.json");
+const temporaryReservationFilePath = `${reservationFilePath}.tmp`;
 const productData = JSON.parse(await readFile(productFilePath, "utf8"));
 const products = productData.products;
-const activeSignatureDocuments = new Map();
+const users = await loadUsers();
+const reservations = await loadReservations();
+const activeSessions = new Map();
+let userWriteQueue = Promise.resolve();
+let reservationWriteQueue = Promise.resolve();
+const sessionCookieName = "waveon_session";
+const sessionDurationSeconds = 60 * 60 * 24 * 7;
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
@@ -43,58 +54,277 @@ app.get("/api/health", (_request, response) => {
   });
 });
 
-app.post("/api/signature/start", async (request, response) => {
+app.get("/api/auth/me", (request, response) => {
+  const user = getAuthenticatedUser(request);
+  if (!user) {
+    response.status(401).json({ message: "로그인이 필요합니다." });
+    return;
+  }
+  response.json({ user: publicUser(user) });
+});
+
+app.post("/api/auth/register", async (request, response) => {
   try {
-    const booking = normalizeBooking(request.body);
-    const document = await createModusignDocument(booking);
-    const readyDocument = await waitForModusignDocument(document.id);
-    const participant =
-      readyDocument.participants?.find((item) => item.name === booking.name) ??
-      document.participants?.[0];
-
-    if (!participant?.id) throw new Error("서명 참여자 정보를 찾지 못했습니다.");
-
-    const signing = await requestModusign(
-      `/documents/${document.id}/participants/${participant.id}/embedded-view`,
+    const credentials = normalizeRegistrationCredentials(request.body);
+    const duplicatedUser = users.find(
+      (user) =>
+        user.email === credentials.email || user.userId === credentials.userId,
     );
-    activeSignatureDocuments.set(document.id, {
-      name: booking.name,
-      email: booking.email,
-      forwarded: false,
+
+    if (duplicatedUser) {
+      const sameAccount =
+        duplicatedUser.email === credentials.email &&
+        duplicatedUser.userId === credentials.userId &&
+        verifyPassword(credentials.password, duplicatedUser.password);
+
+      if (sameAccount) {
+        const sessionToken = createSession(duplicatedUser.id);
+        setSessionCookie(response, sessionToken);
+        response.json({
+          user: publicUser(duplicatedUser),
+          existing: true,
+        });
+        return;
+      }
+
+      response.status(409).json({ message: "이미 사용 중인 이메일 또는 아이디입니다." });
+      return;
+    }
+
+    const user = {
+      id: randomBytes(16).toString("hex"),
+      email: credentials.email,
+      userId: credentials.userId,
+      password: hashPassword(credentials.password),
+      createdAt: new Date().toISOString(),
+    };
+    users.push(user);
+    await saveUsers();
+
+    const sessionToken = createSession(user.id);
+    setSessionCookie(response, sessionToken);
+    response.status(201).json({ user: publicUser(user) });
+  } catch (error) {
+    response.status(400).json({ message: error.message || "회원가입에 실패했습니다." });
+  }
+});
+
+app.post("/api/auth/login", (request, response) => {
+  try {
+    const credentials = normalizeLoginCredentials(request.body);
+    const user = users.find(
+      (candidate) => candidate.userId === credentials.userId,
+    );
+
+    if (!user || !verifyPassword(credentials.password, user.password)) {
+      response.status(401).json({ message: "아이디 또는 비밀번호가 올바르지 않습니다." });
+      return;
+    }
+
+    const sessionToken = createSession(user.id);
+    setSessionCookie(response, sessionToken);
+    response.json({ user: publicUser(user) });
+  } catch (error) {
+    response.status(400).json({ message: error.message || "로그인에 실패했습니다." });
+  }
+});
+
+app.post("/api/auth/logout", (request, response) => {
+  const sessionToken = getSessionToken(request);
+  if (sessionToken) activeSessions.delete(sessionToken);
+  clearSessionCookie(response);
+  response.status(204).end();
+});
+
+app.post("/api/reservations", async (request, response) => {
+  const user = requireAuthenticatedUser(request, response);
+  if (!user) return;
+
+  try {
+    const booking = normalizeBooking({
+      ...request.body,
+      email: user.email,
     });
-    response.json({ documentId: document.id, embeddedUrl: signing.embeddedUrl });
+    const now = new Date().toISOString();
+    const reservation = {
+      id: randomBytes(16).toString("hex"),
+      userId: user.id,
+      email: user.email,
+      name: booking.name,
+      activity: booking.activity,
+      venue: booking.venue,
+      date: booking.date,
+      people: booking.people,
+      status: "CONTRACT_PENDING",
+      signatureStatus: "",
+      documentId: "",
+      forwarded: false,
+      forwardError: "",
+      createdAt: now,
+      updatedAt: now,
+      signedAt: "",
+    };
+
+    reservations.push(reservation);
+    await saveReservations();
+    response.status(201).json({ reservation: publicReservation(reservation) });
+  } catch (error) {
+    response.status(400).json({ message: error.message || "예약을 저장하지 못했습니다." });
+  }
+});
+
+app.get("/api/reservations", async (request, response) => {
+  const user = requireAuthenticatedUser(request, response);
+  if (!user) return;
+
+  const userReservations = reservations.filter(
+    (reservation) => reservation.userId === user.id,
+  );
+  let changed = false;
+
+  for (const reservation of userReservations) {
+    if (
+      reservation.documentId &&
+      !["COMPLETED", "ABORTED", "PROCESSING_FAILED"].includes(reservation.status)
+    ) {
+      try {
+        changed = (await syncReservationStatus(reservation)) || changed;
+      } catch {
+        // 마이페이지의 나머지 예약은 모두 표시하고, 다음 조회 때 다시 동기화합니다.
+      }
+    }
+  }
+
+  if (changed) await saveReservations();
+  response.json({
+    reservations: userReservations
+      .slice()
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map(publicReservation),
+  });
+});
+
+app.post("/api/signature/start", async (request, response) => {
+  const user = requireAuthenticatedUser(request, response);
+  if (!user) return;
+
+  const reservationId = cleanText(request.body?.reservationId, 100);
+  const reservation = reservations.find(
+    (item) => item.id === reservationId && item.userId === user.id,
+  );
+  if (!reservation) {
+    response.status(404).json({ message: "전자서명을 진행할 예약을 찾지 못했습니다." });
+    return;
+  }
+
+  try {
+    if (reservation.documentId && reservation.status !== "PROCESSING_FAILED") {
+      const existingDocument = await requestModusign(
+        `/documents/${reservation.documentId}`,
+      );
+      await syncReservationStatus(reservation);
+      await saveReservations();
+
+      if (reservation.status === "COMPLETED") {
+        response.json({
+          documentId: reservation.documentId,
+          reservationId: reservation.id,
+          delivery: "embedded",
+          completed: true,
+        });
+        return;
+      }
+
+      const existingSigning = await getEmbeddedSigningView(
+        existingDocument,
+        reservation.name,
+      );
+      response.json({
+        documentId: reservation.documentId,
+        reservationId: reservation.id,
+        embeddedUrl: existingSigning.embeddedUrl,
+        delivery: "embedded",
+        alreadySent: true,
+      });
+      return;
+    }
+
+    const document = await createModusignDocument(reservation);
+    const readyDocument = await waitForModusignDocument(document.id);
+    const signing = await getEmbeddedSigningView(
+      readyDocument,
+      reservation.name,
+    );
+    reservation.signatureStatus = "ON_GOING";
+    reservation.documentId = document.id;
+    reservation.status = "SIGNING";
+    reservation.updatedAt = new Date().toISOString();
+    await saveReservations();
+    response.json({
+      documentId: document.id,
+      reservationId: reservation.id,
+      embeddedUrl: signing.embeddedUrl,
+      delivery: "embedded",
+    });
   } catch (error) {
     response.status(502).json({ message: error.message || "전자서명 요청에 실패했습니다." });
   }
 });
 
 app.get("/api/signature/status", async (request, response) => {
-  const documentId = cleanText(request.query.documentId, 100);
-  const signatureDocument = activeSignatureDocuments.get(documentId);
+  const user = requireAuthenticatedUser(request, response);
+  if (!user) return;
 
-  if (!documentId || !signatureDocument) {
+  const reservationId = cleanText(request.query.reservationId, 100);
+  const reservation = reservations.find(
+    (item) => item.id === reservationId && item.userId === user.id,
+  );
+  if (!reservation?.documentId) {
     response.status(404).json({ message: "확인할 전자서명 요청이 없습니다." });
     return;
   }
 
   try {
-    const document = await requestModusign(`/documents/${documentId}`);
-    let forwarded = signatureDocument.forwarded;
-    let forwardError = "";
-
-    if (document.status === "COMPLETED" && !signatureDocument.forwarded) {
-      try {
-        await forwardCompletedDocument(documentId, signatureDocument);
-        signatureDocument.forwarded = true;
-        forwarded = true;
-      } catch (error) {
-        forwardError = error.message || "완료 문서를 전달하지 못했습니다.";
-      }
-    }
-
-    response.json({ status: document.status, forwarded, forwardError });
+    const changed = await syncReservationStatus(reservation);
+    if (changed) await saveReservations();
+    response.json({
+      status: reservation.signatureStatus,
+      reservationStatus: reservation.status,
+      forwarded: reservation.forwarded,
+      forwardError: reservation.forwardError,
+    });
   } catch (error) {
     response.status(502).json({ message: error.message || "서명 상태를 확인하지 못했습니다." });
+  }
+});
+
+app.get("/api/reservations/:reservationId/document", async (request, response) => {
+  const user = requireAuthenticatedUser(request, response);
+  if (!user) return;
+
+  const reservationId = cleanText(request.params.reservationId, 100);
+  const reservation = reservations.find(
+    (item) => item.id === reservationId && item.userId === user.id,
+  );
+  if (!reservation?.documentId) {
+    response.status(404).json({ message: "저장된 전자서명 문서가 없습니다." });
+    return;
+  }
+
+  try {
+    const changed = await syncReservationStatus(reservation);
+    if (changed) await saveReservations();
+    if (reservation.status !== "COMPLETED") {
+      response.status(409).json({ message: "전자서명이 아직 완료되지 않았습니다." });
+      return;
+    }
+
+    const document = await requestModusign(`/documents/${reservation.documentId}`);
+    const downloadUrl = document.file?.downloadUrl;
+    if (!downloadUrl) throw new Error("완료 문서 링크를 찾지 못했습니다.");
+    response.redirect(downloadUrl);
+  } catch (error) {
+    response.status(502).json({ message: error.message || "완료 문서를 열지 못했습니다." });
   }
 });
 
@@ -132,6 +362,187 @@ app.post("/api/recommendations", async (request, response) => {
     });
   }
 });
+
+async function loadUsers() {
+  try {
+    const storedUsers = JSON.parse(await readFile(userFilePath, "utf8"));
+    return Array.isArray(storedUsers.users) ? storedUsers.users : [];
+  } catch (error) {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  }
+}
+
+async function saveUsers() {
+  userWriteQueue = userWriteQueue.catch(() => {}).then(async () => {
+    const userData = JSON.stringify({ users }, null, 2);
+    await writeFile(temporaryUserFilePath, `${userData}\n`, "utf8");
+    await rename(temporaryUserFilePath, userFilePath);
+  });
+  return userWriteQueue;
+}
+
+async function loadReservations() {
+  try {
+    const storedReservations = JSON.parse(
+      await readFile(reservationFilePath, "utf8"),
+    );
+    return Array.isArray(storedReservations.reservations)
+      ? storedReservations.reservations
+      : [];
+  } catch (error) {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  }
+}
+
+async function saveReservations() {
+  reservationWriteQueue = reservationWriteQueue.catch(() => {}).then(async () => {
+    const reservationData = JSON.stringify({ reservations }, null, 2);
+    await writeFile(
+      temporaryReservationFilePath,
+      `${reservationData}\n`,
+      "utf8",
+    );
+    await rename(temporaryReservationFilePath, reservationFilePath);
+  });
+  return reservationWriteQueue;
+}
+
+function normalizeRegistrationCredentials(input = {}) {
+  const email = cleanText(input.email, 100).toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error("사용할 이메일 주소를 정확히 입력해 주세요.");
+  }
+
+  return {
+    email,
+    ...normalizeLoginCredentials(input),
+  };
+}
+
+function normalizeLoginCredentials(input = {}) {
+  const userId = cleanText(input.userId, 24).toLowerCase();
+  const password = typeof input.password === "string" ? input.password : "";
+
+  if (!/^[a-z0-9._-]{3,24}$/.test(userId)) {
+    throw new Error("아이디를 정확히 입력해 주세요.");
+  }
+  if (
+    password.length < 8 ||
+    password.length > 128 ||
+    !/[A-Za-z]/.test(password) ||
+    !/\d/.test(password)
+  ) {
+    throw new Error("비밀번호는 영문과 숫자를 포함해 8자 이상 입력해 주세요.");
+  }
+
+  return { userId, password };
+}
+
+function hashPassword(password) {
+  const salt = randomBytes(16).toString("hex");
+  const hash = scryptSync(password, salt, 64).toString("hex");
+  return `${salt}:${hash}`;
+}
+
+function verifyPassword(password, storedPassword) {
+  try {
+    const [salt, storedHash] = storedPassword.split(":");
+    const passwordHash = scryptSync(password, salt, 64);
+    const storedHashBuffer = Buffer.from(storedHash, "hex");
+    return (
+      passwordHash.length === storedHashBuffer.length &&
+      timingSafeEqual(passwordHash, storedHashBuffer)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function publicUser(user) {
+  return {
+    email: user.email,
+    userId: user.userId,
+  };
+}
+
+function publicReservation(reservation) {
+  return {
+    id: reservation.id,
+    name: reservation.name,
+    activity: reservation.activity,
+    venue: reservation.venue,
+    date: reservation.date,
+    people: reservation.people,
+    status: reservation.status,
+    signatureStatus: reservation.signatureStatus,
+    createdAt: reservation.createdAt,
+    updatedAt: reservation.updatedAt,
+    signedAt: reservation.signedAt,
+    documentAvailable:
+      reservation.status === "COMPLETED" && Boolean(reservation.documentId),
+  };
+}
+
+function createSession(userId) {
+  const token = randomBytes(32).toString("base64url");
+  activeSessions.set(token, {
+    userId,
+    expiresAt: Date.now() + sessionDurationSeconds * 1000,
+  });
+  return token;
+}
+
+function getSessionToken(request) {
+  const cookieHeader = request.headers.cookie ?? "";
+  const cookie = cookieHeader
+    .split(";")
+    .map((item) => item.trim())
+    .find((item) => item.startsWith(`${sessionCookieName}=`));
+  if (!cookie) return "";
+  try {
+    return decodeURIComponent(cookie.slice(sessionCookieName.length + 1));
+  } catch {
+    return "";
+  }
+}
+
+function getAuthenticatedUser(request) {
+  const token = getSessionToken(request);
+  const session = activeSessions.get(token);
+  if (!session) return null;
+  if (session.expiresAt <= Date.now()) {
+    activeSessions.delete(token);
+    return null;
+  }
+  return users.find((user) => user.id === session.userId) ?? null;
+}
+
+function requireAuthenticatedUser(request, response) {
+  const user = getAuthenticatedUser(request);
+  if (!user) {
+    response.status(401).json({ message: "먼저 로그인해 주세요." });
+    return null;
+  }
+  return user;
+}
+
+function setSessionCookie(response, token) {
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  response.setHeader(
+    "Set-Cookie",
+    `${sessionCookieName}=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${sessionDurationSeconds}${secure}`,
+  );
+}
+
+function clearSessionCookie(response) {
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  response.setHeader(
+    "Set-Cookie",
+    `${sessionCookieName}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secure}`,
+  );
+}
 
 function normalizeProfile(input = {}) {
   const allowedExperienceLevels = ["beginner", "intermediate", "advanced"];
@@ -210,6 +621,51 @@ async function forwardCompletedDocument(documentId, signatureDocument) {
   });
 }
 
+async function syncReservationStatus(reservation) {
+  const before = JSON.stringify({
+    status: reservation.status,
+    signatureStatus: reservation.signatureStatus,
+    forwarded: reservation.forwarded,
+    forwardError: reservation.forwardError,
+    signedAt: reservation.signedAt,
+  });
+  const document = await requestModusign(`/documents/${reservation.documentId}`);
+  reservation.signatureStatus = document.status;
+
+  if (document.status === "COMPLETED") {
+    reservation.status = "COMPLETED";
+    reservation.signedAt ||= document.updatedAt || new Date().toISOString();
+
+    if (!reservation.forwarded) {
+      try {
+        await forwardCompletedDocument(reservation.documentId, reservation);
+        reservation.forwarded = true;
+        reservation.forwardError = "";
+      } catch (error) {
+        reservation.forwardError =
+          error.message || "완료 문서를 이메일로 전달하지 못했습니다.";
+      }
+    }
+  } else if (["ABORTED", "PROCESSING_FAILED"].includes(document.status)) {
+    reservation.status = document.status;
+  } else if (
+    ["DRAFT", "SCHEDULED", "ON_PROCESSING", "ON_GOING"].includes(document.status)
+  ) {
+    reservation.status = "SIGNING";
+  }
+
+  const after = JSON.stringify({
+    status: reservation.status,
+    signatureStatus: reservation.signatureStatus,
+    forwarded: reservation.forwarded,
+    forwardError: reservation.forwardError,
+    signedAt: reservation.signedAt,
+  });
+  const changed = before !== after;
+  if (changed) reservation.updatedAt = new Date().toISOString();
+  return changed;
+}
+
 async function createModusignDocument(booking) {
   const templateId = process.env.MODUSIGN_TEMPLATE_ID?.trim();
   if (!templateId) throw new Error(".env에 모두싸인 템플릿 ID를 입력해 주세요.");
@@ -228,6 +684,21 @@ async function createModusignDocument(booking) {
       },
     }),
   });
+}
+
+async function getEmbeddedSigningView(document, participantName) {
+  const participant =
+    document.participants?.find((item) => item.name === participantName) ??
+    document.participants?.find((item) => item.type === "SIGNER") ??
+    document.participants?.[0];
+
+  if (!participant?.id) {
+    throw new Error("서명 참여자 정보를 찾지 못했습니다.");
+  }
+
+  return requestModusign(
+    `/documents/${document.id}/participants/${participant.id}/embedded-view`,
+  );
 }
 
 function findModusignSignerRole(template) {

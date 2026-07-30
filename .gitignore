@@ -1,4 +1,9 @@
 .env
+data/users.local.json
+data/users.local.json.tmp
+data/reservations.local.json
+data/reservations.local.json.tmp
 node_modules/
+output/
 npm-debug.log*
 .DS_Store
