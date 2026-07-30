@@ -566,7 +566,11 @@ async function checkSignatureStatus() {
     if (!response.ok) throw new Error(result.message);
     if (result.status === "COMPLETED") {
       closeSignatureDialog();
-      showToast("전자서명이 완료되어 예약이 확정되었습니다!");
+      showToast(
+        result.forwarded
+          ? "전자서명이 완료되어 예약자 이메일로 완료 문서를 보냈습니다!"
+          : "전자서명이 완료되어 예약이 확정되었습니다!",
+      );
     }
   } catch (error) {
     signatureStatus.textContent = "서명 상태를 확인할 수 없습니다.";

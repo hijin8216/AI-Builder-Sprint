@@ -10,7 +10,7 @@ const projectDirectory = path.dirname(currentFilePath);
 const productFilePath = path.join(projectDirectory, "data", "products.json");
 const productData = JSON.parse(await readFile(productFilePath, "utf8"));
 const products = productData.products;
-const activeSignatureDocuments = new Set();
+const activeSignatureDocuments = new Map();
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
@@ -57,7 +57,11 @@ app.post("/api/signature/start", async (request, response) => {
     const signing = await requestModusign(
       `/documents/${document.id}/participants/${participant.id}/embedded-view`,
     );
-    activeSignatureDocuments.add(document.id);
+    activeSignatureDocuments.set(document.id, {
+      name: booking.name,
+      email: booking.email,
+      forwarded: false,
+    });
     response.json({ documentId: document.id, embeddedUrl: signing.embeddedUrl });
   } catch (error) {
     response.status(502).json({ message: error.message || "전자서명 요청에 실패했습니다." });
@@ -66,14 +70,29 @@ app.post("/api/signature/start", async (request, response) => {
 
 app.get("/api/signature/status", async (request, response) => {
   const documentId = cleanText(request.query.documentId, 100);
-  if (!documentId || !activeSignatureDocuments.has(documentId)) {
+  const signatureDocument = activeSignatureDocuments.get(documentId);
+
+  if (!documentId || !signatureDocument) {
     response.status(404).json({ message: "확인할 전자서명 요청이 없습니다." });
     return;
   }
 
   try {
     const document = await requestModusign(`/documents/${documentId}`);
-    response.json({ status: document.status });
+    let forwarded = signatureDocument.forwarded;
+    let forwardError = "";
+
+    if (document.status === "COMPLETED" && !signatureDocument.forwarded) {
+      try {
+        await forwardCompletedDocument(documentId, signatureDocument);
+        signatureDocument.forwarded = true;
+        forwarded = true;
+      } catch (error) {
+        forwardError = error.message || "완료 문서를 전달하지 못했습니다.";
+      }
+    }
+
+    response.json({ status: document.status, forwarded, forwardError });
   } catch (error) {
     response.status(502).json({ message: error.message || "서명 상태를 확인하지 못했습니다." });
   }
@@ -179,6 +198,16 @@ async function requestModusign(pathname, options = {}) {
   const result = await apiResponse.json().catch(() => ({}));
   if (!apiResponse.ok) throw new Error(result.message || `모두싸인 요청 오류 (${apiResponse.status})`);
   return result;
+}
+
+async function forwardCompletedDocument(documentId, signatureDocument) {
+  return requestModusign(`/documents/${documentId}/forward`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify({
+      contacts: [signatureDocument.email],
+    }),
+  });
 }
 
 async function createModusignDocument(booking) {
