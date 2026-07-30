@@ -1574,6 +1574,16 @@ img {
   background: #e2f5e9;
 }
 
+.reservation-status.is-cancellation-requested {
+  color: #a45d0e;
+  background: #fff2d9;
+}
+
+.reservation-status.is-cancelled {
+  color: #687780;
+  background: #e8eef0;
+}
+
 .reservation-status.is-failed {
   color: #9c3030;
   background: #fde8e8;
@@ -2255,6 +2265,7 @@ img {
 .notification-button { position: relative; display: grid; width: 36px; height: 36px; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--navy); cursor: pointer; }.notification-button:hover, .notification-button[aria-expanded="true"] { background: #eaf6f8; color: var(--ocean); }.notification-button svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }.notification-button span { position: absolute; top: 0; right: 0; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 999px; color: white; background: #ec6849; font-size: 9px; line-height: 15px; }
 .contract-notification { position: fixed; top: 74px; right: 20px; z-index: 20; width: min(360px, calc(100% - 32px)); padding: 13px; border: 1px solid #b9dce4; border-radius: 14px; background: white; box-shadow: 0 16px 42px rgba(2, 45, 70, .2); }.notification-panel-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px 11px; color: var(--navy); font-size: 14px; }.notification-panel-head span { border-radius: 999px; padding: 3px 6px; color: #0d6f88; background: #def5f8; font-size: 9px; font-weight: 800; letter-spacing: .7px; }.notification-item { display: flex; gap: 11px; padding: 13px; border: 1px solid #d4edf1; border-radius: 10px; background: #f6fdfe; transition: filter .2s ease, opacity .2s ease; }.notification-item-icon { display: grid; width: 28px; height: 28px; flex: 0 0 28px; place-items: center; border-radius: 9px; color: #04718e; background: #d9f1f5; }.notification-item strong { display: block; color: var(--navy); font-size: 13px; }.notification-item p { margin: 5px 0 11px; color: var(--muted); font-size: 12px; line-height: 1.55; }.notification-item button { border: 0; border-radius: 7px; padding: 9px 11px; color: white; background: var(--ocean); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }.notification-item.is-read { filter: grayscale(1); opacity: .56; background: #f5f5f5; }.notification-item.is-read .notification-item-icon { color: #6f7780; background: #e6e8ea; }
 .notification-item { cursor: pointer; }.notification-item:hover, .notification-item:focus-visible { border-color: #4eafc1; box-shadow: 0 0 0 3px rgba(78, 175, 193, .16); outline: 0; }.notification-item p { margin-bottom: 0; }
+.contract-notification-list { display: grid; gap: 8px; max-height: min(360px, calc(100vh - 112px)); overflow-y: auto; }.notification-item { width: 100%; align-items: center; text-align: left; font: inherit; cursor: pointer; }.notification-item-copy { min-width: 0; flex: 1; }.notification-item-copy strong { display: block; }.notification-item-copy > span { display: block; overflow: hidden; margin-top: 5px; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }.notification-item-arrow { color: var(--ocean); font-size: 16px; font-weight: 800; }.reservation-document-button:not(:disabled) { cursor: pointer; }
 .contract-dialog, .signature-dialog { width: min(640px, calc(100% - 30px)); padding: 0; border: 0; border-radius: 16px; box-shadow: 0 22px 60px rgba(1, 29, 47, .32); }.contract-dialog::backdrop, .signature-dialog::backdrop { background: rgba(1, 29, 47, .65); }
 .contract-dialog-head, .signature-dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 24px; border-bottom: 1px solid #e5edf0; }.contract-dialog-head p { margin: 0 0 4px; color: var(--ocean); font-size: 10px; font-weight: 800; letter-spacing: 1.3px; }.contract-dialog-head h2 { margin: 0; color: var(--navy); font-size: 20px; }.contract-dialog-head button, .signature-dialog-head button { border: 0; background: transparent; color: var(--muted); font-size: 24px; cursor: pointer; }.contract-dialog-body { padding: 24px; }.contract-booking-summary, .contract-terms { padding: 15px; border-radius: 9px; font-size: 13px; line-height: 1.65; }.contract-booking-summary { margin-bottom: 14px; color: #12516c; background: #edf8fa; font-weight: 700; }.contract-terms { color: #435664; background: #f7fafb; }.contract-terms h3 { margin: 0 0 7px; color: var(--navy); font-size: 14px; }.contract-terms p { margin: 0; }.contract-agreement { display: flex; gap: 8px; align-items: flex-start; margin: 18px 0; color: #425563; font-size: 12px; line-height: 1.55; }.contract-agreement input { margin-top: 3px; }.signature-dialog { width: min(1000px, calc(100% - 30px)); height: min(760px, calc(100% - 30px)); }.signature-dialog-head strong { color: var(--navy); }.signature-dialog-head span { margin-left: auto; color: var(--muted); font-size: 12px; }.signature-frame-wrap { position: relative; height: calc(100% - 66px); }.signature-frame-wrap iframe { display: block; width: 100%; height: 100%; border: 0; }.signature-frame-wrap p { padding: 36px; color: var(--muted); text-align: center; }
 .signature-waiting { position: absolute; inset: 0; display: grid; place-content: center; gap: 10px; padding: 30px; background: #f3f7fa; color: var(--navy); text-align: center; }.signature-waiting[hidden] { display: none; }.signature-waiting strong { font-size: 20px; }.signature-waiting p { max-width: 360px; margin: 0; padding: 0; line-height: 1.7; }
@@ -2367,6 +2378,16 @@ img {
   border-color: #cbdde2;
 }
 
+.reservation-card-panel.has-cancel {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.reservation-card-panel button.is-cancel {
+  color: #a84242;
+  background: #fff7f6;
+  border-color: #efc3bd;
+}
+
 .reservation-detail-dialog {
   width: min(680px, calc(100% - 32px));
   max-height: calc(100vh - 40px);
@@ -2381,6 +2402,70 @@ img {
 .reservation-detail-dialog::backdrop {
   background: rgba(2, 23, 37, 0.74);
   backdrop-filter: blur(4px);
+}
+
+.reservation-cancel-dialog {
+  width: min(420px, calc(100% - 32px));
+  padding: 0;
+  overflow: hidden;
+  background: white;
+  border: 0;
+  border-radius: 12px;
+  box-shadow: 0 30px 90px rgba(0, 18, 30, 0.38);
+}
+
+.reservation-cancel-dialog::backdrop {
+  background: rgba(2, 23, 37, 0.62);
+  backdrop-filter: blur(3px);
+}
+
+.reservation-cancel-content {
+  padding: 30px;
+}
+
+.reservation-cancel-content h2 {
+  margin: 0;
+  color: var(--navy);
+  font-size: 22px;
+}
+
+.reservation-cancel-description {
+  margin: 12px 0 24px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.reservation-cancel-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
+.reservation-cancel-actions button {
+  min-height: 44px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.reservation-cancel-dismiss {
+  color: var(--navy);
+  background: white;
+  border: 1px solid #cbdde2;
+}
+
+.reservation-cancel-confirm {
+  color: white;
+  background: #b64b4b;
+  border: 1px solid #b64b4b;
+}
+
+.reservation-cancel-confirm:disabled {
+  cursor: wait;
+  opacity: 0.7;
 }
 
 .reservation-detail-shell {
@@ -2522,12 +2607,20 @@ img {
   border-left-color: #3a9a63;
 }
 
+.reservation-signature-card.is-cancellation-requested {
+  border-left-color: #d5a14b;
+}
+
 .reservation-signature-card.is-signing {
   border-left-color: var(--ocean);
 }
 
 .reservation-signature-card.is-failed {
   border-left-color: #b64b4b;
+}
+
+.reservation-signature-card.is-cancelled {
+  border-left-color: #8c9ca4;
 }
 
 .reservation-signature-card p {
@@ -2569,6 +2662,25 @@ img {
   color: #8c9ca4;
   background: #e8eef0;
   cursor: not-allowed;
+}
+
+.reservation-document-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.reservation-cancel-button {
+  padding: 11px 13px;
+  color: #a84242;
+  background: #fff7f6;
+  border: 1px solid #efc3bd;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
 }
 
 @media (max-width: 720px) {
@@ -2627,6 +2739,15 @@ img {
 
   .reservation-document-button {
     text-align: center;
+  }
+
+  .reservation-document-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .reservation-cancel-content {
+    padding: 26px 22px;
   }
 }
 

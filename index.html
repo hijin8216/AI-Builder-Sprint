@@ -643,12 +643,21 @@
       </div>
     </dialog>
 
+    <dialog id="reservation-cancel-dialog" class="reservation-cancel-dialog" aria-labelledby="reservation-cancel-title">
+      <div class="reservation-cancel-content">
+        <p class="dialog-kicker">RESERVATION CANCELLATION</p>
+        <h2 id="reservation-cancel-title">예약을 취소할까요?</h2>
+        <p id="reservation-cancel-description" class="reservation-cancel-description"></p>
+        <div class="reservation-cancel-actions">
+          <button id="reservation-cancel-dismiss" class="reservation-cancel-dismiss" type="button">돌아가기</button>
+          <button id="reservation-cancel-confirm" class="reservation-cancel-confirm" type="button">예약 취소</button>
+        </div>
+      </div>
+    </dialog>
+
     <aside id="contract-notification" class="contract-notification" hidden>
-      <div class="notification-panel-head"><strong>알림</strong><span>NEW</span></div>
-      <article id="contract-notification-item" class="notification-item" role="button" tabindex="0" aria-label="계약서 확인 및 전자서명 진행">
-        <span class="notification-item-icon" aria-hidden="true">✦</span>
-        <div><strong>계약서 확인이 필요합니다</strong><p>이 알림을 누르면 계약서 확인과 전자서명을 진행할 수 있습니다.</p></div>
-      </article>
+      <div class="notification-panel-head"><strong>알림</strong><span id="notification-panel-count" hidden></span></div>
+      <div id="contract-notification-list" class="contract-notification-list"></div>
     </aside>
 
     <dialog id="contract-dialog" class="contract-dialog">

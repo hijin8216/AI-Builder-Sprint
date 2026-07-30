@@ -219,19 +219,68 @@ app.post("/api/reservations", async (request, response) => {
   }
 });
 
+app.post("/api/reservations/:reservationId/cancel", async (request, response) => {
+  const user = requireAuthenticatedUser(request, response);
+  if (!user) return;
+
+  const reservationId = cleanText(request.params.reservationId, 100);
+  const reservation = reservations.find(
+    (item) => item.id === reservationId && item.userId === user.id,
+  );
+  if (!reservation) {
+    response.status(404).json({ message: "취소할 예약을 찾지 못했습니다." });
+    return;
+  }
+
+  const canCancelImmediately =
+    reservation.status === "CONTRACT_PENDING" && !reservation.documentId;
+  const canRequestCancellation =
+    reservation.status === "COMPLETED" && Boolean(reservation.documentId);
+  if (!canCancelImmediately && !canRequestCancellation) {
+    response.status(409).json({
+      message: "현재 상태의 예약은 취소할 수 없습니다.",
+    });
+    return;
+  }
+
+  try {
+    const now = new Date().toISOString();
+    reservation.status = canRequestCancellation
+      ? "CANCELLATION_REQUESTED"
+      : "CANCELLED";
+    reservation.signatureStatus = canRequestCancellation
+      ? reservation.signatureStatus
+      : "";
+    reservation.cancellationRequestedAt = canRequestCancellation ? now : "";
+    reservation.updatedAt = now;
+    await saveReservations();
+    response.json({ reservation: publicReservation(reservation) });
+  } catch (error) {
+    response.status(500).json({
+      message: error.message || "예약을 취소하지 못했습니다.",
+    });
+  }
+});
+
 app.get("/api/reservations", async (request, response) => {
   const user = requireAuthenticatedUser(request, response);
   if (!user) return;
 
   const userReservations = reservations.filter(
-    (reservation) => reservation.userId === user.id,
+    (reservation) =>
+      reservation.userId === user.id && reservation.status !== "CANCELLED",
   );
   let changed = false;
 
   for (const reservation of userReservations) {
     if (
       reservation.documentId &&
-      !["COMPLETED", "ABORTED", "PROCESSING_FAILED"].includes(reservation.status)
+      ![
+        "COMPLETED",
+        "CANCELLATION_REQUESTED",
+        "ABORTED",
+        "PROCESSING_FAILED",
+      ].includes(reservation.status)
     ) {
       try {
         changed = (await syncReservationStatus(reservation)) || changed;
@@ -260,6 +309,17 @@ app.post("/api/signature/start", async (request, response) => {
   );
   if (!reservation) {
     response.status(404).json({ message: "전자서명을 진행할 예약을 찾지 못했습니다." });
+    return;
+  }
+
+  if (
+    !["CONTRACT_PENDING", "SIGNING", "PROCESSING_FAILED"].includes(
+      reservation.status,
+    )
+  ) {
+    response.status(409).json({
+      message: "현재 상태의 예약은 전자서명을 진행할 수 없습니다.",
+    });
     return;
   }
 
@@ -331,8 +391,10 @@ app.get("/api/signature/status", async (request, response) => {
   }
 
   try {
-    const changed = await syncReservationStatus(reservation);
-    if (changed) await saveReservations();
+    if (reservation.status !== "CANCELLATION_REQUESTED") {
+      const changed = await syncReservationStatus(reservation);
+      if (changed) await saveReservations();
+    }
     response.json({
       status: reservation.signatureStatus,
       reservationStatus: reservation.status,
@@ -358,9 +420,11 @@ app.get("/api/reservations/:reservationId/document", async (request, response) =
   }
 
   try {
-    const changed = await syncReservationStatus(reservation);
-    if (changed) await saveReservations();
-    if (reservation.status !== "COMPLETED") {
+    if (reservation.status !== "CANCELLATION_REQUESTED") {
+      const changed = await syncReservationStatus(reservation);
+      if (changed) await saveReservations();
+    }
+    if (!["COMPLETED", "CANCELLATION_REQUESTED"].includes(reservation.status)) {
       response.status(409).json({ message: "전자서명이 아직 완료되지 않았습니다." });
       return;
     }
@@ -571,8 +635,10 @@ function publicReservation(reservation) {
     createdAt: reservation.createdAt,
     updatedAt: reservation.updatedAt,
     signedAt: reservation.signedAt,
+    cancellationRequestedAt: reservation.cancellationRequestedAt ?? "",
     documentAvailable:
-      reservation.status === "COMPLETED" && Boolean(reservation.documentId),
+      ["COMPLETED", "CANCELLATION_REQUESTED"].includes(reservation.status) &&
+      Boolean(reservation.documentId),
   };
 }
 

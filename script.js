@@ -114,12 +114,24 @@ const mypageReservationCount = document.querySelector("#mypage-reservation-count
 const mypageReservationList = document.querySelector("#mypage-reservation-list");
 const reservationDetailDialog = document.querySelector("#reservation-detail-dialog");
 const reservationDetailContent = document.querySelector("#reservation-detail-content");
+const reservationCancelDialog = document.querySelector("#reservation-cancel-dialog");
+const reservationCancelTitle = document.querySelector("#reservation-cancel-title");
+const reservationCancelDescription = document.querySelector(
+  "#reservation-cancel-description",
+);
+const reservationCancelDismiss = document.querySelector(
+  "#reservation-cancel-dismiss",
+);
+const reservationCancelConfirm = document.querySelector(
+  "#reservation-cancel-confirm",
+);
 const bookingName = document.querySelector("#booking-name");
 const bookingEmail = document.querySelector("#booking-email");
 const notificationButton = document.querySelector("#notification-button");
 const notificationBadge = document.querySelector("#notification-badge");
 const contractNotification = document.querySelector("#contract-notification");
-const contractNotificationItem = document.querySelector("#contract-notification-item");
+const contractNotificationList = document.querySelector("#contract-notification-list");
+const notificationPanelCount = document.querySelector("#notification-panel-count");
 const contractDialog = document.querySelector("#contract-dialog");
 const contractBookingSummary = document.querySelector("#contract-booking-summary");
 const contractAgreement = document.querySelector("#contract-agreement");
@@ -133,9 +145,9 @@ let currentUser = null;
 let authMode = "login";
 let pendingExperienceId = null;
 let pendingBooking = null;
-let contractNotificationRead = false;
 let myReservations = [];
 let expandedReservationId = null;
+let reservationToCancel = null;
 let activeReservationId = null;
 let signatureStatusTimer = null;
 let signatureFrameLoaded = false;
@@ -405,6 +417,7 @@ async function loadCurrentUser() {
     currentUser = null;
   } finally {
     updateAuthInterface();
+    if (currentUser) loadMyReservations();
   }
 }
 
@@ -429,12 +442,33 @@ function reservationStatusDetails(status) {
     CONTRACT_PENDING: { label: "계약 확인 필요", className: "pending" },
     SIGNING: { label: "전자서명 진행 중", className: "signing" },
     COMPLETED: { label: "예약 확정", className: "completed" },
+    CANCELLATION_REQUESTED: {
+      label: "취소 요청 접수",
+      className: "cancellation-requested",
+    },
+    CANCELLED: { label: "예약 취소", className: "cancelled" },
     ABORTED: { label: "서명 중단", className: "failed" },
     PROCESSING_FAILED: { label: "문서 처리 실패", className: "failed" },
   }[status] ?? { label: "상태 확인 중", className: "signing" };
 }
 
 function reservationSignatureDetails(reservation) {
+  if (reservation.status === "CANCELLATION_REQUESTED") {
+    return {
+      label: "취소 요청 접수",
+      className: "cancellation-requested",
+      description: "판매자 확인 후 취소 및 환불 처리 결과를 안내합니다.",
+    };
+  }
+
+  if (reservation.status === "CANCELLED") {
+    return {
+      label: "예약 취소됨",
+      className: "cancelled",
+      description: "전자서명 요청 전에 예약을 취소했습니다.",
+    };
+  }
+
   if (reservation.documentAvailable) {
     return {
       label: "전자서명 완료",
@@ -495,6 +529,11 @@ function renderMyReservations() {
       const status = reservationStatusDetails(reservation.status);
       const createdDate = formatKoreanDate(reservation.createdAt);
       const isExpanded = expandedReservationId === reservation.id;
+      const canCancel = ["CONTRACT_PENDING", "COMPLETED"].includes(
+        reservation.status,
+      );
+      const cancelLabel =
+        reservation.status === "COMPLETED" ? "예약 취소 요청" : "예약 취소";
 
       return `
         <article class="reservation-card ${isExpanded ? "is-expanded" : ""}">
@@ -517,17 +556,69 @@ function renderMyReservations() {
               <b aria-hidden="true">${isExpanded ? "⌃" : "⌄"}</b>
             </span>
           </button>
-          <div class="reservation-card-panel" ${isExpanded ? "" : "hidden"}>
+          <div class="reservation-card-panel${canCancel ? " has-cancel" : ""}" ${isExpanded ? "" : "hidden"}>
             <button type="button" data-view-reservation="${reservation.id}">
               예약내역 확인하기 <span>→</span>
             </button>
             <button type="button" class="is-secondary" data-reservation-product="${reservation.id}">
               상세페이지로 가기 <span>↗</span>
             </button>
+            ${
+              canCancel
+                ? `
+                  <button type="button" class="is-cancel" data-cancel-reservation="${escapeHtml(reservation.id)}">
+                    ${cancelLabel} <span>×</span>
+                  </button>
+                `
+                : ""
+            }
           </div>
         </article>
       `;
     })
+    .join("");
+}
+
+function getPendingContractReservations() {
+  return myReservations.filter(
+    (reservation) => reservation.status === "CONTRACT_PENDING",
+  );
+}
+
+function renderContractNotifications() {
+  const reservations = getPendingContractReservations();
+  const count = reservations.length;
+
+  notificationBadge.hidden = count === 0;
+  notificationBadge.textContent = String(count);
+  notificationPanelCount.hidden = count === 0;
+  notificationPanelCount.textContent = `${count}건`;
+
+  if (count === 0) {
+    contractNotification.hidden = true;
+    notificationButton.setAttribute("aria-expanded", "false");
+    contractNotificationList.innerHTML = "";
+    return;
+  }
+
+  contractNotificationList.innerHTML = reservations
+    .map(
+      (reservation) => `
+        <button
+          class="notification-item"
+          type="button"
+          data-open-contract="${escapeHtml(reservation.id)}"
+          aria-label="${escapeHtml(reservation.activity)} 계약서 확인 및 전자서명 진행"
+        >
+          <span class="notification-item-icon" aria-hidden="true">✦</span>
+          <span class="notification-item-copy">
+            <strong>계약서 확인 필요</strong>
+            <span>${escapeHtml(reservation.activity)} · ${escapeHtml(reservation.date)}</span>
+          </span>
+          <span class="notification-item-arrow" aria-hidden="true">→</span>
+        </button>
+      `,
+    )
     .join("");
 }
 
@@ -558,11 +649,43 @@ function openReservationDetail(reservation) {
         전자서명 확인하기 <span>↗</span>
       </a>
     `
+    : ["CONTRACT_PENDING", "SIGNING", "PROCESSING_FAILED"].includes(
+          reservation.status,
+        )
+      ? `
+        <button
+          class="reservation-document-button"
+          type="button"
+          data-start-reservation-signature="${escapeHtml(reservation.id)}"
+        >
+          ${
+            reservation.status === "SIGNING"
+              ? "전자서명 이어하기"
+              : "계약서 확인 및 전자서명"
+          } <span>→</span>
+        </button>
+      `
     : `
       <button class="reservation-document-button" type="button" disabled>
         저장된 전자서명 없음
       </button>
     `;
+  const cancelAction =
+    ["CONTRACT_PENDING", "COMPLETED"].includes(reservation.status)
+      ? `
+        <button
+          class="reservation-cancel-button"
+          type="button"
+          data-cancel-reservation="${escapeHtml(reservation.id)}"
+        >
+          ${
+            reservation.status === "COMPLETED"
+              ? "예약 취소 요청"
+              : "예약 취소"
+          } <span>×</span>
+        </button>
+      `
+      : "";
 
   reservationDetailContent.innerHTML = `
     <section class="reservation-detail-summary">
@@ -583,7 +706,10 @@ function openReservationDetail(reservation) {
         <h3>${signature.label}</h3>
         <span>${signature.description}</span>
       </div>
-      ${documentAction}
+      <div class="reservation-document-actions">
+        ${documentAction}
+        ${cancelAction}
+      </div>
     </section>
   `;
 
@@ -608,6 +734,7 @@ async function loadMyReservations() {
     if (!response.ok) throw new Error(result.message || "예약 내역을 불러오지 못했습니다.");
     myReservations = result.reservations;
     renderMyReservations();
+    renderContractNotifications();
   } catch (error) {
     mypageReservationList.innerHTML = `
       <div class="mypage-empty">
@@ -615,6 +742,78 @@ async function loadMyReservations() {
         <p>${escapeHtml(error.message)}</p>
       </div>
     `;
+  }
+}
+
+function openReservationCancelDialog(reservation) {
+  if (!["CONTRACT_PENDING", "COMPLETED"].includes(reservation.status)) {
+    showToast("현재 상태의 예약은 취소할 수 없습니다.");
+    return;
+  }
+
+  const isCancellationRequest = reservation.status === "COMPLETED";
+  reservationToCancel = reservation;
+  reservationCancelTitle.textContent = isCancellationRequest
+    ? "예약 취소를 요청할까요?"
+    : "예약을 취소할까요?";
+  reservationCancelDescription.textContent = isCancellationRequest
+    ? `${reservation.activity} 예약 취소 요청을 판매자에게 전달합니다. 환불 여부와 금액은 판매자 확인 후 안내됩니다.`
+    : `${reservation.activity} 예약을 취소하면 예약 상태가 취소로 변경됩니다.`;
+  reservationCancelConfirm.disabled = false;
+  reservationCancelConfirm.textContent = isCancellationRequest
+    ? "취소 요청하기"
+    : "예약 취소";
+  reservationCancelDialog.showModal();
+}
+
+async function cancelReservation() {
+  const reservation = reservationToCancel;
+  if (!reservation) return;
+
+  reservationCancelConfirm.disabled = true;
+  reservationCancelConfirm.textContent = "취소 처리 중...";
+
+  try {
+    const response = await fetch(
+      `/api/reservations/${encodeURIComponent(reservation.id)}/cancel`,
+      { method: "POST" },
+    );
+    const result = await response.json();
+    if (response.status === 401) {
+      currentUser = null;
+      updateAuthInterface();
+      openAuthDialog("login");
+    }
+    if (!response.ok) {
+      throw new Error(result.message || "예약을 취소하지 못했습니다.");
+    }
+
+    const cancellationRequested =
+      result.reservation.status === "CANCELLATION_REQUESTED";
+    myReservations = cancellationRequested
+      ? myReservations.map((item) =>
+          item.id === reservation.id ? result.reservation : item,
+        )
+      : myReservations.filter((item) => item.id !== reservation.id);
+    if (pendingBooking?.id === reservation.id) pendingBooking = null;
+    if (expandedReservationId === reservation.id) expandedReservationId = null;
+
+    const refreshReservationDetail = reservationDetailDialog.open;
+    renderMyReservations();
+    renderContractNotifications();
+    reservationCancelDialog.close();
+    if (refreshReservationDetail) {
+      reservationDetailDialog.close();
+      openMyPage();
+    }
+    showToast(
+      cancellationRequested ? "취소 요청이 접수되었습니다." : "예약을 취소했습니다.",
+    );
+  } catch (error) {
+    showToast(error.message || "예약을 취소하지 못했습니다.");
+  } finally {
+    reservationCancelConfirm.disabled = false;
+    reservationCancelConfirm.textContent = "예약 취소";
   }
 }
 
@@ -1018,6 +1217,7 @@ authForm.addEventListener("submit", async (event) => {
 
     currentUser = result.user;
     updateAuthInterface();
+    loadMyReservations();
     authDialog.close();
     showToast(
       result.existing
@@ -1061,6 +1261,15 @@ mypageReservationList.addEventListener("click", (event) => {
     return;
   }
 
+  const cancelButton = event.target.closest("[data-cancel-reservation]");
+  if (cancelButton) {
+    const reservation = myReservations.find(
+      (item) => item.id === cancelButton.dataset.cancelReservation,
+    );
+    if (reservation) openReservationCancelDialog(reservation);
+    return;
+  }
+
   const productButton = event.target.closest("[data-reservation-product]");
   if (productButton) {
     const reservation = myReservations.find(
@@ -1087,12 +1296,45 @@ document.querySelector("#reservation-detail-close").addEventListener("click", ()
   reservationDetailDialog.close();
 });
 
+reservationDetailContent.addEventListener("click", (event) => {
+  const cancelButton = event.target.closest("[data-cancel-reservation]");
+  if (cancelButton) {
+    const reservation = myReservations.find(
+      (item) => item.id === cancelButton.dataset.cancelReservation,
+    );
+    if (reservation) openReservationCancelDialog(reservation);
+    return;
+  }
+
+  const signatureButton = event.target.closest("[data-start-reservation-signature]");
+  if (!signatureButton) return;
+
+  const reservation = myReservations.find(
+    (item) => item.id === signatureButton.dataset.startReservationSignature,
+  );
+  if (reservation) openContractReview(reservation);
+});
+
 reservationDetailDialog.addEventListener("close", () => {
   document.body.classList.remove("dialog-open");
 });
 
 reservationDetailDialog.addEventListener("click", (event) => {
   if (event.target === reservationDetailDialog) reservationDetailDialog.close();
+});
+
+reservationCancelDismiss.addEventListener("click", () => {
+  reservationCancelDialog.close();
+});
+
+reservationCancelConfirm.addEventListener("click", cancelReservation);
+
+reservationCancelDialog.addEventListener("close", () => {
+  reservationToCancel = null;
+});
+
+reservationCancelDialog.addEventListener("click", (event) => {
+  if (event.target === reservationCancelDialog) reservationCancelDialog.close();
 });
 
 document.querySelector("#open-recommendation").addEventListener("click", () => {
@@ -1238,12 +1480,14 @@ document.querySelector("#booking-form").addEventListener("submit", async (event)
     if (!response.ok) throw new Error(result.message || "예약을 저장하지 못했습니다.");
 
     pendingBooking = result.reservation;
-    contractNotificationRead = false;
+    myReservations = [
+      result.reservation,
+      ...myReservations.filter((reservation) => reservation.id !== result.reservation.id),
+    ];
     bookingDialog.close();
-    notificationBadge.hidden = false;
+    renderContractNotifications();
     contractNotification.hidden = true;
     notificationButton.setAttribute("aria-expanded", "false");
-    contractNotificationItem.classList.remove("is-read");
     showToast(
       `${experienceTitle} 예약이 저장됐어요. 계약서 확인 알림을 확인해 주세요.`,
     );
@@ -1255,37 +1499,38 @@ document.querySelector("#booking-form").addEventListener("submit", async (event)
   }
 });
 
-function openContractReview() {
-  if (!pendingBooking) {
+function openContractReview(reservation = pendingBooking) {
+  if (!reservation) {
     showToast("확인할 계약서 알림이 없습니다.");
     return;
   }
-  notificationBadge.hidden = true;
-  contractNotificationRead = true;
-  contractNotificationItem.classList.add("is-read");
+
+  pendingBooking = reservation;
   contractNotification.hidden = true;
   notificationButton.setAttribute("aria-expanded", "false");
+  if (reservationDetailDialog.open) reservationDetailDialog.close();
   contractAgreement.checked = false;
   contractBookingSummary.textContent = `${pendingBooking.activity} · ${pendingBooking.date}${pendingBooking.time ? ` ${pendingBooking.time}` : ""} · ${pendingBooking.people}명 / ${pendingBooking.venue}`;
   contractDialog.showModal();
 }
 
 notificationButton.addEventListener("click", () => {
-  if (!pendingBooking) {
+  if (getPendingContractReservations().length === 0) {
     showToast("새 알림이 없습니다.");
     return;
   }
   const willOpen = contractNotification.hidden;
   contractNotification.hidden = !willOpen;
   notificationButton.setAttribute("aria-expanded", String(willOpen));
-  contractNotificationItem.classList.toggle("is-read", contractNotificationRead);
 });
-contractNotificationItem.addEventListener("click", openContractReview);
-contractNotificationItem.addEventListener("keydown", (event) => {
-  if (event.key === "Enter" || event.key === " ") {
-    event.preventDefault();
-    openContractReview();
-  }
+contractNotificationList.addEventListener("click", (event) => {
+  const notification = event.target.closest("[data-open-contract]");
+  if (!notification) return;
+
+  const reservation = myReservations.find(
+    (item) => item.id === notification.dataset.openContract,
+  );
+  if (reservation) openContractReview(reservation);
 });
 document.querySelector("#contract-close").addEventListener("click", () => contractDialog.close());
 
@@ -1315,6 +1560,7 @@ startSignatureButton.addEventListener("click", async () => {
     if (!response.ok) throw new Error(result.message || "전자서명 요청에 실패했습니다.");
 
     if (result.completed) {
+      updateReservationAfterSignature(result.reservationId, "COMPLETED");
       contractDialog.close();
       showToast("이미 전자서명이 완료된 예약입니다. 마이페이지에서 문서를 확인해 주세요.");
       return;
@@ -1324,6 +1570,7 @@ startSignatureButton.addEventListener("click", async () => {
     }
 
     activeReservationId = result.reservationId;
+    updateReservationAfterSignature(result.reservationId, "SIGNING");
     contractDialog.close();
     signatureFrameLoaded = false;
     signatureStatus.textContent = "계약서에 서명해 주세요.";
@@ -1362,6 +1609,7 @@ async function checkSignatureStatus() {
     }
     if (!response.ok) throw new Error(result.message);
     if (result.status === "COMPLETED") {
+      updateReservationAfterSignature(activeReservationId, "COMPLETED");
       closeSignatureDialog();
       showToast(
         result.forwarded
@@ -1372,6 +1620,22 @@ async function checkSignatureStatus() {
   } catch (error) {
     signatureStatus.textContent = "서명 상태를 확인할 수 없습니다.";
   }
+}
+
+function updateReservationAfterSignature(reservationId, status) {
+  const reservation = myReservations.find((item) => item.id === reservationId);
+  if (reservation) {
+    reservation.status = status;
+    reservation.signatureStatus = status;
+    reservation.documentAvailable = status === "COMPLETED";
+  }
+  if (pendingBooking?.id === reservationId) {
+    pendingBooking.status = status;
+    pendingBooking.signatureStatus = status;
+    pendingBooking.documentAvailable = status === "COMPLETED";
+  }
+  renderContractNotifications();
+  renderMyReservations();
 }
 
 function closeSignatureDialog() {
