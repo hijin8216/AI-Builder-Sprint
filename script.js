@@ -89,6 +89,8 @@ const authEmailField = document.querySelector("#auth-email-field");
 const authEmail = document.querySelector("#auth-email");
 const authUserId = document.querySelector("#auth-user-id");
 const authPassword = document.querySelector("#auth-password");
+const authPasswordConfirmField = document.querySelector("#auth-password-confirm-field");
+const authPasswordConfirm = document.querySelector("#auth-password-confirm");
 const authError = document.querySelector("#auth-error");
 const authSubmit = document.querySelector("#auth-submit");
 const authModeButtons = [...document.querySelectorAll("[data-auth-mode]")];
@@ -324,6 +326,9 @@ function setAuthMode(mode) {
   authPassword.autocomplete = isRegister ? "new-password" : "current-password";
   authEmailField.hidden = !isRegister;
   authEmail.required = isRegister;
+  authPasswordConfirmField.hidden = !isRegister;
+  authPasswordConfirm.required = isRegister;
+  if (!isRegister) authPasswordConfirm.value = "";
   authError.hidden = true;
 
   authModeButtons.forEach((button) => {
@@ -336,6 +341,7 @@ function setAuthMode(mode) {
 function openAuthDialog(mode = "login") {
   setAuthMode(mode);
   authPassword.value = "";
+  authPasswordConfirm.value = "";
   authDialog.showModal();
   document.body.classList.add("dialog-open");
 }
@@ -463,11 +469,11 @@ function renderMyReservations() {
             </span>
           </button>
           <div class="reservation-card-panel" ${isExpanded ? "" : "hidden"}>
-            <button type="button" class="is-secondary" data-reservation-product="${reservation.id}">
-              상세페이지로 가기 <span>↗</span>
-            </button>
             <button type="button" data-view-reservation="${reservation.id}">
               예약내역 확인하기 <span>→</span>
+            </button>
+            <button type="button" class="is-secondary" data-reservation-product="${reservation.id}">
+              상세페이지로 가기 <span>↗</span>
             </button>
           </div>
         </article>
@@ -709,6 +715,13 @@ authForm.addEventListener("submit", async (event) => {
   authSubmit.innerHTML = `${authMode === "register" ? "계정 만드는 중…" : "로그인 중…"}`;
 
   try {
+    if (
+      authMode === "register" &&
+      authPassword.value !== authPasswordConfirm.value
+    ) {
+      throw new Error("비밀번호와 비밀번호 확인 값이 일치하지 않습니다.");
+    }
+
     const response = await fetch(`/api/auth/${authMode}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -716,6 +729,9 @@ authForm.addEventListener("submit", async (event) => {
         ...(authMode === "register" ? { email: authEmail.value } : {}),
         userId: authUserId.value,
         password: authPassword.value,
+        ...(authMode === "register"
+          ? { passwordConfirm: authPasswordConfirm.value }
+          : {}),
       }),
     });
     const result = await response.json();

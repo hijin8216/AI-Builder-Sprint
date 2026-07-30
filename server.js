@@ -411,13 +411,20 @@ async function saveReservations() {
 
 function normalizeRegistrationCredentials(input = {}) {
   const email = cleanText(input.email, 100).toLowerCase();
+  const loginCredentials = normalizeLoginCredentials(input);
+  const passwordConfirm =
+    typeof input.passwordConfirm === "string" ? input.passwordConfirm : "";
+
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw new Error("사용할 이메일 주소를 정확히 입력해 주세요.");
+  }
+  if (loginCredentials.password !== passwordConfirm) {
+    throw new Error("비밀번호와 비밀번호 확인 값이 일치하지 않습니다.");
   }
 
   return {
     email,
-    ...normalizeLoginCredentials(input),
+    ...loginCredentials,
   };
 }
 

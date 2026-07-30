@@ -2,6 +2,7 @@
   --navy: #082d46;
   --navy-deep: #031e31;
   --blue: #067bc2;
+  --ocean: #0d7e9b;
   --sky: #e8f6fb;
   --aqua: #95d8dc;
   --coral: #ff765c;
@@ -2323,7 +2324,6 @@ img {
   }
 
   .reservation-card-panel {
-    grid-template-columns: 1fr;
     padding-right: 18px;
     padding-left: 18px;
   }
@@ -2374,5 +2374,11 @@ img {
 
   .reservation-document-button {
     text-align: center;
+  }
+}
+
+@media (max-width: 430px) {
+  .reservation-card-panel {
+    grid-template-columns: 1fr;
   }
 }
