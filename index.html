@@ -70,47 +70,14 @@
             내 취향에 꼭 맞는 바다 경험을 예약하세요.
           </p>
 
-          <form id="search-form" class="search-panel" aria-label="해양레저 검색">
-            <label class="search-field">
-              <span class="field-label">지역</span>
-              <span class="field-control">
-                <span aria-hidden="true">⌖</span>
-                <select id="region-select" name="region" aria-label="지역 선택">
-                  <option value="">부산 전체</option>
-                  <option value="해운대">해운대</option>
-                  <option value="광안리">광안리</option>
-                  <option value="송정">송정</option>
-                  <option value="기장">기장</option>
-                  <option value="다대포">다대포</option>
-                </select>
-              </span>
-            </label>
-
-            <label class="search-field">
-              <span class="field-label">날짜</span>
-              <span class="field-control">
-                <span aria-hidden="true">□</span>
-                <input id="search-date" name="date" type="date" aria-label="이용 날짜 선택" />
-              </span>
-            </label>
-
-            <label class="search-field search-keyword">
-              <span class="field-label">하고 싶은 것</span>
-              <span class="field-control">
-                <span aria-hidden="true">⌕</span>
-                <input
-                  id="keyword-input"
-                  name="keyword"
-                  type="search"
-                  placeholder="요트, 서핑, 다이빙"
-                  autocomplete="off"
-                />
-              </span>
-            </label>
-
-            <button class="search-button" type="submit">
-              <span>경험 찾기</span>
-              <span aria-hidden="true">→</span>
+          <form id="search-form" class="ai-hero-search" aria-label="AI 해양레저 추천">
+            <select id="region-select" name="region" hidden><option value="">부산 전체</option><option value="해운대">해운대</option><option value="광안리">광안리</option><option value="송정">송정</option><option value="기장">기장</option><option value="다대포">다대포</option></select>
+            <input id="search-date" name="date" type="hidden" />
+            <input id="keyword-input" name="keyword" type="hidden" />
+            <button id="open-recommendation" type="button">
+              <span class="ai-search-icon" aria-hidden="true">✦</span>
+              <span>AI 추천받기</span>
+              <span class="ai-hero-search-arrow" aria-hidden="true">→</span>
             </button>
           </form>
 
@@ -122,60 +89,32 @@
         </div>
       </section>
 
-      <section class="category-section" aria-labelledby="category-title">
+      <section class="category-section" aria-label="레저 카테고리">
         <div class="container">
-          <div class="section-heading heading-row">
-            <div>
-              <p class="section-kicker">PICK YOUR WAVE</p>
-              <h2 id="category-title">오늘은 어떤 바다를 만날까요?</h2>
-            </div>
-            <div class="heading-actions">
-              <button id="open-recommendation" class="ai-recommend-button" type="button">
-                <span class="ai-spark" aria-hidden="true">✦</span>
-                AI 맞춤 추천
-              </button>
-              <button class="text-button" type="button" data-category="">
-                전체 경험 보기 <span>→</span>
-              </button>
-            </div>
-          </div>
-
-          <div class="category-list" role="list" aria-label="레저 카테고리">
-            <button class="category-card is-active" type="button" data-category="" role="listitem">
-              <span class="category-number">01</span>
-              <span class="category-icon" aria-hidden="true">∞</span>
-              <strong>전체</strong>
-              <small>상품 불러오는 중</small>
+          <div class="category-list" aria-label="레저 카테고리">
+            <button class="category-card is-active" type="button" data-category="" aria-pressed="true">
+              <span class="category-icon category-icon-all" aria-hidden="true">✦</span>
+              <span class="category-copy"><strong>전체</strong><small>상품 불러오는 중</small></span>
             </button>
-            <button class="category-card" type="button" data-category="요트" role="listitem">
-              <span class="category-number">02</span>
-              <span class="category-icon" aria-hidden="true">◒</span>
-              <strong>요트·보트</strong>
-              <small>상품 불러오는 중</small>
+            <button class="category-card" type="button" data-category="요트" aria-pressed="false">
+              <span class="category-icon category-icon-yacht" aria-hidden="true">⛵</span>
+              <span class="category-copy"><strong>요트·보트</strong><small>상품 불러오는 중</small></span>
             </button>
-            <button class="category-card" type="button" data-category="서핑" role="listitem">
-              <span class="category-number">03</span>
-              <span class="category-icon wave-icon" aria-hidden="true">〰</span>
-              <strong>서핑</strong>
-              <small>상품 불러오는 중</small>
+            <button class="category-card" type="button" data-category="서핑" aria-pressed="false">
+              <span class="category-icon category-icon-surf" aria-hidden="true">🏄</span>
+              <span class="category-copy"><strong>서핑</strong><small>상품 불러오는 중</small></span>
             </button>
-            <button class="category-card" type="button" data-category="다이빙" role="listitem">
-              <span class="category-number">04</span>
-              <span class="category-icon" aria-hidden="true">◉</span>
-              <strong>다이빙</strong>
-              <small>상품 불러오는 중</small>
+            <button class="category-card" type="button" data-category="다이빙" aria-pressed="false">
+              <span class="category-icon category-icon-dive" aria-hidden="true">🤿</span>
+              <span class="category-copy"><strong>다이빙</strong><small>상품 불러오는 중</small></span>
             </button>
-            <button class="category-card" type="button" data-category="SUP" role="listitem">
-              <span class="category-number">05</span>
-              <span class="category-icon" aria-hidden="true">⌇</span>
-              <strong>SUP·카약</strong>
-              <small>상품 불러오는 중</small>
+            <button class="category-card" type="button" data-category="SUP" aria-pressed="false">
+              <span class="category-icon category-icon-sup" aria-hidden="true">🛶</span>
+              <span class="category-copy"><strong>SUP·카약</strong><small>상품 불러오는 중</small></span>
             </button>
-            <button class="category-card" type="button" data-category="낚시" role="listitem">
-              <span class="category-number">06</span>
-              <span class="category-icon" aria-hidden="true">⌁</span>
-              <strong>바다낚시</strong>
-              <small>상품 불러오는 중</small>
+            <button class="category-card" type="button" data-category="낚시" aria-pressed="false">
+              <span class="category-icon category-icon-fishing" aria-hidden="true">🎣</span>
+              <span class="category-copy"><strong>바다낚시</strong><small>상품 불러오는 중</small></span>
             </button>
           </div>
         </div>
@@ -201,7 +140,12 @@
             </div>
           </div>
 
-          <div id="experience-grid" class="experience-grid"></div>
+          <nav id="experience-pagination" class="experience-pagination" aria-label="상품 페이지" hidden>
+            <button id="pagination-prev" type="button" aria-label="이전 상품 보기">←</button>
+            <div id="experience-grid" class="experience-grid"></div>
+            <button id="pagination-next" type="button" aria-label="다음 상품 보기">→</button>
+            <div id="pagination-dots" class="pagination-dots"></div>
+          </nav>
           <p id="empty-state" class="empty-state" hidden>
             조건에 맞는 경험을 찾지 못했어요. 다른 지역이나 검색어를 선택해 주세요.
           </p>

@@ -14,6 +14,7 @@ const state = {
   recommendationMap: new Map(),
   recommendationMessage: "",
   contractSummaryCache: new Map(),
+  page: 0,
 };
 
 const categoryGroups = {
@@ -69,7 +70,13 @@ const categoryImages = {
   ],
 };
 
+const EXPERIENCES_PER_PAGE = 8;
+
 const experienceGrid = document.querySelector("#experience-grid");
+const experiencePagination = document.querySelector("#experience-pagination");
+const paginationDots = document.querySelector("#pagination-dots");
+const paginationPrev = document.querySelector("#pagination-prev");
+const paginationNext = document.querySelector("#pagination-next");
 const emptyState = document.querySelector("#empty-state");
 const resultCount = document.querySelector("#result-count");
 const resultDescription = document.querySelector("#result-description");
@@ -205,10 +212,30 @@ function getVisibleExperiences() {
   });
 }
 
+function renderPagination(totalPages) {
+  experiencePagination.hidden = false;
+  experiencePagination.classList.toggle("is-single-page", totalPages <= 1);
+  paginationPrev.disabled = state.page === 0;
+  paginationNext.disabled = state.page >= totalPages - 1;
+  paginationDots.innerHTML = Array.from({ length: totalPages }, (_, index) => `
+    <button
+      class="pagination-dot ${index === state.page ? "is-active" : ""}"
+      type="button"
+      data-page="${index}"
+      aria-label="${index + 1}페이지 보기"
+      aria-current="${index === state.page ? "page" : "false"}"
+    ></button>
+  `).join("");
+}
+
 function renderExperiences() {
   const visibleExperiences = getVisibleExperiences();
+  const totalPages = Math.max(1, Math.ceil(visibleExperiences.length / EXPERIENCES_PER_PAGE));
+  state.page = Math.min(state.page, totalPages - 1);
+  const pageStart = state.page * EXPERIENCES_PER_PAGE;
+  const pageExperiences = visibleExperiences.slice(pageStart, pageStart + EXPERIENCES_PER_PAGE);
 
-  experienceGrid.innerHTML = visibleExperiences
+  experienceGrid.innerHTML = pageExperiences
     .map((experience) => {
       const recommendation = state.recommendationMap.get(experience.id);
       const recommendationNote = recommendation
@@ -262,6 +289,7 @@ function renderExperiences() {
 
   resultCount.textContent = `${visibleExperiences.length}개의 경험`;
   emptyState.hidden = visibleExperiences.length !== 0;
+  renderPagination(totalPages);
 
   if (state.recommendedIds) {
     resultDescription.textContent = state.recommendationMessage;
@@ -294,6 +322,7 @@ function clearRecommendations() {
   state.recommendedIds = null;
   state.recommendationMap.clear();
   state.recommendationMessage = "";
+  state.page = 0;
 }
 
 function setCategory(category) {
@@ -301,11 +330,12 @@ function setCategory(category) {
   state.category = category;
 
   categoryButtons.forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.category === category);
+    const isActive = button.dataset.category === category;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
   });
 
   renderExperiences();
-  document.querySelector("#experiences").scrollIntoView({ behavior: "smooth" });
 }
 
 function showToast(message) {
@@ -828,6 +858,27 @@ document.querySelector("#search-form").addEventListener("submit", (event) => {
 
 sortSelect.addEventListener("change", () => {
   state.sort = sortSelect.value;
+  state.page = 0;
+  renderExperiences();
+});
+
+paginationPrev.addEventListener("click", () => {
+  if (state.page === 0) return;
+  state.page -= 1;
+  renderExperiences();
+});
+
+paginationNext.addEventListener("click", () => {
+  const totalPages = Math.ceil(getVisibleExperiences().length / EXPERIENCES_PER_PAGE);
+  if (state.page >= totalPages - 1) return;
+  state.page += 1;
+  renderExperiences();
+});
+
+paginationDots.addEventListener("click", (event) => {
+  const pageButton = event.target.closest("[data-page]");
+  if (!pageButton) return;
+  state.page = Number(pageButton.dataset.page);
   renderExperiences();
 });
 
@@ -1103,6 +1154,7 @@ document
         ]),
       );
       state.recommendationMessage = result.message;
+      state.page = 0;
       state.category = "";
       state.region = "";
       state.keyword = "";
@@ -1110,7 +1162,9 @@ document
       keywordInput.value = "";
 
       categoryButtons.forEach((button) => {
-        button.classList.toggle("is-active", button.dataset.category === "");
+        const isActive = button.dataset.category === "";
+        button.classList.toggle("is-active", isActive);
+        button.setAttribute("aria-pressed", String(isActive));
       });
 
       recommendationDialog.close();
