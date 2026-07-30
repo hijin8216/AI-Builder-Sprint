@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "templates": {
+    "reservationTerms": "47d8d6f0-8be9-11f1-8da7-81f60b7af3db",
+    "privacyConsent": "4929c0f0-8be9-11f1-ba2e-1172cc9138c5",
+    "marineSafety": "4a6463d0-8be9-11f1-8da7-81f60b7af3db",
+    "refundPolicy": "4ba8a3a0-8be9-11f1-b872-954b1a42391e",
+    "equipmentLiability": "4cf91870-8be9-11f1-a1a1-e92a5eba3ce3",
+    "photoVideoConsent": "6c3c0670-8be9-11f1-932a-49824a892508",
+    "vesselSafety": "6d918450-8be9-11f1-b2b2-dbae471acc21",
+    "scubaHealth": "6ee57b90-8be9-11f1-a6ed-1df6e90a389c",
+    "minorGuardian": "7019b5d0-8be9-11f1-8e56-0545f80374bf",
+    "weatherSchedule": "7163e910-8be9-11f1-adb0-3792e2031fa6"
+  }
+}

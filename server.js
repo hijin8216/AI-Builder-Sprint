@@ -9,12 +9,21 @@ import { fileURLToPath } from "node:url";
 const currentFilePath = fileURLToPath(import.meta.url);
 const projectDirectory = path.dirname(currentFilePath);
 const productFilePath = path.join(projectDirectory, "data", "products.json");
+const contractTemplateFilePath = path.join(
+  projectDirectory,
+  "data",
+  "contract-templates.json",
+);
 const userFilePath = path.join(projectDirectory, "data", "users.local.json");
 const temporaryUserFilePath = `${userFilePath}.tmp`;
 const reservationFilePath = path.join(projectDirectory, "data", "reservations.local.json");
 const temporaryReservationFilePath = `${reservationFilePath}.tmp`;
 const productData = JSON.parse(await readFile(productFilePath, "utf8"));
+const contractTemplateData = JSON.parse(
+  await readFile(contractTemplateFilePath, "utf8"),
+);
 const products = productData.products;
+const contractTemplates = contractTemplateData.templates;
 const users = await loadUsers();
 const reservations = await loadReservations();
 const activeSessions = new Map();
@@ -151,6 +160,7 @@ app.post("/api/reservations", async (request, response) => {
       userId: user.id,
       email: user.email,
       name: booking.name,
+      productId: booking.productId,
       activity: booking.activity,
       venue: booking.venue,
       date: booking.date,
@@ -477,6 +487,7 @@ function publicUser(user) {
 function publicReservation(reservation) {
   return {
     id: reservation.id,
+    productId: reservation.productId,
     name: reservation.name,
     activity: reservation.activity,
     venue: reservation.venue,
@@ -585,6 +596,7 @@ function cleanText(value, maxLength) {
 function normalizeBooking(input = {}) {
   const booking = {
     name: cleanText(input.name, 30), email: cleanText(input.email, 100),
+    productId: cleanText(input.productId, 30),
     activity: cleanText(input.activity, 120), venue: cleanText(input.venue, 100),
     date: cleanText(input.date, 20), people: cleanText(input.people, 10),
   };
@@ -597,8 +609,8 @@ function normalizeBooking(input = {}) {
 function modusignAuthorization() {
   const email = process.env.MODUSIGN_EMAIL?.trim();
   const apiKey = process.env.MODUSIGN_API_KEY?.trim();
-  if (!email || !apiKey || !process.env.MODUSIGN_TEMPLATE_ID?.trim()) {
-    throw new Error(".env에 모두싸인 이메일, API 키, 템플릿 ID를 입력해 주세요.");
+  if (!email || !apiKey) {
+    throw new Error(".env에 모두싸인 이메일과 API 키를 입력해 주세요.");
   }
   return `Basic ${Buffer.from(`${email}:${apiKey}`).toString("base64")}`;
 }
@@ -674,11 +686,8 @@ async function syncReservationStatus(reservation) {
 }
 
 async function createModusignDocument(booking) {
-  const templateId = process.env.MODUSIGN_TEMPLATE_ID?.trim();
-  if (!templateId) throw new Error(".env에 모두싸인 템플릿 ID를 입력해 주세요.");
-
-  const template = await requestModusign(`/templates/${templateId}`);
-  const role = findModusignSignerRole(template);
+  const { templateId, template } = await getContractTemplateForBooking(booking);
+  const role = findModusignSignerRole(template, { useConfiguredRole: false });
 
   return requestModusign("/documents/request-with-template", {
     method: "POST",
@@ -691,6 +700,76 @@ async function createModusignDocument(booking) {
       },
     }),
   });
+}
+
+async function getContractTemplateForBooking(booking) {
+  const product = findProductForBooking(booking);
+  if (!product) {
+    throw new Error("예약 상품을 찾지 못했습니다. 상품을 다시 선택해 주세요.");
+  }
+
+  const templateKeys = Array.isArray(product.contractTemplateKeys)
+    ? product.contractTemplateKeys
+    : [];
+  if (!templateKeys.length) {
+    throw new Error("이 상품에 연결된 계약서가 없습니다.");
+  }
+  if (templateKeys.length > 12) {
+    throw new Error("한 번에 서명할 수 있는 계약서는 최대 12개입니다.");
+  }
+
+  const templateIds = templateKeys.map((key) => contractTemplates[key]);
+  const missingKey = templateKeys.find((key, index) => !templateIds[index]);
+  if (missingKey) {
+    throw new Error(`계약서 설정(${missingKey})에 템플릿 ID가 없습니다.`);
+  }
+
+  if (templateIds.length === 1) {
+    const template = await requestModusign(`/templates/${templateIds[0]}`);
+    return { templateId: templateIds[0], template };
+  }
+
+  const mergedTemplate = await requestModusign("/templates/merge", {
+    method: "POST",
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify({
+      sources: templateIds.map((templateId) => ({
+        type: "TEMPLATE",
+        templateId,
+      })),
+    }),
+  });
+  const templateId = getTemplateId(mergedTemplate);
+  if (!templateId) {
+    throw new Error("병합된 계약서의 템플릿 ID를 받지 못했습니다.");
+  }
+
+  const template = hasSignerRole(mergedTemplate)
+    ? mergedTemplate
+    : await requestModusign(`/templates/${templateId}`);
+  return { templateId, template };
+}
+
+function findProductForBooking(booking) {
+  return (
+    products.find((product) => product.id === booking.productId) ??
+    products.find((product) => product.name === booking.activity)
+  );
+}
+
+function getTemplateId(template) {
+  return [
+    template?.id,
+    template?.templateId,
+    template?.template?.id,
+    template?.template?.templateId,
+  ].find((value) => typeof value === "string" && value.trim())?.trim();
+}
+
+function hasSignerRole(template) {
+  return [template, template?.template].some((item) =>
+    Array.isArray(item?.participants) && item.participants.length > 0,
+  );
 }
 
 async function getEmbeddedSigningView(document, participantName) {
@@ -708,9 +787,9 @@ async function getEmbeddedSigningView(document, participantName) {
   );
 }
 
-function findModusignSignerRole(template) {
+function findModusignSignerRole(template, { useConfiguredRole = true } = {}) {
   const configuredRole = process.env.MODUSIGN_SIGNER_ROLE?.trim();
-  if (configuredRole) return configuredRole;
+  if (useConfiguredRole && configuredRole) return configuredRole;
 
   const participants = [
     ...(Array.isArray(template.participants) ? template.participants : []),

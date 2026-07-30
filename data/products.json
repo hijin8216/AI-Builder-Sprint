@@ -31,7 +31,8 @@
       "reviewCount": 318,
       "waiverRequired": true,
       "refundPolicy": "이용 3일 전까지 전액 환불, 2일 전 70%, 1일 전 50%, 당일 환불 불가",
-      "safetyNotes": ["멀미가 심한 이용자는 사전에 멀미약 복용을 권장합니다.", "강풍 또는 풍랑특보 시 일정이 변경될 수 있습니다."]
+      "safetyNotes": ["멀미가 심한 이용자는 사전에 멀미약 복용을 권장합니다.", "강풍 또는 풍랑특보 시 일정이 변경될 수 있습니다."],
+      "contractTemplateKeys": ["reservationTerms","privacyConsent","marineSafety","refundPolicy","weatherSchedule","vesselSafety"]
     },
     {
       "id": "WB-002",
@@ -60,7 +61,8 @@
       "reviewCount": 231,
       "waiverRequired": true,
       "refundPolicy": "이용 3일 전까지 전액 환불, 2일 전 70%, 이후 환불 불가",
-      "safetyNotes": ["야간에는 선내 이동 시 안전 손잡이를 이용해야 합니다.", "기상 악화 시 주간 일정으로 변경될 수 있습니다."]
+      "safetyNotes": ["야간에는 선내 이동 시 안전 손잡이를 이용해야 합니다.", "기상 악화 시 주간 일정으로 변경될 수 있습니다."],
+      "contractTemplateKeys": ["reservationTerms","privacyConsent","marineSafety","refundPolicy","weatherSchedule","vesselSafety"]
     },
     {
       "id": "WB-003",
@@ -89,7 +91,8 @@
       "reviewCount": 142,
       "waiverRequired": true,
       "refundPolicy": "이용 2일 전까지 전액 환불, 1일 전 50%, 당일 환불 불가",
-      "safetyNotes": ["만 12세 이하 어린이는 보호자와 함께 탑승해야 합니다.", "선내에서는 승무원의 안내를 따라야 합니다."]
+      "safetyNotes": ["만 12세 이하 어린이는 보호자와 함께 탑승해야 합니다.", "선내에서는 승무원의 안내를 따라야 합니다."],
+      "contractTemplateKeys": ["reservationTerms","privacyConsent","marineSafety","refundPolicy","weatherSchedule","vesselSafety"]
     },
     {
       "id": "WB-004",
@@ -118,7 +121,8 @@
       "reviewCount": 274,
       "waiverRequired": true,
       "refundPolicy": "이용 2일 전까지 전액 환불, 1일 전 50%, 당일 환불 불가",
-      "safetyNotes": ["수영을 못해도 참여 가능하지만 반드시 구명조끼를 착용해야 합니다.", "허리 또는 어깨 부상이 있는 경우 참여 전 강사에게 알려야 합니다."]
+      "safetyNotes": ["수영을 못해도 참여 가능하지만 반드시 구명조끼를 착용해야 합니다.", "허리 또는 어깨 부상이 있는 경우 참여 전 강사에게 알려야 합니다."],
+      "contractTemplateKeys": ["reservationTerms","privacyConsent","marineSafety","refundPolicy","weatherSchedule","equipmentLiability"]
     },
     {
       "id": "WB-005",
@@ -147,7 +151,8 @@
       "reviewCount": 132,
       "waiverRequired": true,
       "refundPolicy": "이용 3일 전까지 전액 환불, 2일 전 70%, 이후 환불 불가",
-      "safetyNotes": ["파도 상태에 따라 수업 시간이 변경될 수 있습니다.", "음주 후 참여할 수 없습니다."]
+      "safetyNotes": ["파도 상태에 따라 수업 시간이 변경될 수 있습니다.", "음주 후 참여할 수 없습니다."],
+      "contractTemplateKeys": ["reservationTerms","privacyConsent","marineSafety","refundPolicy","weatherSchedule","equipmentLiability"]
     },
     {
       "id": "WB-006",
@@ -176,7 +181,8 @@
       "reviewCount": 87,
       "waiverRequired": true,
       "refundPolicy": "이용 3일 전까지 전액 환불, 이후 50%, 당일 환불 불가",
-      "safetyNotes": ["기본적인 패들링과 테이크오프가 가능한 이용자만 참여할 수 있습니다.", "수영 능력 확인 후 수업이 진행됩니다."]
+      "safetyNotes": ["기본적인 패들링과 테이크오프가 가능한 이용자만 참여할 수 있습니다.", "수영 능력 확인 후 수업이 진행됩니다."],
+      "contractTemplateKeys": ["reservationTerms","privacyConsent","marineSafety","refundPolicy","weatherSchedule","equipmentLiability"]
     },
     {
       "id": "WB-007",
@@ -205,7 +211,8 @@
       "reviewCount": 162,
       "waiverRequired": true,
       "refundPolicy": "이용 3일 전까지 전액 환불, 2일 전 70%, 이후 환불 불가",
-      "safetyNotes": ["심장·호흡기 질환이 있거나 임신 중인 경우 참여할 수 없습니다.", "참여 전 건강상태 확인서 작성이 필요합니다."]
+      "safetyNotes": ["심장·호흡기 질환이 있거나 임신 중인 경우 참여할 수 없습니다.", "참여 전 건강상태 확인서 작성이 필요합니다."],
+      "contractTemplateKeys": ["reservationTerms","privacyConsent","marineSafety","refundPolicy","weatherSchedule","equipmentLiability","scubaHealth"]
     },
     {
       "id": "WB-008",
@@ -234,7 +241,8 @@
       "reviewCount": 74,
       "waiverRequired": true,
       "refundPolicy": "이용 5일 전까지 전액 환불, 3일 전 50%, 이후 환불 불가",
-      "safetyNotes": ["어드밴스드 오픈워터 이상 자격증을 확인합니다.", "최근 12개월 이내 다이빙 경험이 없으면 리프레시 교육이 필요합니다."]
+      "safetyNotes": ["어드밴스드 오픈워터 이상 자격증을 확인합니다.", "최근 12개월 이내 다이빙 경험이 없으면 리프레시 교육이 필요합니다."],
+      "contractTemplateKeys": ["reservationTerms","privacyConsent","marineSafety","refundPolicy","weatherSchedule","equipmentLiability","scubaHealth"]
     },
     {
       "id": "WB-009",
@@ -263,7 +271,8 @@
       "reviewCount": 187,
       "waiverRequired": true,
       "refundPolicy": "이용 2일 전까지 전액 환불, 1일 전 50%, 당일 환불 불가",
-      "safetyNotes": ["기본 수영이 가능한 이용자에게 권장합니다.", "해파리 또는 높은 파도 발생 시 일정이 취소될 수 있습니다."]
+      "safetyNotes": ["기본 수영이 가능한 이용자에게 권장합니다.", "해파리 또는 높은 파도 발생 시 일정이 취소될 수 있습니다."],
+      "contractTemplateKeys": ["reservationTerms","privacyConsent","marineSafety","refundPolicy","weatherSchedule","equipmentLiability"]
     },
     {
       "id": "WB-010",
@@ -292,7 +301,8 @@
       "reviewCount": 205,
       "waiverRequired": true,
       "refundPolicy": "이용 2일 전까지 전액 환불, 1일 전 50%, 당일 환불 불가",
-      "safetyNotes": ["모든 참가자는 구명조끼를 착용해야 합니다.", "바람이 강할 경우 해변 안전교육으로 대체될 수 있습니다."]
+      "safetyNotes": ["모든 참가자는 구명조끼를 착용해야 합니다.", "바람이 강할 경우 해변 안전교육으로 대체될 수 있습니다."],
+      "contractTemplateKeys": ["reservationTerms","privacyConsent","marineSafety","refundPolicy","weatherSchedule","equipmentLiability"]
     },
     {
       "id": "WB-011",
@@ -321,7 +331,8 @@
       "reviewCount": 118,
       "waiverRequired": true,
       "refundPolicy": "이용 3일 전까지 전액 환불, 2일 전 70%, 이후 환불 불가",
-      "safetyNotes": ["어린이는 보호자와 같은 보드 또는 인접 보드를 이용해야 합니다.", "해상 상황에 따라 피크닉만 제공될 수 있습니다."]
+      "safetyNotes": ["어린이는 보호자와 같은 보드 또는 인접 보드를 이용해야 합니다.", "해상 상황에 따라 피크닉만 제공될 수 있습니다."],
+      "contractTemplateKeys": ["reservationTerms","privacyConsent","marineSafety","refundPolicy","weatherSchedule","equipmentLiability"]
     },
     {
       "id": "WB-012",
@@ -350,7 +361,8 @@
       "reviewCount": 156,
       "waiverRequired": true,
       "refundPolicy": "이용 1일 전까지 전액 환불, 당일 환불 불가",
-      "safetyNotes": ["카약 위에서 일어서면 안 됩니다.", "만 12세 이하 어린이는 성인과 함께 탑승해야 합니다."]
+      "safetyNotes": ["카약 위에서 일어서면 안 됩니다.", "만 12세 이하 어린이는 성인과 함께 탑승해야 합니다."],
+      "contractTemplateKeys": ["reservationTerms","privacyConsent","marineSafety","refundPolicy","weatherSchedule","equipmentLiability"]
     },
     {
       "id": "WB-013",
@@ -379,7 +391,8 @@
       "reviewCount": 198,
       "waiverRequired": true,
       "refundPolicy": "이용 2일 전까지 전액 환불, 1일 전 50%, 당일 환불 불가",
-      "safetyNotes": ["음주자와 임신 중인 이용자는 참여할 수 없습니다.", "목 또는 허리 질환이 있는 경우 참여를 권장하지 않습니다."]
+      "safetyNotes": ["음주자와 임신 중인 이용자는 참여할 수 없습니다.", "목 또는 허리 질환이 있는 경우 참여를 권장하지 않습니다."],
+      "contractTemplateKeys": ["reservationTerms","privacyConsent","marineSafety","refundPolicy","weatherSchedule","equipmentLiability"]
     },
     {
       "id": "WB-014",
@@ -408,7 +421,8 @@
       "reviewCount": 221,
       "waiverRequired": true,
       "refundPolicy": "이용 1일 전까지 전액 환불, 당일 환불 불가",
-      "safetyNotes": ["만 14세 미만은 보호자의 동의가 필요합니다.", "손잡이를 잡기 어려운 상지 부상자는 참여할 수 없습니다."]
+      "safetyNotes": ["만 14세 미만은 보호자의 동의가 필요합니다.", "손잡이를 잡기 어려운 상지 부상자는 참여할 수 없습니다."],
+      "contractTemplateKeys": ["reservationTerms","privacyConsent","marineSafety","refundPolicy","weatherSchedule","equipmentLiability"]
     },
     {
       "id": "WB-015",
@@ -437,7 +451,8 @@
       "reviewCount": 96,
       "waiverRequired": true,
       "refundPolicy": "이용 3일 전까지 전액 환불, 2일 전 70%, 이후 환불 불가",
-      "safetyNotes": ["기본 수영 능력이 필요합니다.", "허리·무릎·어깨 질환이 있는 경우 참여 전 의료진과 상담해야 합니다."]
+      "safetyNotes": ["기본 수영 능력이 필요합니다.", "허리·무릎·어깨 질환이 있는 경우 참여 전 의료진과 상담해야 합니다."],
+      "contractTemplateKeys": ["reservationTerms","privacyConsent","marineSafety","refundPolicy","weatherSchedule","equipmentLiability"]
     },
     {
       "id": "WB-016",
@@ -466,7 +481,8 @@
       "reviewCount": 145,
       "waiverRequired": true,
       "refundPolicy": "이용 3일 전까지 전액 환불, 2일 전 70%, 이후 환불 불가",
-      "safetyNotes": ["어린이는 반드시 보호자와 함께 참여해야 합니다.", "낚싯바늘을 다룰 때 승무원의 안내를 따라야 합니다."]
+      "safetyNotes": ["어린이는 반드시 보호자와 함께 참여해야 합니다.", "낚싯바늘을 다룰 때 승무원의 안내를 따라야 합니다."],
+      "contractTemplateKeys": ["reservationTerms","privacyConsent","marineSafety","refundPolicy","weatherSchedule","equipmentLiability","vesselSafety"]
     },
     {
       "id": "WB-017",
@@ -495,7 +511,8 @@
       "reviewCount": 104,
       "waiverRequired": true,
       "refundPolicy": "이용 5일 전까지 전액 환불, 3일 전 50%, 이후 환불 불가",
-      "safetyNotes": ["멀미가 심한 이용자는 참여 전 멀미약 복용을 권장합니다.", "승선자 명부 작성을 위해 신분증이 필요합니다."]
+      "safetyNotes": ["멀미가 심한 이용자는 참여 전 멀미약 복용을 권장합니다.", "승선자 명부 작성을 위해 신분증이 필요합니다."],
+      "contractTemplateKeys": ["reservationTerms","privacyConsent","marineSafety","refundPolicy","weatherSchedule","equipmentLiability","vesselSafety"]
     },
     {
       "id": "WB-018",
@@ -524,7 +541,8 @@
       "reviewCount": 78,
       "waiverRequired": true,
       "refundPolicy": "이용 2일 전까지 전액 환불, 1일 전 50%, 당일 환불 불가",
-      "safetyNotes": ["지정된 안전구역 밖으로 이동하면 안 됩니다.", "낚싯바늘 사용 시 안전거리를 유지해야 합니다."]
+      "safetyNotes": ["지정된 안전구역 밖으로 이동하면 안 됩니다.", "낚싯바늘 사용 시 안전거리를 유지해야 합니다."],
+      "contractTemplateKeys": ["reservationTerms","privacyConsent","marineSafety","refundPolicy","weatherSchedule","equipmentLiability","vesselSafety"]
     },
     {
       "id": "WB-019",
@@ -553,7 +571,8 @@
       "reviewCount": 63,
       "waiverRequired": true,
       "refundPolicy": "이용 7일 전까지 전액 환불, 5일 전 50%, 이후 환불 불가",
-      "safetyNotes": ["선내 촛불과 화기 사용은 금지됩니다.", "기상 악화 시 장식이 포함된 실내 대체 장소를 안내합니다."]
+      "safetyNotes": ["선내 촛불과 화기 사용은 금지됩니다.", "기상 악화 시 장식이 포함된 실내 대체 장소를 안내합니다."],
+      "contractTemplateKeys": ["reservationTerms","privacyConsent","marineSafety","refundPolicy","weatherSchedule","vesselSafety"]
     },
     {
       "id": "WB-020",
@@ -582,7 +601,8 @@
       "reviewCount": 91,
       "waiverRequired": true,
       "refundPolicy": "이용 2일 전까지 전액 환불, 1일 전 50%, 당일 환불 불가",
-      "safetyNotes": ["체중 15kg 이하이며 물에 대한 공격성이 없는 반려견만 참여할 수 있습니다.", "반려견의 돌발 행동에 대한 보호자 관리가 필요합니다."]
+      "safetyNotes": ["체중 15kg 이하이며 물에 대한 공격성이 없는 반려견만 참여할 수 있습니다.", "반려견의 돌발 행동에 대한 보호자 관리가 필요합니다."],
+      "contractTemplateKeys": ["reservationTerms","privacyConsent","marineSafety","refundPolicy","weatherSchedule","equipmentLiability"]
     },
     {
       "id": "WB-021",
@@ -611,7 +631,8 @@
       "reviewCount": 84,
       "waiverRequired": true,
       "refundPolicy": "이용 2일 전까지 전액 환불, 1일 전 50%, 당일 환불 불가",
-      "safetyNotes": ["법정대리인의 현장 동의가 필요합니다.", "강사가 지정한 얕은 수역 밖으로 이동할 수 없습니다."]
+      "safetyNotes": ["법정대리인의 현장 동의가 필요합니다.", "강사가 지정한 얕은 수역 밖으로 이동할 수 없습니다."],
+      "contractTemplateKeys": ["reservationTerms","privacyConsent","marineSafety","refundPolicy","weatherSchedule","equipmentLiability"]
     },
     {
       "id": "WB-022",
@@ -640,7 +661,8 @@
       "reviewCount": 69,
       "waiverRequired": true,
       "refundPolicy": "이용 3일 전까지 전액 환불, 2일 전 70%, 이후 환불 불가",
-      "safetyNotes": ["기본 수영 능력이 필요하며 건강상태 확인서를 작성해야 합니다.", "절대 단독 잠수를 하지 않으며 강사의 버디 절차를 따라야 합니다."]
+      "safetyNotes": ["기본 수영 능력이 필요하며 건강상태 확인서를 작성해야 합니다.", "절대 단독 잠수를 하지 않으며 강사의 버디 절차를 따라야 합니다."],
+      "contractTemplateKeys": ["reservationTerms","privacyConsent","marineSafety","refundPolicy","weatherSchedule","equipmentLiability"]
     },
     {
       "id": "WB-023",
@@ -669,7 +691,8 @@
       "reviewCount": 57,
       "waiverRequired": true,
       "refundPolicy": "이용 1일 전까지 전액 환불, 당일 환불 불가",
-      "safetyNotes": ["유리 조각과 날카로운 폐기물은 직접 만지지 않아야 합니다.", "안전구역 밖의 쓰레기는 수거하지 않습니다."]
+      "safetyNotes": ["유리 조각과 날카로운 폐기물은 직접 만지지 않아야 합니다.", "안전구역 밖의 쓰레기는 수거하지 않습니다."],
+      "contractTemplateKeys": ["reservationTerms","privacyConsent","marineSafety","refundPolicy","weatherSchedule","equipmentLiability"]
     },
     {
       "id": "WB-024",
@@ -698,7 +721,8 @@
       "reviewCount": 73,
       "waiverRequired": true,
       "refundPolicy": "이용 2일 전까지 전액 환불, 1일 전 50%, 당일 환불 불가",
-      "safetyNotes": ["전동휠체어 이용자는 예약 시 크기와 무게를 알려야 합니다.", "승하선 시 안전요원의 안내를 따라야 합니다."]
+      "safetyNotes": ["전동휠체어 이용자는 예약 시 크기와 무게를 알려야 합니다.", "승하선 시 안전요원의 안내를 따라야 합니다."],
+      "contractTemplateKeys": ["reservationTerms","privacyConsent","marineSafety","refundPolicy","weatherSchedule","equipmentLiability"]
     }
   ]
 }

@@ -98,14 +98,18 @@ git push origin develop
 
 1. [Node.js](https://nodejs.org/)를 설치합니다.
 2. 프로젝트 폴더에서 `npm install`을 실행합니다.
-3. `.env.example`을 참고해 `.env` 파일을 만들고 `UPSTAGE_API_KEY`를 입력합니다.
+3. `.env.example`을 참고해 `.env` 파일을 만들고 API 키를 입력합니다.
 
 ```env
 UPSTAGE_API_KEY=발급받은_키
+MODUSIGN_EMAIL=모두싸인_워크스페이스_이메일
+MODUSIGN_API_KEY=모두싸인_API_키
 PORT=3000
 ```
 
 `.env` 파일은 `.gitignore`에 포함되어 있으므로 GitHub에 올리지 않습니다.
+
+전자서명에 사용할 계약서 ID는 `.env`가 아니라 `data/contract-templates.json`에 저장합니다. 상품별로 어떤 계약서를 사용할지는 `data/products.json`의 `contractTemplateKeys`에서 고릅니다. 사진·영상 활용 동의서와 미성년자 법정대리인 동의서는 선택 동의가 필요한 항목이므로 기본 계약서 묶음에는 넣지 않았습니다.
 
 ### 실행하기
 

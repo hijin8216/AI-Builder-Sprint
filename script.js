@@ -929,10 +929,11 @@ document.querySelector("#booking-form").addEventListener("submit", async (event)
   const submitButton = event.currentTarget.querySelector(".dialog-submit");
   const bookingDraft = {
     name: bookingName.value.trim(),
+    productId: state.selectedExperience?.id ?? "",
     people,
     date: bookingDate.value,
     activity: experienceTitle,
-    venue: state.selectedExperience?.operator ?? "WAVEON BUSAN 제휴 업체",
+    venue: state.selectedExperience?.partnerName ?? "WAVEON BUSAN 제휴 업체",
   };
 
   submitButton.disabled = true;
