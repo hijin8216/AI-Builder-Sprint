@@ -15,6 +15,7 @@ const state = {
   recommendationMessage: "",
   contractSummaryCache: new Map(),
   page: 0,
+  regions: new Set(),
 };
 
 const categoryGroups = {
@@ -81,6 +82,7 @@ const emptyState = document.querySelector("#empty-state");
 const resultCount = document.querySelector("#result-count");
 const resultDescription = document.querySelector("#result-description");
 const categoryButtons = [...document.querySelectorAll("[data-category]")];
+const regionFilterButtons = [...document.querySelectorAll("[data-region-filter]")];
 const regionSelect = document.querySelector("#region-select");
 const keywordInput = document.querySelector("#keyword-input");
 const sortSelect = document.querySelector("#sort-select");
@@ -202,7 +204,8 @@ function getVisibleExperiences() {
       experience.category,
       state.category,
     );
-    const matchesRegion = !state.region || experience.region === state.region;
+    const matchesRegion =
+      state.regions.size === 0 || state.regions.has(experience.region);
     const searchableText =
       `${experience.partnerName} ${experience.name} ${experience.description} ${experience.category} ${experience.region} ${experience.moods.join(" ")}`.toLowerCase();
     const matchesKeyword =
@@ -310,7 +313,7 @@ function renderExperiences() {
 
   const descriptions = [];
   if (state.category) descriptions.push(`${state.category} 카테고리`);
-  if (state.region) descriptions.push(`${state.region} 지역`);
+  if (state.regions.size) descriptions.push(`${[...state.regions].join(" · ")} 지역`);
   if (state.keyword) descriptions.push(`“${state.keyword}” 검색`);
 
   resultDescription.textContent = descriptions.length
@@ -335,6 +338,35 @@ function clearRecommendations() {
   state.recommendationMap.clear();
   state.recommendationMessage = "";
   state.page = 0;
+}
+
+function updateRegionFilterButtons() {
+  const isAllRegions = state.regions.size === 0;
+
+  regionFilterButtons.forEach((button) => {
+    const region = button.dataset.regionFilter;
+    const isActive = region
+      ? state.regions.has(region)
+      : isAllRegions;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+}
+
+function toggleRegionFilter(region) {
+  clearRecommendations();
+
+  if (!region) {
+    state.regions.clear();
+  } else if (state.regions.has(region)) {
+    state.regions.delete(region);
+  } else {
+    state.regions.add(region);
+  }
+
+  regionSelect.value = state.regions.values().next().value ?? "";
+  updateRegionFilterButtons();
+  renderExperiences();
 }
 
 function setCategory(category) {
@@ -1036,6 +1068,12 @@ categoryButtons.forEach((button) => {
   });
 });
 
+regionFilterButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    toggleRegionFilter(button.dataset.regionFilter);
+  });
+});
+
 document.querySelectorAll("[data-region]").forEach((button) => {
   button.addEventListener("click", () => {
     clearRecommendations();
@@ -1399,9 +1437,11 @@ document
       state.page = 0;
       state.category = "";
       state.region = "";
+      state.regions.clear();
       state.keyword = "";
       regionSelect.value = "";
       keywordInput.value = "";
+      updateRegionFilterButtons();
 
       categoryButtons.forEach((button) => {
         const isActive = button.dataset.category === "";
@@ -1649,30 +1689,25 @@ function closeSignatureDialog() {
 
 document.querySelector("#signature-close").addEventListener("click", closeSignatureDialog);
 
-document.querySelector("#newsletter-form").addEventListener("submit", (event) => {
-  event.preventDefault();
-  const emailInput = document.querySelector("#newsletter-email");
-
-  showToast(`${emailInput.value}로 바다 소식을 보내드릴게요.`);
-  emailInput.value = "";
-});
 
 const menuButton = document.querySelector(".menu-button");
 const mainNavigation = document.querySelector("#main-navigation");
 
-menuButton.addEventListener("click", () => {
-  const isOpen = mainNavigation.classList.toggle("is-open");
-  menuButton.setAttribute("aria-expanded", String(isOpen));
-  menuButton.setAttribute("aria-label", isOpen ? "메뉴 닫기" : "메뉴 열기");
-});
+if (menuButton && mainNavigation) {
+  menuButton.addEventListener("click", () => {
+    const isOpen = mainNavigation.classList.toggle("is-open");
+    menuButton.setAttribute("aria-expanded", String(isOpen));
+    menuButton.setAttribute("aria-label", isOpen ? "메뉴 닫기" : "메뉴 열기");
+  });
 
-mainNavigation.addEventListener("click", (event) => {
-  if (event.target.closest("a, button")) {
-    mainNavigation.classList.remove("is-open");
-    menuButton.setAttribute("aria-expanded", "false");
-    menuButton.setAttribute("aria-label", "메뉴 열기");
-  }
-});
+  mainNavigation.addEventListener("click", (event) => {
+    if (event.target.closest("a, button")) {
+      mainNavigation.classList.remove("is-open");
+      menuButton.setAttribute("aria-expanded", "false");
+      menuButton.setAttribute("aria-label", "메뉴 열기");
+    }
+  });
+}
 
 const localToday = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Seoul",

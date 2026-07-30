@@ -28,25 +28,6 @@
           <small>BUSAN</small>
         </a>
 
-        <button
-          class="menu-button"
-          type="button"
-          aria-label="메뉴 열기"
-          aria-expanded="false"
-          aria-controls="main-navigation"
-        >
-          <span></span><span></span><span></span>
-        </button>
-
-        <nav id="main-navigation" class="main-nav" aria-label="주요 메뉴">
-          <a href="#experiences">레저 찾기</a>
-          <a href="#regions">지역별 보기</a>
-          <a href="#how-it-works">이용 방법</a>
-          <button class="nav-partner" type="button" data-notice="파트너 입점 문의가 접수되었습니다.">
-            파트너 입점
-          </button>
-        </nav>
-
         <button id="login-button" class="login-button" type="button" aria-haspopup="dialog">
           로그인
         </button>
@@ -81,11 +62,6 @@
             </button>
           </form>
 
-          <div class="hero-meta" aria-label="서비스 특징">
-            <span><b>64+</b> 부산 레저</span>
-            <span><b>4.9</b> 평균 평점</span>
-            <span><b>100%</b> 검증된 파트너</span>
-          </div>
         </div>
       </section>
 
@@ -132,6 +108,15 @@
             </div>
             <div class="result-tools">
               <span id="result-count" aria-live="polite">8개의 경험</span>
+              <div class="region-filter" role="group" aria-label="지역 다중 선택">
+                <button class="region-filter-button is-active" type="button" data-region-filter="" aria-pressed="true">전체</button>
+                <button class="region-filter-button" type="button" data-region-filter="해운대" aria-pressed="false">해운대</button>
+                <button class="region-filter-button" type="button" data-region-filter="광안리" aria-pressed="false">광안리</button>
+                <button class="region-filter-button" type="button" data-region-filter="송정" aria-pressed="false">송정</button>
+                <button class="region-filter-button" type="button" data-region-filter="기장" aria-pressed="false">기장</button>
+                <button class="region-filter-button" type="button" data-region-filter="다대포" aria-pressed="false">다대포</button>
+                <button class="region-filter-button" type="button" data-region-filter="영도" aria-pressed="false">영도</button>
+              </div>
               <select id="sort-select" aria-label="경험 정렬">
                 <option value="popular">인기순</option>
                 <option value="rating">평점순</option>
@@ -181,62 +166,6 @@
         </div>
       </section>
 
-      <section id="regions" class="region-section" aria-labelledby="region-title">
-        <div class="container">
-          <div class="section-heading heading-row">
-            <div>
-              <p class="section-kicker">EXPLORE BUSAN</p>
-              <h2 id="region-title">파도 따라 만나는 부산</h2>
-            </div>
-            <p class="section-description region-description">
-              바다마다 다른 온도와 풍경,<br />당신의 하루에 맞는 지역을 골라보세요.
-            </p>
-          </div>
-
-          <div class="region-grid">
-            <button class="region-card region-large" type="button" data-region="해운대">
-              <img
-                src="https://images.unsplash.com/photo-1562281302-809108fd533c?auto=format&fit=crop&w=1200&q=86"
-                alt=""
-              />
-              <span class="region-overlay"></span>
-              <span class="region-copy">
-                <small>YACHT · PADDLE BOARD</small>
-                <strong>해운대 · 마린시티</strong>
-                <em>도시의 빛과 바다를 한 번에</em>
-              </span>
-              <span class="region-arrow" aria-hidden="true">↗</span>
-            </button>
-            <button class="region-card" type="button" data-region="송정">
-              <img
-                src="https://images.unsplash.com/photo-1502680390469-be75c86b636f?auto=format&fit=crop&w=900&q=86"
-                alt=""
-              />
-              <span class="region-overlay"></span>
-              <span class="region-copy">
-                <small>SURF · SUNRISE</small>
-                <strong>송정 · 기장</strong>
-                <em>파도를 배우기 가장 좋은 곳</em>
-              </span>
-              <span class="region-arrow" aria-hidden="true">↗</span>
-            </button>
-            <button class="region-card" type="button" data-region="광안리">
-              <img
-                src="https://images.unsplash.com/photo-1519315901367-f34ff9154487?auto=format&fit=crop&w=900&q=86"
-                alt=""
-              />
-              <span class="region-overlay"></span>
-              <span class="region-copy">
-                <small>SUP · NIGHT VIEW</small>
-                <strong>광안리</strong>
-                <em>광안대교 아래 특별한 밤</em>
-              </span>
-              <span class="region-arrow" aria-hidden="true">↗</span>
-            </button>
-          </div>
-        </div>
-      </section>
-
       <section id="how-it-works" class="guide-section" aria-labelledby="guide-title">
         <div class="container guide-wrap">
           <div class="guide-title">
@@ -269,25 +198,6 @@
         </div>
       </section>
 
-      <section class="newsletter-section" aria-labelledby="newsletter-title">
-        <div class="container newsletter-wrap">
-          <div>
-            <p class="section-kicker">WEEKEND WAVE LETTER</p>
-            <h2 id="newsletter-title">이번 주말, 바다가 부르면</h2>
-            <p>새로운 부산의 바다 경험과 얼리버드 소식을 보내드려요.</p>
-          </div>
-          <form id="newsletter-form" class="newsletter-form">
-            <label class="visually-hidden" for="newsletter-email">이메일 주소</label>
-            <input
-              id="newsletter-email"
-              type="email"
-              placeholder="이메일 주소를 입력하세요"
-              required
-            />
-            <button type="submit">소식 받기 <span aria-hidden="true">→</span></button>
-          </form>
-        </div>
-      </section>
     </main>
 
     <footer class="site-footer">
@@ -300,11 +210,12 @@
           <div>
             <strong>서비스</strong>
             <a href="#experiences">레저 찾기</a>
-            <a href="#regions">지역별 보기</a>
+            <a href="#experiences">지역별 보기</a>
             <a href="#how-it-works">이용 방법</a>
           </div>
           <div>
             <strong>고객지원</strong>
+            <button class="footer-partner" type="button" data-notice="파트너 입점 문의가 접수되었습니다.">파트너 입점</button>
             <button type="button" data-notice="자주 묻는 질문을 준비 중입니다.">자주 묻는 질문</button>
             <button type="button" data-notice="1:1 문의 기능을 준비 중입니다.">1:1 문의</button>
             <button type="button" data-notice="안전 가이드를 준비 중입니다.">안전 가이드</button>
