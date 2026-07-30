@@ -9,6 +9,21 @@ import { fileURLToPath } from "node:url";
 const currentFilePath = fileURLToPath(import.meta.url);
 const projectDirectory = path.dirname(currentFilePath);
 const productFilePath = path.join(projectDirectory, "data", "products.json");
+const productDetailFilePath = path.join(
+  projectDirectory,
+  "data",
+  "product-details.json",
+);
+const productContractFilePath = path.join(
+  projectDirectory,
+  "data",
+  "product-contracts.json",
+);
+const productMediaFilePath = path.join(
+  projectDirectory,
+  "data",
+  "product-media.json",
+);
 const contractTemplateFilePath = path.join(
   projectDirectory,
   "data",
@@ -19,10 +34,18 @@ const temporaryUserFilePath = `${userFilePath}.tmp`;
 const reservationFilePath = path.join(projectDirectory, "data", "reservations.local.json");
 const temporaryReservationFilePath = `${reservationFilePath}.tmp`;
 const productData = JSON.parse(await readFile(productFilePath, "utf8"));
+const productDetailData = JSON.parse(
+  await readFile(productDetailFilePath, "utf8"),
+);
+const productContractData = JSON.parse(
+  await readFile(productContractFilePath, "utf8"),
+);
 const contractTemplateData = JSON.parse(
   await readFile(contractTemplateFilePath, "utf8"),
 );
 const products = productData.products;
+const productDetails = productDetailData.details;
+const productContracts = productContractData.contracts;
 const contractTemplates = contractTemplateData.templates;
 const users = await loadUsers();
 const reservations = await loadReservations();
@@ -53,6 +76,18 @@ app.get("/script.js", (_request, response) => {
 
 app.get("/data/products.json", (_request, response) => {
   response.sendFile(productFilePath);
+});
+
+app.get("/data/product-details.json", (_request, response) => {
+  response.sendFile(productDetailFilePath);
+});
+
+app.get("/data/product-contracts.json", (_request, response) => {
+  response.sendFile(productContractFilePath);
+});
+
+app.get("/data/product-media.json", (_request, response) => {
+  response.sendFile(productMediaFilePath);
 });
 
 app.get("/api/health", (_request, response) => {
@@ -164,6 +199,7 @@ app.post("/api/reservations", async (request, response) => {
       activity: booking.activity,
       venue: booking.venue,
       date: booking.date,
+      time: booking.time,
       people: booking.people,
       status: "CONTRACT_PENDING",
       signatureStatus: "",
@@ -338,6 +374,42 @@ app.get("/api/reservations/:reservationId/document", async (request, response) =
   }
 });
 
+app.post("/api/contract-summary", async (request, response) => {
+  try {
+    const productId = cleanText(request.body?.productId, 20);
+    const product = products.find((item) => item.id === productId);
+    const detail = productDetails[productId];
+    const contract = productContracts[productId];
+
+    if (!product || !detail || !contract) {
+      response.status(404).json({ message: "요약할 상품 약관을 찾지 못했습니다." });
+      return;
+    }
+
+    const terms = buildContractTerms(product, detail, contract);
+    const solarSummary = await requestFocusedContractSummary(
+      product,
+      terms,
+      contract.riskLevel,
+    );
+
+    response.json({
+      mode: solarSummary ? "solar" : "local",
+      message: solarSummary
+        ? "Solar가 약관에서 환불 제한과 불리한 조건을 정리했습니다."
+        : "Solar 연결이 없어 약관을 규칙 기반으로 정리했습니다.",
+      summary:
+        solarSummary ??
+        createFocusedLocalSummary(product, terms, contract.riskLevel),
+    });
+  } catch (error) {
+    console.error("약관 요약 처리 오류:", error.message);
+    response.status(400).json({
+      message: error.message || "약관을 요약하지 못했습니다.",
+    });
+  }
+});
+
 app.post("/api/recommendations", async (request, response) => {
   try {
     const profile = normalizeProfile(request.body);
@@ -492,6 +564,7 @@ function publicReservation(reservation) {
     activity: reservation.activity,
     venue: reservation.venue,
     date: reservation.date,
+    time: reservation.time || "",
     people: reservation.people,
     status: reservation.status,
     signatureStatus: reservation.signatureStatus,
@@ -598,10 +671,17 @@ function normalizeBooking(input = {}) {
     name: cleanText(input.name, 30), email: cleanText(input.email, 100),
     productId: cleanText(input.productId, 30),
     activity: cleanText(input.activity, 120), venue: cleanText(input.venue, 100),
-    date: cleanText(input.date, 20), people: cleanText(input.people, 10),
+    date: cleanText(input.date, 20), time: cleanText(input.time, 10),
+    people: cleanText(input.people, 10),
   };
-  if (!booking.name || !booking.email || !booking.activity || !booking.date) {
-    throw new Error("예약자 정보와 이용 날짜를 확인해 주세요.");
+  if (
+    !booking.name ||
+    !booking.email ||
+    !booking.activity ||
+    !booking.date ||
+    !booking.time
+  ) {
+    throw new Error("예약자 정보와 이용 날짜·시간을 확인해 주세요.");
   }
   return booking;
 }
@@ -695,7 +775,7 @@ async function createModusignDocument(booking) {
     body: JSON.stringify({
       templateId,
       document: {
-        title: `${booking.date}_${booking.activity}_${booking.name}`,
+        title: `${booking.date}_${booking.time || "시간미정"}_${booking.activity}_${booking.name}`,
         participantMappings: [{ role, name: booking.name, signingMethod: { type: "SECURE_LINK", value: booking.email } }],
       },
     }),
@@ -893,6 +973,159 @@ function normalizeScore(rawScore, profile) {
     (profile.mood ? 20 : 0);
 
   return Math.min(100, Math.round((rawScore / maximumScore) * 100));
+}
+
+function buildContractTerms(product, detail, contract) {
+  return [
+    ...detail.refundRules.map((text) => `환불 규정: ${text}`),
+    ...detail.bookingConditions.map((text) => `예약 조건: ${text}`),
+    ...contract.additionalClauses.map((text) => `추가 약관: ${text}`),
+    ...product.safetyNotes.map((text) => `안전 조건: ${text}`),
+  ];
+}
+
+async function requestFocusedContractSummary(product, terms, baselineRiskLevel) {
+  const apiKey = process.env.UPSTAGE_API_KEY?.trim();
+  if (!apiKey) return null;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const apiResponse = await fetch(
+      "https://api.upstage.ai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "solar-pro3",
+          temperature: 0.1,
+          messages: [
+            {
+              role: "system",
+              content:
+                "당신은 해양레저 예약 약관에서 소비자가 놓치기 쉬운 내용을 찾는 도우미입니다. 환불 제한과 소비자에게 불리할 수 있는 조건만 쉽고 짧은 한국어로 정리하세요. 제공된 약관에 없는 사실은 만들지 마세요.",
+            },
+            {
+              role: "user",
+              content: buildFocusedContractPrompt(
+                product,
+                terms,
+                baselineRiskLevel,
+              ),
+            },
+          ],
+        }),
+        signal: controller.signal,
+      },
+    );
+
+    if (!apiResponse.ok) {
+      throw new Error(`Solar API 응답 오류 (${apiResponse.status})`);
+    }
+
+    const apiResult = await apiResponse.json();
+    const content = apiResult.choices?.[0]?.message?.content;
+    if (!content) throw new Error("Solar 응답에 약관 요약이 없습니다.");
+    return parseFocusedContractSummary(content, baselineRiskLevel);
+  } catch (error) {
+    console.error("Solar 약관 요약 연결 오류:", error.message);
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function buildFocusedContractPrompt(product, terms, baselineRiskLevel) {
+  return `
+다음은 "${product.name}" 상품의 예약 약관 원문입니다.
+
+상품별 약관을 미리 검토해 정한 기준 주의도: ${baselineRiskLevel}
+
+${terms.map((term, index) => `${index + 1}. ${term}`).join("\n")}
+
+환불 주의사항과 소비자에게 불리할 수 있는 조건만 서로 겹치지 않게 정리하세요.
+주의도는 "매우높음", "높음", "보통", "낮음", "매우낮음" 중 하나이며, 위 기준 주의도를 그대로 사용하세요.
+반드시 아래 JSON 형식만 반환하고 마크다운 코드 블록은 사용하지 마세요.
+{
+  "headline": "가장 먼저 확인할 핵심 주의사항 한 문장",
+  "riskLevel": "${baselineRiskLevel}",
+  "refundWarnings": ["취소 시점별 환불 제한", "기상·지각·노쇼 관련 환불 조건", "환불에서 추가 확인할 내용"],
+  "unfairTerms": ["업체의 변경 권한", "추가 비용 또는 손해 책임", "소비자에게 불리할 수 있는 면책·제한 조건"]
+}
+`;
+}
+
+function parseFocusedContractSummary(content, baselineRiskLevel) {
+  const cleanedContent = content
+    .trim()
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/, "");
+  const parsed = JSON.parse(cleanedContent);
+  const allowedRiskLevels = [
+    "매우높음",
+    "높음",
+    "보통",
+    "낮음",
+    "매우낮음",
+  ];
+  const riskLevel = allowedRiskLevels.includes(baselineRiskLevel)
+    ? baselineRiskLevel
+    : allowedRiskLevels.includes(parsed.riskLevel)
+      ? parsed.riskLevel
+      : "보통";
+  const summary = {
+    headline: cleanText(parsed.headline, 180),
+    riskLevel,
+    refundWarnings: normalizeSummaryItems(parsed.refundWarnings, 5, 180),
+    unfairTerms: normalizeSummaryItems(parsed.unfairTerms, 5, 180),
+  };
+
+  if (
+    !summary.headline ||
+    summary.refundWarnings.length === 0 ||
+    summary.unfairTerms.length === 0
+  ) {
+    throw new Error("Solar 약관 요약 형식을 확인할 수 없습니다.");
+  }
+  return summary;
+}
+
+function createFocusedLocalSummary(product, terms, baselineRiskLevel) {
+  const cleanTermPrefix = (term) =>
+    term.replace(/^(환불 규정|예약 조건|추가 약관|안전 조건):\s*/, "");
+  const refundWarnings = terms
+    .filter((term) => /환불|취소|노쇼|지각|기상|변경/.test(term))
+    .slice(0, 4)
+    .map(cleanTermPrefix);
+  const unfairTerms = terms
+    .filter((term) => /비용|청구|책임|보상|대체|제한|분실|파손|공제/.test(term))
+    .slice(0, 4)
+    .map(cleanTermPrefix);
+
+  return {
+    headline: `${product.name}은(는) 취소 시점과 현장 변경·추가 비용 조건을 예약 전에 꼭 확인해야 합니다.`,
+    riskLevel: baselineRiskLevel || "보통",
+    refundWarnings:
+      refundWarnings.length > 0 ? refundWarnings : [product.refundPolicy],
+    unfairTerms:
+      unfairTerms.length > 0
+        ? unfairTerms
+        : ["현장 상황에 따라 일정이나 체험 내용이 바뀔 수 있습니다."],
+  };
+}
+
+function normalizeSummaryItems(items, maximumCount, maximumLength) {
+  return Array.isArray(items)
+    ? items
+        .slice(0, maximumCount)
+        .map((item) => cleanText(item, maximumLength))
+        .filter(Boolean)
+    : [];
 }
 
 async function requestSolarRecommendations(profile, candidates) {

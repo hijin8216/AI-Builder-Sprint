@@ -552,6 +552,91 @@
       </div>
     </dialog>
 
+    <dialog id="product-detail-dialog" class="product-detail-dialog" aria-labelledby="detail-title">
+      <div class="product-detail-shell">
+        <header class="product-detail-hero">
+          <img id="detail-image" src="" alt="" />
+          <span class="product-detail-shade"></span>
+          <button id="detail-close" class="detail-close" type="button" aria-label="상품 상세 닫기">×</button>
+          <div class="product-detail-title">
+            <p id="detail-category"></p>
+            <h2 id="detail-title"></h2>
+            <span id="detail-partner"></span>
+          </div>
+        </header>
+        <div class="product-detail-body">
+          <main class="product-detail-content">
+            <section class="detail-showcase" aria-label="상품 소개">
+              <p id="detail-promotion" class="detail-promotion"></p>
+              <div id="detail-story" class="detail-story"></div>
+              <ul id="detail-highlights" class="detail-highlights"></ul>
+              <div id="detail-gallery" class="detail-gallery" aria-label="상품 관련 사진"></div>
+              <a id="detail-photo-source" class="detail-photo-source" href="#" target="_blank" rel="noreferrer">대표 사진 출처 · Unsplash ↗</a>
+              <div class="detail-itinerary-wrap">
+                <strong>체험은 이렇게 진행돼요</strong>
+                <ol id="detail-itinerary" class="detail-itinerary"></ol>
+              </div>
+            </section>
+            <section class="detail-ai-section" aria-labelledby="detail-ai-title">
+              <div class="detail-ai-heading">
+                <div>
+                  <p class="detail-section-kicker">SOLAR PAGE SUMMARY</p>
+                  <h3 id="detail-ai-title">AI가 놓치기 쉬운 약관을 정리해요</h3>
+                  <p>긴 예약 약관에서 환불 제한과 소비자에게 불리할 수 있는 조건만 골라 보여드립니다.</p>
+                </div>
+                <span class="detail-ai-mark" aria-hidden="true">AI</span>
+              </div>
+              <button id="detail-ai-summary-button" class="detail-ai-summary-button" type="button">
+                <span>AI로 이 페이지 요약하기</span><span aria-hidden="true">✦</span>
+              </button>
+              <div id="detail-ai-summary" class="detail-ai-summary" hidden aria-live="polite">
+                <div class="detail-ai-result-head">
+                  <span id="detail-ai-mode"></span>
+                  <strong id="detail-ai-risk"></strong>
+                </div>
+                <h4 id="detail-ai-headline"></h4>
+                <div class="detail-ai-summary-grid">
+                  <div class="detail-ai-refund">
+                    <span aria-hidden="true">01</span>
+                    <strong>환불 주의사항</strong>
+                    <ul id="detail-ai-refund-warnings"></ul>
+                  </div>
+                  <div class="detail-ai-watchout">
+                    <span aria-hidden="true">02</span>
+                    <strong>나에게 불리할 수 있어요</strong>
+                    <ul id="detail-ai-watch-out"></ul>
+                  </div>
+                </div>
+                <small>AI 요약은 이해를 돕기 위한 참고 자료입니다. 아래 원문 약관과 최종 전자계약서를 함께 확인하세요.</small>
+              </div>
+            </section>
+            <section class="detail-terms-prose" aria-labelledby="detail-terms-title">
+              <p class="detail-section-kicker">FULL BOOKING TERMS</p>
+              <h3 id="detail-terms-title">예약 전 세부 조건</h3>
+              <p class="detail-terms-intro">환불, 예약, 추가 약관과 안전 조건을 포함한 전체 원문입니다. 각 문장을 차례대로 읽어보세요.</p>
+              <ol id="detail-contract-terms" class="detail-contract-prose"></ol>
+            </section>
+          </main>
+          <aside class="product-detail-booking">
+            <div class="detail-price-row"><span>1인 기준</span><strong id="detail-price"></strong></div>
+            <dl class="detail-facts">
+              <div><dt>장소</dt><dd id="detail-location"></dd></div>
+              <div><dt>소요 시간</dt><dd id="detail-duration"></dd></div>
+              <div><dt>최소 연령</dt><dd id="detail-age"></dd></div>
+              <div><dt>최대 인원</dt><dd id="detail-capacity"></dd></div>
+              <div><dt>운영 시간</dt><dd id="detail-time-slots"></dd></div>
+            </dl>
+            <div class="detail-included">
+              <strong>포함 사항</strong>
+              <div id="detail-included"></div>
+            </div>
+            <button id="detail-book-button" class="detail-book-button" type="button">조건을 확인하고 예약하기 <span>→</span></button>
+            <small>예약 요청 후 약관 검토와 전자서명이 진행됩니다.</small>
+          </aside>
+        </div>
+      </div>
+    </dialog>
+
     <dialog id="booking-dialog" class="booking-dialog">
       <div class="dialog-media">
         <img id="dialog-image" src="" alt="" />
@@ -579,6 +664,10 @@
             <input id="booking-date" type="date" required />
           </label>
           <label>
+            <span>운영 시간</span>
+            <select id="booking-time" required></select>
+          </label>
+          <label class="booking-people-field">
             <span>인원</span>
             <select id="booking-people">
               <option value="1">1명</option>

@@ -2381,3 +2381,505 @@ img {
     grid-template-columns: 1fr;
   }
 }
+
+/* 상품 상세페이지: 팀 전자계약 화면과 분리된 독립 모달 */
+.product-detail-dialog {
+  width: min(1120px, calc(100% - 32px));
+  max-height: calc(100vh - 32px);
+  padding: 0;
+  overflow: auto;
+  background: #f7fafb;
+  border: 0;
+  border-radius: 16px;
+  box-shadow: 0 30px 90px rgba(0, 18, 30, 0.42);
+}
+
+.product-detail-dialog::backdrop {
+  background: rgba(2, 23, 37, 0.78);
+  backdrop-filter: blur(5px);
+}
+
+.product-detail-shell {
+  background: #f7fafb;
+}
+
+.product-detail-hero {
+  position: relative;
+  height: 360px;
+  overflow: hidden;
+  color: white;
+  background: var(--navy);
+}
+
+.product-detail-hero img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-detail-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(1, 23, 38, 0.08) 15%, rgba(1, 23, 38, 0.86) 100%);
+}
+
+.detail-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  color: white;
+  background: rgba(1, 23, 38, 0.48);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 50%;
+  font-size: 25px;
+  cursor: pointer;
+}
+
+.product-detail-title {
+  position: absolute;
+  right: 48px;
+  bottom: 42px;
+  left: 48px;
+}
+
+.product-detail-title p,
+.detail-section-kicker {
+  margin: 0 0 10px;
+  color: var(--blue);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+}
+
+.product-detail-title p {
+  color: #a8edf0;
+  font-size: 11px;
+}
+
+.product-detail-title h2 {
+  max-width: 780px;
+  margin: 0 0 10px;
+  font-size: clamp(28px, 4vw, 46px);
+  line-height: 1.08;
+}
+
+.product-detail-title > span {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 12px;
+}
+
+.product-detail-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 36px;
+  padding: 42px 48px 54px;
+  align-items: start;
+}
+
+.product-detail-content {
+  min-width: 0;
+}
+
+.detail-showcase,
+.detail-ai-section,
+.detail-terms-prose {
+  padding-bottom: 38px;
+}
+
+.detail-ai-section,
+.detail-terms-prose {
+  padding-top: 38px;
+  border-top: 1px solid var(--line);
+}
+
+.detail-promotion {
+  margin: 0 0 25px;
+  color: var(--navy);
+  font-size: 20px;
+  font-weight: 750;
+  line-height: 1.65;
+}
+
+.detail-story p {
+  margin: 0 0 14px;
+  color: #526b78;
+  font-size: 13px;
+  line-height: 1.9;
+}
+
+.detail-highlights {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 28px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.detail-highlights li {
+  padding: 16px;
+  color: #214b5f;
+  background: #eaf5f7;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.55;
+}
+
+.detail-gallery {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.detail-gallery figure {
+  height: 210px;
+  margin: 0;
+  overflow: hidden;
+  background: #dce8eb;
+  border-radius: 11px;
+}
+
+.detail-gallery img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.detail-photo-source {
+  display: inline-block;
+  margin-top: 9px;
+  color: #80929a;
+  font-size: 9px;
+  text-decoration: none;
+}
+
+.detail-itinerary-wrap {
+  margin-top: 28px;
+  padding: 22px 24px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+}
+
+.detail-itinerary-wrap > strong {
+  color: var(--navy);
+  font-size: 14px;
+}
+
+.detail-itinerary {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 0;
+  padding-left: 20px;
+  color: #536d79;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.detail-ai-heading {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.detail-ai-heading h3,
+.detail-terms-prose h3 {
+  margin: 0;
+  color: var(--navy);
+  font-size: 22px;
+}
+
+.detail-ai-heading div > p:last-child,
+.detail-terms-intro {
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.detail-ai-mark {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: white;
+  background: linear-gradient(135deg, var(--blue), #32aeb5);
+  border-radius: 13px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.detail-ai-summary-button,
+.detail-book-button {
+  display: flex;
+  width: 100%;
+  margin-top: 22px;
+  padding: 15px 18px;
+  align-items: center;
+  justify-content: space-between;
+  color: white;
+  background: var(--navy);
+  border: 0;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.detail-ai-summary-button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.detail-ai-summary {
+  margin-top: 14px;
+  padding: 24px;
+  color: #324f5d;
+  background: #eef7f8;
+  border: 1px solid #cfe6e9;
+  border-radius: 12px;
+}
+
+.detail-ai-result-head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.detail-ai-result-head > span {
+  color: var(--blue);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+#detail-ai-risk {
+  padding: 6px 9px;
+  color: #b23434;
+  background: #ffe7e7;
+  border-radius: 999px;
+  font-size: 10px;
+}
+
+#detail-ai-risk[data-risk="보통"] {
+  color: #a65c0d;
+  background: #fff0d9;
+}
+
+#detail-ai-risk[data-risk="낮음"],
+#detail-ai-risk[data-risk="매우낮음"] {
+  color: #237348;
+  background: #dff4e7;
+}
+
+.detail-ai-summary h4 {
+  margin: 18px 0;
+  color: var(--navy);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.detail-ai-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.detail-ai-summary-grid > div {
+  padding: 18px;
+  background: white;
+  border-radius: 10px;
+}
+
+.detail-ai-summary-grid > div > span {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--blue);
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.detail-ai-summary-grid > div > strong {
+  color: var(--navy);
+  font-size: 13px;
+}
+
+.detail-ai-summary-grid ul {
+  display: grid;
+  gap: 8px;
+  margin: 13px 0 0;
+  padding-left: 17px;
+  font-size: 10px;
+  line-height: 1.65;
+}
+
+.detail-ai-summary > small {
+  display: block;
+  margin-top: 16px;
+  color: #71858f;
+  font-size: 9px;
+  line-height: 1.6;
+}
+
+.detail-contract-prose {
+  margin: 22px 0 0;
+  padding-left: 22px;
+  color: #60737d;
+}
+
+.detail-contract-prose li {
+  margin-bottom: 12px;
+  padding-left: 4px;
+  font-size: 10px;
+  line-height: 1.75;
+}
+
+.detail-contract-prose strong {
+  color: #355361;
+}
+
+.product-detail-booking {
+  position: sticky;
+  top: 20px;
+  padding: 26px;
+  background: white;
+  border: 1px solid #dce7ea;
+  border-radius: 13px;
+  box-shadow: 0 15px 34px rgba(5, 49, 70, 0.1);
+}
+
+.detail-price-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.detail-price-row span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.detail-price-row strong {
+  color: var(--navy);
+  font-size: 23px;
+}
+
+.detail-facts {
+  margin: 8px 0 0;
+}
+
+.detail-facts div {
+  display: grid;
+  grid-template-columns: 82px 1fr;
+  gap: 10px;
+  padding: 11px 0;
+  border-bottom: 1px solid #edf2f3;
+}
+
+.detail-facts dt {
+  color: #8a9aa2;
+  font-size: 9px;
+}
+
+.detail-facts dd {
+  margin: 0;
+  color: #385361;
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1.5;
+  text-align: right;
+}
+
+.detail-included {
+  padding: 18px 0 4px;
+}
+
+.detail-included > strong {
+  color: var(--navy);
+  font-size: 11px;
+}
+
+.detail-included > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.detail-included span {
+  padding: 6px 8px;
+  color: #315869;
+  background: #edf6f7;
+  border-radius: 999px;
+  font-size: 9px;
+}
+
+.detail-book-button {
+  background: var(--ocean);
+}
+
+.product-detail-booking > small {
+  display: block;
+  margin-top: 11px;
+  color: #8999a1;
+  font-size: 9px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .product-detail-body {
+    grid-template-columns: 1fr;
+  }
+
+  .product-detail-booking {
+    position: static;
+  }
+}
+
+@media (max-width: 620px) {
+  .product-detail-dialog {
+    width: calc(100% - 16px);
+    max-height: calc(100vh - 16px);
+    border-radius: 11px;
+  }
+
+  .product-detail-hero {
+    height: 300px;
+  }
+
+  .product-detail-title {
+    right: 24px;
+    bottom: 28px;
+    left: 24px;
+  }
+
+  .product-detail-body {
+    gap: 24px;
+    padding: 28px 22px 36px;
+  }
+
+  .detail-highlights,
+  .detail-ai-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-gallery figure {
+    height: 150px;
+  }
+
+  .booking-people-field {
+    grid-column: 1 / -1;
+  }
+}

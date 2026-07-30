@@ -1,4 +1,7 @@
 let experiences = [];
+let productDetails = {};
+let productContracts = {};
+let productMedia = {};
 
 const state = {
   category: "",
@@ -10,6 +13,7 @@ const state = {
   recommendedIds: null,
   recommendationMap: new Map(),
   recommendationMessage: "",
+  contractSummaryCache: new Map(),
 };
 
 const categoryGroups = {
@@ -75,7 +79,9 @@ const keywordInput = document.querySelector("#keyword-input");
 const sortSelect = document.querySelector("#sort-select");
 const bookingDialog = document.querySelector("#booking-dialog");
 const bookingDate = document.querySelector("#booking-date");
+const bookingTime = document.querySelector("#booking-time");
 const searchDate = document.querySelector("#search-date");
+const productDetailDialog = document.querySelector("#product-detail-dialog");
 const recommendationDialog = document.querySelector("#recommendation-dialog");
 const recommendationError = document.querySelector("#recommendation-error");
 const recommendationSubmit = document.querySelector("#recommendation-submit");
@@ -147,9 +153,16 @@ function categoryMatches(productCategory, selectedCategory) {
 }
 
 function getProductImage(product) {
+  const productCover = productMedia[product.id]?.cover;
+  if (productCover) return productCover;
+
   const images = categoryImages[product.category] ?? categoryImages.요트;
   const numericId = Number(product.id.replace(/\D/g, "")) || 0;
   return images[numericId % images.length];
+}
+
+function getProductImageAlt(product) {
+  return productMedia[product.id]?.coverAlt ?? `${product.name} 체험 모습`;
 }
 
 function getVisibleExperiences() {
@@ -218,7 +231,7 @@ function renderExperiences() {
           <div class="card-image">
             <img
               src="${getProductImage(experience)}"
-              alt="${escapeHtml(experience.name)}"
+              alt="${escapeHtml(getProductImageAlt(experience))}"
               loading="lazy"
             />
             <span class="card-badge">${experience.rating >= 4.9 ? "BEST" : "AVAILABLE"}</span>
@@ -498,7 +511,7 @@ function openReservationProduct(reservation) {
   }
 
   mypageDialog.close();
-  openBooking(experience.id);
+  openProductDetail(experience.id);
 }
 
 function openReservationDetail(reservation) {
@@ -529,7 +542,7 @@ function openReservationDetail(reservation) {
       <span>${escapeHtml(reservation.venue)}</span>
     </section>
     <dl class="reservation-detail-grid">
-      <div><dt>예약 날짜</dt><dd>${escapeHtml(reservation.date)}</dd></div>
+      <div><dt>예약 날짜</dt><dd>${escapeHtml(reservation.date)}${reservation.time ? ` · ${escapeHtml(reservation.time)}` : ""}</dd></div>
       <div><dt>예약 인원</dt><dd>${escapeHtml(reservation.people)}명</dd></div>
       <div><dt>예약자</dt><dd>${escapeHtml(reservation.name)}</dd></div>
       <div><dt>예약 신청일</dt><dd>${formatKoreanDate(reservation.createdAt)}</dd></div>
@@ -611,17 +624,174 @@ function openBooking(experienceId) {
   bookingDate.value = searchDate.value;
   bookingName.value = currentUser.userId;
   bookingEmail.value = currentUser.email;
+  bookingTime.innerHTML = selectedExperience.timeSlots
+    .map((time) => `<option value="${escapeHtml(time)}">${escapeHtml(time)}</option>`)
+    .join("");
+  bookingTime.value = selectedExperience.timeSlots[0] ?? "";
   bookingDialog.showModal();
+  document.body.classList.add("dialog-open");
+}
+
+function renderList(elementId, items, itemTemplate) {
+  document.querySelector(elementId).innerHTML = items.map(itemTemplate).join("");
+}
+
+function buildVisibleContractTerms(experience, detail, contract) {
+  return [
+    ...detail.refundRules.map((text) => ({ type: "환불", text })),
+    ...detail.bookingConditions.map((text) => ({ type: "예약", text })),
+    ...contract.additionalClauses.map((text) => ({ type: "추가", text })),
+    ...experience.safetyNotes.map((text) => ({ type: "안전", text })),
+  ];
+}
+
+function renderContractSummary(result) {
+  const summary = result.summary;
+  const summaryPanel = document.querySelector("#detail-ai-summary");
+  const riskElement = document.querySelector("#detail-ai-risk");
+
+  document.querySelector("#detail-ai-mode").textContent =
+    result.mode === "solar" ? "UPSTAGE SOLAR 분석 완료" : "기본 분석 결과";
+  riskElement.textContent = `주의도 ${summary.riskLevel}`;
+  riskElement.dataset.risk = summary.riskLevel;
+  document.querySelector("#detail-ai-headline").textContent = summary.headline;
+  renderList(
+    "#detail-ai-refund-warnings",
+    summary.refundWarnings,
+    (item) => `<li>${escapeHtml(item)}</li>`,
+  );
+  renderList(
+    "#detail-ai-watch-out",
+    summary.unfairTerms,
+    (item) => `<li>${escapeHtml(item)}</li>`,
+  );
+  summaryPanel.hidden = false;
+}
+
+function openProductDetail(experienceId) {
+  const selectedExperience = experiences.find(
+    (experience) => experience.id === experienceId,
+  );
+  const detail = productDetails[experienceId];
+  const contract = productContracts[experienceId];
+  const media = productMedia[experienceId];
+
+  if (!selectedExperience || !detail || !contract || !media) {
+    showToast("상품 상세 정보를 불러오지 못했습니다.");
+    return;
+  }
+
+  state.selectedExperience = selectedExperience;
+  document.querySelector("#detail-image").src = getProductImage(selectedExperience);
+  document.querySelector("#detail-image").alt = getProductImageAlt(selectedExperience);
+  document.querySelector("#detail-category").textContent =
+    `${selectedExperience.region} · ${selectedExperience.category}`;
+  document.querySelector("#detail-title").textContent = selectedExperience.name;
+  document.querySelector("#detail-partner").textContent =
+    `${selectedExperience.partnerName} · ★ ${selectedExperience.rating} (${selectedExperience.reviewCount})`;
+  document.querySelector("#detail-promotion").textContent = detail.promotion;
+  renderList(
+    "#detail-story",
+    contract.story,
+    (paragraph) => `<p>${escapeHtml(paragraph)}</p>`,
+  );
+  document.querySelector("#detail-price").textContent = formatPrice(
+    selectedExperience.pricePerPerson,
+  );
+  document.querySelector("#detail-location").textContent = selectedExperience.location;
+  document.querySelector("#detail-duration").textContent =
+    `${selectedExperience.durationMinutes}분`;
+  document.querySelector("#detail-age").textContent =
+    `만 ${selectedExperience.minAge}세 이상`;
+  document.querySelector("#detail-capacity").textContent =
+    `${selectedExperience.maxParticipants}명`;
+  document.querySelector("#detail-time-slots").textContent =
+    selectedExperience.timeSlots.join(" · ");
+
+  renderList(
+    "#detail-highlights",
+    detail.highlights,
+    (item) => `<li>${escapeHtml(item)}</li>`,
+  );
+  renderList(
+    "#detail-itinerary",
+    contract.itinerary,
+    (item) => `<li>${escapeHtml(item)}</li>`,
+  );
+  renderList(
+    "#detail-gallery",
+    media.gallery,
+    (imageUrl, index) => `
+      <figure>
+        <img src="${imageUrl}" alt="${escapeHtml(selectedExperience.name)} 관련 사진 ${index + 1}" loading="lazy" />
+      </figure>
+    `,
+  );
+
+  const photoSource = document.querySelector("#detail-photo-source");
+  photoSource.href = media.sourceUrl;
+  photoSource.textContent = media.sourceUrl.includes("unsplash.com")
+    ? "대표 사진 출처 · Unsplash ↗"
+    : "대표 사진 출처 확인 ↗";
+  renderList(
+    "#detail-included",
+    selectedExperience.included,
+    (item) => `<span>${escapeHtml(item)}</span>`,
+  );
+  renderList(
+    "#detail-contract-terms",
+    buildVisibleContractTerms(selectedExperience, detail, contract),
+    (term) =>
+      `<li><strong>${escapeHtml(term.type)}.</strong> ${escapeHtml(term.text)}</li>`,
+  );
+
+  const cachedSummary = state.contractSummaryCache.get(experienceId);
+  const summaryPanel = document.querySelector("#detail-ai-summary");
+  const summaryButton = document.querySelector("#detail-ai-summary-button");
+  summaryPanel.hidden = true;
+  summaryButton.disabled = false;
+  summaryButton.querySelector("span").textContent = cachedSummary
+    ? "AI 요약 다시 보기"
+    : "AI로 이 페이지 요약하기";
+  if (cachedSummary) renderContractSummary(cachedSummary);
+
+  productDetailDialog.scrollTop = 0;
+  productDetailDialog.showModal();
   document.body.classList.add("dialog-open");
 }
 
 async function loadProducts() {
   try {
-    const response = await fetch("/data/products.json");
-    if (!response.ok) throw new Error("상품 데이터를 불러오지 못했습니다.");
+    const [
+      productsResponse,
+      detailsResponse,
+      contractsResponse,
+      mediaResponse,
+    ] = await Promise.all([
+      fetch("/data/products.json"),
+      fetch("/data/product-details.json"),
+      fetch("/data/product-contracts.json"),
+      fetch("/data/product-media.json"),
+    ]);
+    if (
+      !productsResponse.ok ||
+      !detailsResponse.ok ||
+      !contractsResponse.ok ||
+      !mediaResponse.ok
+    ) {
+      throw new Error("상품 데이터를 불러오지 못했습니다.");
+    }
 
-    const data = await response.json();
-    experiences = data.products;
+    const [productsData, detailsData, contractsData, mediaData] = await Promise.all([
+      productsResponse.json(),
+      detailsResponse.json(),
+      contractsResponse.json(),
+      mediaResponse.json(),
+    ]);
+    experiences = productsData.products;
+    productDetails = detailsData.details;
+    productContracts = contractsData.contracts;
+    productMedia = mediaData.media;
     updateCategoryCounts();
     renderExperiences();
   } catch (error) {
@@ -663,7 +833,7 @@ sortSelect.addEventListener("change", () => {
 
 experienceGrid.addEventListener("click", (event) => {
   const favoriteButton = event.target.closest("[data-favorite]");
-  const bookingButton = event.target.closest("[data-booking]");
+  const detailButton = event.target.closest("[data-booking]");
 
   if (favoriteButton) {
     const experienceId = favoriteButton.dataset.favorite;
@@ -680,10 +850,62 @@ experienceGrid.addEventListener("click", (event) => {
     renderExperiences();
   }
 
-  if (bookingButton) {
-    openBooking(bookingButton.dataset.booking);
+  if (detailButton) {
+    openProductDetail(detailButton.dataset.booking);
   }
 });
+
+document.querySelector("#detail-close").addEventListener("click", () => {
+  productDetailDialog.close();
+});
+
+document.querySelector("#detail-book-button").addEventListener("click", () => {
+  const experienceId = state.selectedExperience?.id;
+  productDetailDialog.close();
+  if (experienceId) openBooking(experienceId);
+});
+
+productDetailDialog.addEventListener("close", () => {
+  if (!bookingDialog.open) document.body.classList.remove("dialog-open");
+});
+
+productDetailDialog.addEventListener("click", (event) => {
+  if (event.target === productDetailDialog) productDetailDialog.close();
+});
+
+document
+  .querySelector("#detail-ai-summary-button")
+  .addEventListener("click", async () => {
+    const selectedExperience = state.selectedExperience;
+    if (!selectedExperience) return;
+
+    const summaryButton = document.querySelector("#detail-ai-summary-button");
+    const summaryPanel = document.querySelector("#detail-ai-summary");
+    summaryButton.disabled = true;
+    summaryButton.querySelector("span").textContent = "긴 약관을 읽는 중...";
+    summaryPanel.hidden = true;
+
+    try {
+      const response = await fetch("/api/contract-summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId: selectedExperience.id }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || "약관을 요약하지 못했습니다.");
+      }
+
+      state.contractSummaryCache.set(selectedExperience.id, result);
+      renderContractSummary(result);
+      summaryButton.querySelector("span").textContent = "AI 요약 다시 보기";
+    } catch (error) {
+      showToast(error.message);
+      summaryButton.querySelector("span").textContent = "AI 요약 다시 시도하기";
+    } finally {
+      summaryButton.disabled = false;
+    }
+  });
 
 document.querySelectorAll("[data-notice]").forEach((button) => {
   button.addEventListener("click", () => {
@@ -938,6 +1160,7 @@ document.querySelector("#booking-form").addEventListener("submit", async (event)
     productId: state.selectedExperience?.id ?? "",
     people,
     date: bookingDate.value,
+    time: bookingTime.value,
     activity: experienceTitle,
     venue: state.selectedExperience?.partnerName ?? "WAVEON BUSAN 제휴 업체",
   };
@@ -989,7 +1212,7 @@ function openContractReview() {
   contractNotification.hidden = true;
   notificationButton.setAttribute("aria-expanded", "false");
   contractAgreement.checked = false;
-  contractBookingSummary.textContent = `${pendingBooking.activity} · ${pendingBooking.date} · ${pendingBooking.people}명 / ${pendingBooking.venue}`;
+  contractBookingSummary.textContent = `${pendingBooking.activity} · ${pendingBooking.date}${pendingBooking.time ? ` ${pendingBooking.time}` : ""} · ${pendingBooking.people}명 / ${pendingBooking.venue}`;
   contractDialog.showModal();
 }
 

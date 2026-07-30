@@ -1,0 +1,222 @@
+{
+  "version": "1.0.0",
+  "notice": "대표 사진은 상품별로 중복되지 않으며, 부산 현장 사진과 레저 종목 참고 사진을 함께 사용합니다.",
+  "media": {
+    "WB-001": {
+      "cover": "https://images.unsplash.com/photo-1615256871065-e12d4b97a260?auto=format&fit=crop&w=1400&q=84",
+      "coverAlt": "광안대교 앞 부산 바다를 항해하는 흰색 요트",
+      "sourceUrl": "https://unsplash.com/photos/DdVhZJd0e2A",
+      "gallery": [
+        "https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?auto=format&fit=crop&w=1000&q=82",
+        "https://images.unsplash.com/photo-1609137929473-680b60780d64?auto=format&fit=crop&w=1000&q=82"
+      ]
+    },
+    "WB-002": {
+      "cover": "https://images.unsplash.com/photo-1626092706366-28ba77f382c8?auto=format&fit=crop&w=1400&q=84",
+      "coverAlt": "부산 광안리 바다와 광안대교 전경",
+      "sourceUrl": "https://unsplash.com/photos/nFSbsPFB5XM",
+      "gallery": [
+        "https://images.unsplash.com/photo-1562281302-809108fd533c?auto=format&fit=crop&w=1000&q=82",
+        "https://images.unsplash.com/photo-1615256871065-e12d4b97a260?auto=format&fit=crop&w=1000&q=82"
+      ]
+    },
+    "WB-003": {
+      "cover": "https://images.unsplash.com/photo-1562281302-809108fd533c?auto=format&fit=crop&w=1400&q=84",
+      "coverAlt": "부산 남구 해안 항로와 어울리는 흰색 세일링 요트",
+      "sourceUrl": "https://unsplash.com/s/photos/sailing-yacht",
+      "gallery": [
+        "https://images.unsplash.com/photo-1540946485063-a40da27545f8?auto=format&fit=crop&w=1000&q=82",
+        "https://images.unsplash.com/photo-1672671152875-e4af21b888bd?auto=format&fit=crop&w=1000&q=82"
+      ]
+    },
+    "WB-004": {
+      "cover": "https://images.unsplash.com/photo-1502680390469-be75c86b636f?auto=format&fit=crop&w=1400&q=84",
+      "coverAlt": "푸른 파도 위에서 보드를 타는 초보 서퍼",
+      "sourceUrl": "https://unsplash.com/photos/h0AnGGgseio",
+      "gallery": [
+        "https://images.unsplash.com/photo-1672842408576-5076d505d8c1?auto=format&fit=crop&w=1000&q=82",
+        "https://images.unsplash.com/photo-1455729552865-3658a5d39692?auto=format&fit=crop&w=1000&q=82"
+      ]
+    },
+    "WB-005": {
+      "cover": "https://images.unsplash.com/photo-1631793783799-116599011597?auto=format&fit=crop&w=1400&q=84",
+      "coverAlt": "부산 다대포해수욕장의 붉은 노을과 바다",
+      "sourceUrl": "https://unsplash.com/photos/Bx3y0YqpqWQ",
+      "gallery": [
+        "https://images.unsplash.com/photo-1502680390469-be75c86b636f?auto=format&fit=crop&w=1000&q=82",
+        "https://images.unsplash.com/photo-1699789926701-ad7617a5cdde?auto=format&fit=crop&w=1000&q=82"
+      ]
+    },
+    "WB-006": {
+      "cover": "https://images.unsplash.com/photo-1455729552865-3658a5d39692?auto=format&fit=crop&w=1400&q=84",
+      "coverAlt": "큰 파도에서 균형을 잡으며 서핑하는 사람",
+      "sourceUrl": "https://unsplash.com/photos/Q7QM2WSOTs4",
+      "gallery": [
+        "https://images.unsplash.com/photo-1502680390469-be75c86b636f?auto=format&fit=crop&w=1000&q=82",
+        "https://images.unsplash.com/photo-1672842408576-5076d505d8c1?auto=format&fit=crop&w=1000&q=82"
+      ]
+    },
+    "WB-007": {
+      "cover": "https://images.unsplash.com/photo-1559825481-12a05cc00344?auto=format&fit=crop&w=1400&q=84",
+      "coverAlt": "바닷속에서 장비를 착용하고 이동하는 스쿠버다이버",
+      "sourceUrl": "https://unsplash.com/photos/1AjbOg9M_oM",
+      "gallery": [
+        "https://images.unsplash.com/photo-1583212292454-1fe6229603b7?auto=format&fit=crop&w=1000&q=82",
+        "https://images.unsplash.com/photo-1672671152875-e4af21b888bd?auto=format&fit=crop&w=1000&q=82"
+      ]
+    },
+    "WB-008": {
+      "cover": "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1400&q=84",
+      "coverAlt": "깊은 바닷속을 탐험하는 숙련 스쿠버다이버",
+      "sourceUrl": "https://unsplash.com/photos/LpByDENbQQg",
+      "gallery": [
+        "https://images.unsplash.com/photo-1559825481-12a05cc00344?auto=format&fit=crop&w=1000&q=82",
+        "https://images.unsplash.com/photo-1672671152875-e4af21b888bd?auto=format&fit=crop&w=1000&q=82"
+      ]
+    },
+    "WB-009": {
+      "cover": "https://images.unsplash.com/photo-1583212292454-1fe6229603b7?auto=format&fit=crop&w=1400&q=84",
+      "coverAlt": "맑은 바닷속 산호와 물고기를 관찰하는 스노클러",
+      "sourceUrl": "https://unsplash.com/photos/U3WrqvJx7Qc",
+      "gallery": [
+        "https://images.unsplash.com/photo-1672671152875-e4af21b888bd?auto=format&fit=crop&w=1000&q=82",
+        "https://images.unsplash.com/photo-1559825481-12a05cc00344?auto=format&fit=crop&w=1000&q=82"
+      ]
+    },
+    "WB-010": {
+      "cover": "https://images.unsplash.com/photo-1519315901367-f34ff9154487?auto=format&fit=crop&w=1400&q=84",
+      "coverAlt": "아침 바다에서 패들보드를 타는 사람",
+      "sourceUrl": "https://unsplash.com/photos/7KLa-xLbSXA",
+      "gallery": [
+        "https://images.unsplash.com/photo-1719306625383-2de2f24217a5?auto=format&fit=crop&w=1000&q=82",
+        "https://images.unsplash.com/photo-1609137929473-680b60780d64?auto=format&fit=crop&w=1000&q=82"
+      ]
+    },
+    "WB-011": {
+      "cover": "https://images.unsplash.com/photo-1699789926701-ad7617a5cdde?auto=format&fit=crop&w=1400&q=84",
+      "coverAlt": "부산 다대포 바다 위로 지는 노을",
+      "sourceUrl": "https://unsplash.com/photos/T9VjXA4emo0",
+      "gallery": [
+        "https://images.unsplash.com/photo-1519315901367-f34ff9154487?auto=format&fit=crop&w=1000&q=82",
+        "https://images.unsplash.com/photo-1631793783799-116599011597?auto=format&fit=crop&w=1000&q=82"
+      ]
+    },
+    "WB-012": {
+      "cover": "https://images.unsplash.com/photo-1521120413309-42e7eada0334?auto=format&fit=crop&w=1400&q=84",
+      "coverAlt": "잔잔한 물 위를 천천히 이동하는 카약",
+      "sourceUrl": "https://unsplash.com/photos/EoI3JH1IhfY",
+      "gallery": [
+        "https://images.unsplash.com/photo-1609137929473-680b60780d64?auto=format&fit=crop&w=1000&q=82",
+        "https://images.unsplash.com/photo-1519315901367-f34ff9154487?auto=format&fit=crop&w=1000&q=82"
+      ]
+    },
+    "WB-013": {
+      "cover": "https://images.unsplash.com/photo-1752339744032-ee8d74939c1e?auto=format&fit=crop&w=1400&q=84",
+      "coverAlt": "바다 위를 빠르게 달리는 제트스키",
+      "sourceUrl": "https://unsplash.com/photos/ZfKPSDgazk8",
+      "gallery": [
+        "https://images.unsplash.com/photo-1719306625383-2de2f24217a5?auto=format&fit=crop&w=1000&q=82",
+        "https://images.unsplash.com/photo-1723049257337-402bb3ab476d?auto=format&fit=crop&w=1000&q=82"
+      ]
+    },
+    "WB-014": {
+      "cover": "https://kaneohebayoceansports.com/wp-content/uploads/2025/02/best-family-friendly-activities-kaneohe-sandbar-4-1024x577.jpg",
+      "coverAlt": "가족이 함께 즐기는 노란색 바나나보트 체험",
+      "sourceUrl": "https://kaneohebayoceansports.com/best-family-friendly-activities-kaneohe-sandbar/",
+      "gallery": [
+        "https://images.unsplash.com/photo-1763887487283-483d0b1d48d4?auto=format&fit=crop&w=1000&q=82",
+        "https://kaneohebayoceansports.com/wp-content/uploads/2025/02/best-family-friendly-activities-kaneohe-sandbar-4-1024x577.jpg"
+      ]
+    },
+    "WB-015": {
+      "cover": "https://images.unsplash.com/photo-1528150177508-7cc0c36cda5c?auto=format&fit=crop&w=1400&q=84",
+      "coverAlt": "물보라를 일으키며 웨이크보드를 타는 사람",
+      "sourceUrl": "https://unsplash.com/photos/rba2ntpeF6I",
+      "gallery": [
+        "https://images.unsplash.com/photo-1752339744032-ee8d74939c1e?auto=format&fit=crop&w=1000&q=82",
+        "https://images.unsplash.com/photo-1672842408576-5076d505d8c1?auto=format&fit=crop&w=1000&q=82"
+      ]
+    },
+    "WB-016": {
+      "cover": "https://images.unsplash.com/photo-1510137600163-2729bc695e3a?auto=format&fit=crop&w=1400&q=84",
+      "coverAlt": "바다에서 낚싯대를 드리운 가족 낚시 체험",
+      "sourceUrl": "https://unsplash.com/photos/yqBvJJ8jGBQ",
+      "gallery": [
+        "https://images.unsplash.com/photo-1672671152875-e4af21b888bd?auto=format&fit=crop&w=1000&q=82",
+        "https://images.unsplash.com/photo-1760208181371-c0fa9e570c20?auto=format&fit=crop&w=1000&q=82"
+      ]
+    },
+    "WB-017": {
+      "cover": "https://images.unsplash.com/photo-1528824815574-27343292ca98?auto=format&fit=crop&w=1400&q=84",
+      "coverAlt": "새벽 바다에서 조업하는 낚시 배와 낚시꾼",
+      "sourceUrl": "https://unsplash.com/photos/VPxPTupBpW4",
+      "gallery": [
+        "https://images.unsplash.com/photo-1672671152875-e4af21b888bd?auto=format&fit=crop&w=1000&q=82",
+        "https://images.unsplash.com/photo-1760208181371-c0fa9e570c20?auto=format&fit=crop&w=1000&q=82"
+      ]
+    },
+    "WB-018": {
+      "cover": "https://images.unsplash.com/photo-1762625075186-b7f46767267a?auto=format&fit=crop&w=1400&q=84",
+      "coverAlt": "바위 해안 가까이에서 루어낚시를 하는 사람",
+      "sourceUrl": "https://unsplash.com/photos/7JpXCIYkZkk",
+      "gallery": [
+        "https://images.unsplash.com/photo-1672671152875-e4af21b888bd?auto=format&fit=crop&w=1000&q=82",
+        "https://images.unsplash.com/photo-1510137600163-2729bc695e3a?auto=format&fit=crop&w=1000&q=82"
+      ]
+    },
+    "WB-019": {
+      "cover": "https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?auto=format&fit=crop&w=1400&q=84",
+      "coverAlt": "노을빛 바다를 항해하는 프라이빗 요트",
+      "sourceUrl": "https://unsplash.com/photos/7zIg6XyY0Gg",
+      "gallery": [
+        "https://images.unsplash.com/photo-1615256871065-e12d4b97a260?auto=format&fit=crop&w=1000&q=82",
+        "https://images.unsplash.com/photo-1609137929473-680b60780d64?auto=format&fit=crop&w=1000&q=82"
+      ]
+    },
+    "WB-020": {
+      "cover": "https://images.unsplash.com/photo-1521336575822-6da63fb45455?auto=format&fit=crop&w=1400&q=84",
+      "coverAlt": "보호자와 반려견이 함께 타기 좋은 2인승 카약",
+      "sourceUrl": "https://unsplash.com/s/photos/kayak-dog",
+      "gallery": [
+        "https://images.unsplash.com/photo-1521120413309-42e7eada0334?auto=format&fit=crop&w=1000&q=82",
+        "https://images.unsplash.com/photo-1615256871065-e12d4b97a260?auto=format&fit=crop&w=1000&q=82"
+      ]
+    },
+    "WB-021": {
+      "cover": "https://images.unsplash.com/photo-1769816325485-07ae41696287?auto=format&fit=crop&w=1400&q=84",
+      "coverAlt": "바디보드를 타고 파도를 내려오는 체험자",
+      "sourceUrl": "https://unsplash.com/photos/J3YGIMsjcwc",
+      "gallery": [
+        "https://images.unsplash.com/photo-1502680390469-be75c86b636f?auto=format&fit=crop&w=1000&q=82",
+        "https://images.unsplash.com/photo-1750740078902-e925f2be1198?auto=format&fit=crop&w=1000&q=82"
+      ]
+    },
+    "WB-022": {
+      "cover": "https://images.unsplash.com/photo-1530130270670-4c1bfa14390b?auto=format&fit=crop&w=1400&q=84",
+      "coverAlt": "핀을 착용하고 깊은 바닷속으로 잠수하는 프리다이버",
+      "sourceUrl": "https://unsplash.com/photos/7x8Jm7S1Z7g",
+      "gallery": [
+        "https://images.unsplash.com/photo-1559825481-12a05cc00344?auto=format&fit=crop&w=1000&q=82",
+        "https://images.unsplash.com/photo-1672671152875-e4af21b888bd?auto=format&fit=crop&w=1000&q=82"
+      ]
+    },
+    "WB-023": {
+      "cover": "https://images.unsplash.com/photo-1699789926701-b897ad3063de?auto=format&fit=crop&w=1400&q=84",
+      "coverAlt": "갈대밭 너머로 보이는 부산 다대포 해변",
+      "sourceUrl": "https://unsplash.com/photos/MwQ3cv1CBRM",
+      "gallery": [
+        "https://images.unsplash.com/photo-1519315901367-f34ff9154487?auto=format&fit=crop&w=1000&q=82",
+        "https://images.unsplash.com/photo-1631793783799-116599011597?auto=format&fit=crop&w=1000&q=82"
+      ]
+    },
+    "WB-024": {
+      "cover": "https://images.unsplash.com/photo-1540946485063-a40da27545f8?auto=format&fit=crop&w=1400&q=84",
+      "coverAlt": "부산 해안 풍경을 감상할 수 있는 편안한 크루즈 선박",
+      "sourceUrl": "https://unsplash.com/photos/8manzosDSGM",
+      "gallery": [
+        "https://images.unsplash.com/photo-1763887487283-483d0b1d48d4?auto=format&fit=crop&w=1000&q=82",
+        "https://images.unsplash.com/photo-1672671152875-e4af21b888bd?auto=format&fit=crop&w=1000&q=82"
+      ]
+    }
+  }
+}
