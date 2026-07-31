@@ -15,8 +15,8 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;600;700&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=20260730-4" />
-    <script src="script.js?v=20260730-4" defer></script>
+    <link rel="stylesheet" href="styles.css?v=20260730-29" />
+    <script src="script.js?v=20260730-29" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#main-content">본문 바로가기</a>
@@ -27,6 +27,13 @@
           WAVE<span>ON</span>
           <small>BUSAN</small>
         </a>
+
+        <div class="language-switcher" role="group" aria-label="언어 선택">
+          <button type="button" data-locale="ko" aria-pressed="true">KR</button>
+          <button type="button" data-locale="en" aria-pressed="false">EN</button>
+          <button type="button" data-locale="ja" aria-pressed="false">JP</button>
+          <button type="button" data-locale="zh" aria-pressed="false">中</button>
+        </div>
 
         <button id="login-button" class="login-button" type="button" aria-haspopup="dialog">
           로그인
@@ -106,9 +113,14 @@
                 이번 주 여행자들이 가장 많이 선택한 해양레저예요.
               </p>
             </div>
+            <p id="product-translation-status" class="product-translation-status" role="status" aria-live="polite" hidden>
+              <span class="product-translation-spinner" aria-hidden="true"></span>
+              <span id="product-translation-status-message">상품 정보를 번역하고 있습니다.</span>
+            </p>
             <div class="result-tools">
               <span id="result-count" aria-live="polite">8개의 경험</span>
-              <div class="region-filter" role="group" aria-label="지역 다중 선택">
+              <div class="region-filter-stack">
+                <div class="region-filter" role="group" aria-label="지역 다중 선택">
                 <button class="region-filter-button is-active" type="button" data-region-filter="" aria-pressed="true">전체</button>
                 <button class="region-filter-button" type="button" data-region-filter="해운대" aria-pressed="false">해운대</button>
                 <button class="region-filter-button" type="button" data-region-filter="광안리" aria-pressed="false">광안리</button>
@@ -116,6 +128,7 @@
                 <button class="region-filter-button" type="button" data-region-filter="기장" aria-pressed="false">기장</button>
                 <button class="region-filter-button" type="button" data-region-filter="다대포" aria-pressed="false">다대포</button>
                 <button class="region-filter-button" type="button" data-region-filter="영도" aria-pressed="false">영도</button>
+                </div>
               </div>
               <select id="sort-select" aria-label="경험 정렬">
                 <option value="popular">인기순</option>
@@ -124,7 +137,6 @@
               </select>
             </div>
           </div>
-
           <nav id="experience-pagination" class="experience-pagination" aria-label="상품 페이지" hidden>
             <button id="pagination-prev" type="button" aria-label="이전 상품 보기">←</button>
             <div id="experience-grid" class="experience-grid"></div>
@@ -420,6 +432,10 @@
           </div>
         </header>
         <div class="product-detail-body">
+          <div id="detail-translation-loading" class="detail-translation-loading" hidden aria-live="polite">
+            <span id="detail-translation-spinner" class="detail-translation-spinner" aria-hidden="true" hidden></span>
+            <p id="detail-translation-loading-message">선택한 언어의 상세 정보를 준비하고 있습니다.</p>
+          </div>
           <main class="product-detail-content">
             <section class="detail-showcase" aria-label="상품 소개">
               <p id="detail-promotion" class="detail-promotion"></p>
@@ -466,8 +482,17 @@
               </div>
             </section>
             <section class="detail-terms-prose" aria-labelledby="detail-terms-title">
-              <p class="detail-section-kicker">FULL BOOKING TERMS</p>
-              <h3 id="detail-terms-title">예약 전 세부 조건</h3>
+              <div class="detail-terms-heading">
+                <div>
+                  <p class="detail-section-kicker">FULL BOOKING TERMS</p>
+                  <h3 id="detail-terms-title">예약 전 세부 조건</h3>
+                </div>
+                <div class="detail-terms-accessibility" role="group" aria-label="예약 조건 접근성 도구">
+                  <button id="detail-font-decrease-button" type="button" aria-label="예약 조건 글자 작게">A−</button>
+                  <button id="detail-font-increase-button" type="button" aria-label="예약 조건 글자 크게">A+</button>
+                  <button id="detail-speech-toggle-button" class="detail-speech-button" type="button" aria-pressed="false" title="예약 조건 읽기">읽기</button>
+                </div>
+              </div>
               <p class="detail-terms-intro">환불, 예약, 추가 약관과 안전 조건을 포함한 전체 원문입니다. 각 문장을 차례대로 읽어보세요.</p>
               <ol id="detail-contract-terms" class="detail-contract-prose"></ol>
             </section>
@@ -516,7 +541,7 @@
           </label>
           <label>
             <span>이용 날짜</span>
-            <input id="booking-date" type="date" required />
+            <input id="booking-date" type="text" inputmode="numeric" autocomplete="off" placeholder="MM / DD / YYYY" pattern="\d{2}\s*/\s*\d{2}\s*/\s*\d{4}" required />
           </label>
           <label>
             <span>운영 시간</span>

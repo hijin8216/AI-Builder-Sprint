@@ -81,6 +81,10 @@ const paginationNext = document.querySelector("#pagination-next");
 const emptyState = document.querySelector("#empty-state");
 const resultCount = document.querySelector("#result-count");
 const resultDescription = document.querySelector("#result-description");
+const productTranslationStatus = document.querySelector("#product-translation-status");
+const productTranslationStatusMessage = document.querySelector(
+  "#product-translation-status-message",
+);
 const categoryButtons = [...document.querySelectorAll("[data-category]")];
 const regionFilterButtons = [...document.querySelectorAll("[data-region-filter]")];
 const regionSelect = document.querySelector("#region-select");
@@ -141,6 +145,10 @@ const startSignatureButton = document.querySelector("#start-signature-button");
 const signatureDialog = document.querySelector("#signature-dialog");
 const signatureFrameWrap = document.querySelector("#signature-frame-wrap");
 const signatureStatus = document.querySelector("#signature-status");
+const detailFontDecreaseButton = document.querySelector("#detail-font-decrease-button");
+const detailFontIncreaseButton = document.querySelector("#detail-font-increase-button");
+const detailSpeechToggleButton = document.querySelector("#detail-speech-toggle-button");
+const languageButtons = [...document.querySelectorAll("[data-locale]")];
 
 let toastTimer;
 let currentUser = null;
@@ -151,11 +159,362 @@ let myReservations = [];
 let expandedReservationId = null;
 let reservationToCancel = null;
 let activeReservationId = null;
+let viewedReservationId = null;
 let signatureStatusTimer = null;
 let signatureFrameLoaded = false;
+const detailFontScaleOptions = ["normal", "large", "x-large"];
+let detailFontScaleIndex = getSavedDetailFontScaleIndex();
+let isReadingDetailTerms = false;
+const supportedLocales = new Set(["ko", "en", "ja", "zh"]);
+let activeLocale = getSavedLocale();
+const localeFormats = {
+  ko: "ko-KR",
+  en: "en-US",
+  ja: "ja-JP",
+  zh: "zh-CN",
+};
+const productTranslationCache = new Map(
+  [...supportedLocales]
+    .filter((locale) => locale !== "ko")
+    .map((locale) => [locale, new Map()]),
+);
+const productTranslationRequests = new Map();
+const productCardTranslationRequests = new Map();
+const interfaceTranslationCache = new Map(
+  [...supportedLocales]
+    .filter((locale) => locale !== "ko")
+    .map((locale) => [locale, new Map()]),
+);
+const pendingInterfaceTranslations = new Set();
+let interfaceTranslationTimer = null;
+let interfaceTranslationRequest = null;
+
+const englishCategoryNames = {
+  요트: "Yacht",
+  크루즈: "Cruise",
+  서핑: "Surfing",
+  바디보드: "Bodyboarding",
+  다이빙: "Diving",
+  스노클링: "Snorkeling",
+  프리다이빙: "Freediving",
+  SUP: "SUP",
+  카약: "Kayaking",
+  낚시: "Fishing",
+  제트스키: "Jet Ski",
+  바나나보트: "Banana Boat",
+  웨이크보드: "Wakeboarding",
+};
+
+const englishRegionNames = {
+  해운대: "Haeundae",
+  광안리: "Gwangalli",
+  송정: "Songjeong",
+  기장: "Gijang",
+  다대포: "Dadaepo",
+  영도: "Yeongdo",
+  남구: "Nam-gu",
+};
+
+const japaneseRegionNames = {
+  해운대: "ヘウンデ",
+  광안리: "広安里",
+  송정: "松亭",
+  기장: "機張",
+  다대포: "多大浦",
+  영도: "影島",
+  남구: "南区",
+  수영구: "水営区",
+  송도: "松島",
+};
+
+const chineseRegionNames = {
+  해운대: "海云台",
+  광안리: "广安里",
+  송정: "松亭",
+  기장: "机张",
+  다대포: "多大浦",
+  영도: "影岛",
+  남구: "南区",
+  수영구: "水营区",
+  송도: "松岛",
+};
+
+const englishRiskLevels = {
+  매우높음: "Very high",
+  높음: "High",
+  보통: "Medium",
+  낮음: "Low",
+  매우낮음: "Very low",
+};
+
+const japaneseRiskLevels = {
+  매우높음: "非常に高い",
+  높음: "高い",
+  보통: "普通",
+  낮음: "低い",
+  매우낮음: "非常に低い",
+};
+
+const chineseRiskLevels = {
+  매우높음: "很高",
+  높음: "高",
+  보통: "中等",
+  낮음: "低",
+  매우낮음: "很低",
+};
+
+const builtInInterfaceTranslations = {
+  ja: {
+    "Language selection": "言語を選択",
+    "Skip to content": "本文へ移動",
+    "Experiences": "体験を探す",
+    "Regions": "エリアを見る",
+    "How it works": "利用方法",
+    "Partner with us": "パートナーになる",
+    "Open menu": "メニューを開く",
+    "Notifications": "お知らせ",
+    "BUSAN MARINE LEISURE GUIDE": "釜山マリンレジャーガイド",
+    "Today, Busan's sea<br>becomes <em>your playground</em>": "今日、釜山の海が<br><em>あなたの遊び場</em>になります",
+    "Compare marine leisure experiences in one place<br class=\"desktop-break\">and reserve the one that fits you.": "釜山のマリンレジャーをひとつの場所で比べて<br class=\"desktop-break\">あなたに合う海の体験を予約しましょう。",
+    "Get AI recommendations": "AIおすすめを見る",
+    "<b>64+</b> Busan experiences": "<b>64+</b>件の釜山体験",
+    "<b>4.9</b> average rating": "<b>4.9</b> 平均評価",
+    "<b>100%</b> verified partners": "<b>100%</b> 確認済みパートナー",
+    "All": "すべて",
+    "Yachts & boats": "ヨット・ボート",
+    "Surfing": "サーフィン",
+    "Diving": "ダイビング",
+    "SUP & kayaking": "SUP・カヤック",
+    "Sea fishing": "海釣り",
+    "Busan's most-loved experiences": "釜山で人気の体験",
+    "Most popular": "人気順",
+    "Highest rated": "評価順",
+    "Lowest price": "価格が低い順",
+    "Make enjoying the sea<br>feel effortless.": "海を楽しむ時間を<br>もっと気軽に。",
+    "Verified local partners": "確認済みの地域パートナー",
+    "Clear information at a glance": "一目で分かる情報",
+    "Curated for Busan": "釜山に合わせた体験",
+    "Explore Busan by the waves": "波と一緒に釜山を巡る",
+    "Three choices<br>to reach the sea.": "3つの選択で<br>海へ出かけよう。",
+    "Find your experience": "自分に合う体験を探す",
+    "Review options and reserve": "内容を確認して予約",
+    "Enjoy the Busan sea": "釜山の海を楽しむ",
+    "AI highlights easy-to-miss terms": "AIが見落としやすい規約を整理します",
+    "We highlight refund limits and terms that may be unfavorable to you.": "返金制限や利用者に不利な可能性がある条件をお知らせします。",
+    "Summarize this page with AI": "AIでこのページを要約",
+    "Pre-booking terms": "予約前の詳細条件",
+    "These are the full terms covering refunds, reservations, additional clauses, and safety. Read each item carefully.": "返金、予約、追加条項、安全条件を含む全文です。各項目をよくお読みください。",
+    "Read": "読み上げ",
+    "Log in": "ログイン",
+    "My page": "マイページ",
+    "Close my page": "マイページを閉じる",
+    "My account": "アカウント",
+    "Signed-in account": "ログインアカウント",
+    "Log out": "ログアウト",
+    "My reservations": "予約一覧",
+    "Loading reservations…": "予約履歴を読み込んでいます…",
+    "Notifications": "お知らせ",
+    "Contract review required": "契約内容の確認が必要",
+    "E-signature in progress": "電子署名を進行中",
+    "Reservation confirmed": "予約確定",
+    "Cancellation request received": "キャンセル申請を受付",
+    "Reservation cancelled": "予約キャンセル",
+    "Signature stopped": "署名を中断しました",
+    "Document processing failed": "書類の処理に失敗しました",
+    "Checking status": "状態を確認中",
+    "View reservation details": "予約内容を確認",
+    "Go to product page": "詳細ページへ",
+    "Open reservation menu": "予約メニューを開く",
+    "Close reservation menu": "予約メニューを閉じる",
+    "Cancel reservation": "予約をキャンセル",
+    "Request cancellation": "キャンセルを申請",
+    "reservation": "予約",
+    "← My reservations": "← 予約一覧",
+    "Reservation details": "予約内容の確認",
+    "Close reservation details": "予約内容の確認画面を閉じる",
+    "E-signature completed": "電子署名完了",
+    "E-signature review required": "電子署名の確認が必要",
+    "Before e-signature": "電子署名前",
+    "View e-signature": "電子署名を確認",
+    "Continue e-signature": "電子署名を続ける",
+    "Review contract and e-sign": "契約書を確認して電子署名",
+    "No saved e-signature": "保存された電子署名はありません",
+    "Reservation number": "予約番号",
+    "Reservation date": "利用日",
+    "Guests": "利用人数",
+    "Booker": "予約者",
+    "Booked on": "申込日",
+    "There is no completed e-signature yet. It will appear here once available.": "まだ完了した電子署名はありません。電子署名を完了すると、ここに保存されます。",
+    "RESERVATION CONTRACT": "予約契約書",
+    "Review reservation contract": "予約契約書を確認",
+    "Close contract review": "契約書確認画面を閉じる",
+    "Key terms": "主な利用規約",
+    "For safety reasons such as worsening weather, the schedule may change. Cancellation fees may apply from three days before use, and the user is responsible for accidents or equipment damage caused by not following safety rules.": "天候悪化など安全上の理由により、日程が変更される場合があります。利用日の3日前からキャンセル料が発生する場合があり、安全規則を守らないことによる事故や機材の破損は利用者の責任となります。",
+    "I have reviewed the key terms, read the full contract, and agree to proceed with e-signature.": "主な規約を確認し、契約書全文を読んだうえで電子署名に同意します。",
+    "Proceed to e-signature": "電子署名へ進む",
+  },
+  zh: {
+    "Language selection": "选择语言",
+    "Skip to content": "跳转到正文",
+    "Experiences": "查找体验",
+    "Regions": "查看地区",
+    "How it works": "使用方法",
+    "Partner with us": "成为合作伙伴",
+    "Open menu": "打开菜单",
+    "Notifications": "通知",
+    "BUSAN MARINE LEISURE GUIDE": "釜山海洋休闲指南",
+    "Today, Busan's sea<br>becomes <em>your playground</em>": "今天，釜山的大海<br>成为<em>你的游乐场</em>",
+    "Compare marine leisure experiences in one place<br class=\"desktop-break\">and reserve the one that fits you.": "在一个地方比较釜山海洋休闲体验，<br class=\"desktop-break\">预订最适合你的海上体验。",
+    "Get AI recommendations": "获取 AI 推荐",
+    "<b>64+</b> Busan experiences": "<b>64+</b> 项釜山体验",
+    "<b>4.9</b> average rating": "<b>4.9</b> 平均评分",
+    "<b>100%</b> verified partners": "<b>100%</b> 已验证合作伙伴",
+    "All": "全部",
+    "Yachts & boats": "游艇和船只",
+    "Surfing": "冲浪",
+    "Diving": "潜水",
+    "SUP & kayaking": "桨板和皮划艇",
+    "Sea fishing": "海钓",
+    "Busan's most-loved experiences": "釜山最受欢迎的体验",
+    "Most popular": "最受欢迎",
+    "Highest rated": "评分最高",
+    "Lowest price": "价格最低",
+    "Make enjoying the sea<br>feel effortless.": "轻松享受<br>大海时光。",
+    "Verified local partners": "已验证的本地合作伙伴",
+    "Clear information at a glance": "一目了然的信息",
+    "Curated for Busan": "为釜山精心挑选",
+    "Explore Busan by the waves": "随海浪探索釜山",
+    "Three choices<br>to reach the sea.": "三步选择<br>走向大海。",
+    "Find your experience": "找到你的体验",
+    "Review options and reserve": "查看选项并预订",
+    "Enjoy the Busan sea": "享受釜山的大海",
+    "AI highlights easy-to-miss terms": "AI 提醒容易忽略的条款",
+    "We highlight refund limits and terms that may be unfavorable to you.": "我们会提示退款限制和可能对你不利的条款。",
+    "Summarize this page with AI": "用 AI 总结此页面",
+    "Pre-booking terms": "预订前详细条款",
+    "These are the full terms covering refunds, reservations, additional clauses, and safety. Read each item carefully.": "这是包含退款、预订、附加条款和安全条件的完整条款。请仔细阅读每一项。",
+    "Read": "朗读",
+    "Log in": "登录",
+    "My page": "我的页面",
+    "Close my page": "关闭我的页面",
+    "My account": "我的账户",
+    "Signed-in account": "登录账户",
+    "Log out": "退出登录",
+    "My reservations": "我的预订",
+    "Loading reservations…": "正在查看预订记录…",
+    "Notifications": "通知",
+    "Contract review required": "需要确认合同",
+    "E-signature in progress": "正在进行电子签名",
+    "Reservation confirmed": "预订已确认",
+    "Cancellation request received": "已收到取消申请",
+    "Reservation cancelled": "预订已取消",
+    "Signature stopped": "签名已中止",
+    "Document processing failed": "文件处理失败",
+    "Checking status": "正在确认状态",
+    "View reservation details": "查看预订详情",
+    "Go to product page": "前往详情页",
+    "Open reservation menu": "打开预订菜单",
+    "Close reservation menu": "关闭预订菜单",
+    "Cancel reservation": "取消预订",
+    "Request cancellation": "申请取消",
+    "reservation": "预订",
+    "← My reservations": "← 我的预订",
+    "Reservation details": "预订详情",
+    "Close reservation details": "关闭预订详情",
+    "E-signature completed": "电子签名已完成",
+    "E-signature review required": "需要确认电子签名",
+    "Before e-signature": "电子签名前",
+    "View e-signature": "查看电子签名",
+    "Continue e-signature": "继续电子签名",
+    "Review contract and e-sign": "确认合同并电子签名",
+    "No saved e-signature": "没有已保存的电子签名",
+    "Reservation number": "预订编号",
+    "Reservation date": "预订日期",
+    "Guests": "人数",
+    "Booker": "预订人",
+    "Booked on": "申请日期",
+    "There is no completed e-signature yet. It will appear here once available.": "尚未完成电子签名。完成后将显示在此处。",
+    "RESERVATION CONTRACT": "预订合同",
+    "Review reservation contract": "确认预订合同",
+    "Close contract review": "关闭合同确认窗口",
+    "Key terms": "主要条款说明",
+    "For safety reasons such as worsening weather, the schedule may change. Cancellation fees may apply from three days before use, and the user is responsible for accidents or equipment damage caused by not following safety rules.": "因天气恶化等安全原因，行程可能会变更。使用日前3天起可能收取取消费用；未遵守安全规定造成的事故和设备损坏由使用者负责。",
+    "I have reviewed the key terms, read the full contract, and agree to proceed with e-signature.": "我已确认主要条款，阅读完整合同，并同意进行电子签名。",
+    "Proceed to e-signature": "进行电子签名",
+  },
+};
+
+function isTranslatedLocale(locale = activeLocale) {
+  return locale !== "ko";
+}
+
+function getProductTranslationCache(locale = activeLocale) {
+  return productTranslationCache.get(locale) ?? new Map();
+}
 
 function formatPrice(price) {
-  return `${price.toLocaleString("ko-KR")}원`;
+  const formattedPrice = price.toLocaleString(localeFormats[activeLocale]);
+  if (activeLocale === "ko") return `${formattedPrice}원`;
+  return activeLocale === "zh" ? `KRW ${formattedPrice}` : `KRW ${formattedPrice}`;
+}
+
+function getSavedLocale() {
+  try {
+    const savedLocale = window.localStorage.getItem("waveon-locale");
+    return supportedLocales.has(savedLocale) ? savedLocale : "ko";
+  } catch {
+    return "ko";
+  }
+}
+
+function localizeText(korean, english) {
+  if (activeLocale === "ko") return korean;
+  if (activeLocale === "en") return english;
+
+  const builtInTranslation = builtInInterfaceTranslations[activeLocale]?.[english];
+  if (builtInTranslation) return builtInTranslation;
+
+  const cache = interfaceTranslationCache.get(activeLocale);
+  const translation = cache?.get(korean);
+  if (translation) return translation;
+  queueInterfaceTranslation(korean);
+  return english;
+}
+
+function localizeCategory(category) {
+  return localizeText(category, englishCategoryNames[category] ?? category);
+}
+
+function localizeRegion(region) {
+  if (activeLocale === "ja") return japaneseRegionNames[region] ?? region;
+  if (activeLocale === "zh") return chineseRegionNames[region] ?? region;
+  return localizeText(region, englishRegionNames[region] ?? region);
+}
+
+function formatDuration(minutes) {
+  return localizeText(`${minutes}분`, `${minutes} min`);
+}
+
+function formatPeople(count) {
+  return localizeText(`${count}명`, `${count} guest${count === 1 ? "" : "s"}`);
+}
+
+function localizeRiskLevel(riskLevel) {
+  if (activeLocale === "ko") return riskLevel;
+  if (activeLocale === "en") return englishRiskLevels[riskLevel] ?? riskLevel;
+  if (activeLocale === "ja") return japaneseRiskLevels[riskLevel] ?? riskLevel;
+  return chineseRiskLevels[riskLevel] ?? riskLevel;
+}
+
+function getContractSummaryCacheKey(experienceId) {
+  return `${activeLocale}:${experienceId}`;
+}
+
+function getDisplayExperience(experience) {
+  const translation = isTranslatedLocale()
+    ? getProductTranslationCache().get(experience.id)
+    : null;
+  return translation ? { ...experience, ...translation.product } : experience;
 }
 
 function escapeHtml(value) {
@@ -165,6 +524,297 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function setLocaleContent(selector, korean, english, property = "textContent") {
+  document.querySelectorAll(selector).forEach((element) => {
+    element[property] = localizeText(korean, english);
+  });
+}
+
+function queueInterfaceTranslation(korean) {
+  if (!isTranslatedLocale() || !korean || interfaceTranslationCache.get(activeLocale)?.has(korean)) {
+    return;
+  }
+
+  pendingInterfaceTranslations.add(korean);
+  if (interfaceTranslationTimer || interfaceTranslationRequest) return;
+  interfaceTranslationTimer = window.setTimeout(() => {
+    interfaceTranslationTimer = null;
+    requestInterfaceTranslations();
+  }, 80);
+}
+
+async function requestInterfaceTranslations() {
+  if (!isTranslatedLocale() || interfaceTranslationRequest || pendingInterfaceTranslations.size === 0) {
+    return;
+  }
+
+  const locale = activeLocale;
+  const texts = [...pendingInterfaceTranslations].slice(0, 24);
+  texts.forEach((text) => pendingInterfaceTranslations.delete(text));
+  interfaceTranslationRequest = fetch("/api/interface-translations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ locale, texts }),
+  })
+    .then(async (response) => {
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || "Interface translation is unavailable.");
+
+      const cache = interfaceTranslationCache.get(locale);
+      result.translations.forEach(({ source, translation }) => {
+        if (source && translation) cache.set(source, translation);
+      });
+      if (activeLocale === locale) applyLocale();
+    })
+    .catch((error) => {
+      console.error("화면 문구 번역 오류:", error.message);
+    })
+    .finally(() => {
+      interfaceTranslationRequest = null;
+      if (pendingInterfaceTranslations.size > 0) requestInterfaceTranslations();
+    });
+
+  await interfaceTranslationRequest;
+}
+
+function applyStaticLocale() {
+  document.documentElement.lang = activeLocale === "zh" ? "zh-CN" : activeLocale;
+  document.title = localizeText("WAVEON BUSAN | 부산 해양레저", "WAVEON BUSAN | Marine Leisure");
+  document.querySelector(".language-switcher").setAttribute(
+    "aria-label",
+    localizeText("언어 선택", "Language selection"),
+  );
+  languageButtons.forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.locale === activeLocale));
+  });
+
+  setLocaleContent(".skip-link", "본문 바로가기", "Skip to content");
+  notificationButton.setAttribute("aria-label", localizeText("알림", "Notifications"));
+  setLocaleContent("#mypage-dialog h2", "마이페이지", "My page");
+  document.querySelector("#mypage-close").setAttribute(
+    "aria-label",
+    localizeText("마이페이지 닫기", "Close my page"),
+  );
+  document.querySelector(".mypage-account").setAttribute(
+    "aria-label",
+    localizeText("내 계정", "My account"),
+  );
+  setLocaleContent(".mypage-account span", "로그인 계정", "Signed-in account");
+  setLocaleContent("#logout-button", "로그아웃", "Log out");
+  setLocaleContent("#mypage-reservations-title", "내 예약", "My reservations");
+  setLocaleContent(".notification-panel-head strong", "알림", "Notifications");
+  setLocaleContent("#reservation-detail-back", "← 내 예약", "← My reservations");
+  setLocaleContent("#reservation-detail-dialog h2", "예약내역 확인", "Reservation details");
+  document.querySelector("#reservation-detail-close").setAttribute(
+    "aria-label",
+    localizeText("예약내역 확인 창 닫기", "Close reservation details"),
+  );
+  setLocaleContent("#contract-dialog .contract-dialog-head p", "RESERVATION CONTRACT", "RESERVATION CONTRACT");
+  setLocaleContent("#contract-dialog h2", "예약 계약서 확인", "Review reservation contract");
+  document.querySelector("#contract-close").setAttribute(
+    "aria-label",
+    localizeText("계약서 확인 창 닫기", "Close contract review"),
+  );
+  setLocaleContent(".contract-terms h3", "주요 약관 안내", "Key terms");
+  setLocaleContent(
+    ".contract-terms p",
+    "기상 악화 등 안전상 사유로 일정이 변경될 수 있습니다. 이용 3일 전부터는 취소 수수료가 발생할 수 있으며, 안전수칙 미준수로 인한 사고 및 장비 파손은 이용자 책임입니다.",
+    "For safety reasons such as worsening weather, the schedule may change. Cancellation fees may apply from three days before use, and the user is responsible for accidents or equipment damage caused by not following safety rules.",
+  );
+  setLocaleContent(
+    ".contract-agreement span",
+    "주요 약관을 확인했으며, 전체 계약서를 읽고 전자서명하는 것에 동의합니다.",
+    "I have reviewed the key terms, read the full contract, and agree to proceed with e-signature.",
+  );
+  startSignatureButton.innerHTML = `${localizeText("전자서명 진행", "Proceed to e-signature")} <span>→</span>`;
+  document.querySelector(".hero-kicker").innerHTML =
+    `<span></span>${localizeText("부산 해양레저 가이드", "BUSAN MARINE LEISURE GUIDE")}`;
+
+  setLocaleContent(
+    ".hero h1",
+    "오늘, 부산의 바다가<br><em>당신의 놀이터</em>가 됩니다",
+    "Today, Busan's sea<br>becomes <em>your playground</em>",
+    "innerHTML",
+  );
+  setLocaleContent(
+    ".hero-copy",
+    "흩어진 해양레저 정보를 한곳에서 비교하고<br class=\"desktop-break\">내 취향에 꼭 맞는 바다 경험을 예약하세요.",
+    "Compare marine leisure experiences in one place<br class=\"desktop-break\">and reserve the one that fits you.",
+    "innerHTML",
+  );
+  setLocaleContent("#open-recommendation span:nth-child(2)", "AI 추천받기", "Get AI recommendations");
+  setLocaleContent(".hero-meta span:nth-child(1)", "<b>64+</b> 부산 레저", "<b>64+</b> Busan experiences", "innerHTML");
+  setLocaleContent(".hero-meta span:nth-child(2)", "<b>4.9</b> 평균 평점", "<b>4.9</b> average rating", "innerHTML");
+  setLocaleContent(".hero-meta span:nth-child(3)", "<b>100%</b> 검증된 파트너", "<b>100%</b> verified partners", "innerHTML");
+
+  const categoryLabels = [
+    ["전체", "All"],
+    ["요트·보트", "Yachts & boats"],
+    ["서핑", "Surfing"],
+    ["다이빙", "Diving"],
+    ["SUP·카약", "SUP & kayaking"],
+    ["바다낚시", "Sea fishing"],
+  ];
+  categoryButtons.forEach((button, index) => {
+    const label = button.querySelector("strong");
+    if (label) label.textContent = localizeText(...categoryLabels[index]);
+  });
+
+  setLocaleContent("#experience-title", "부산에서 가장 사랑받는 경험", "Busan's most-loved experiences");
+  setLocaleContent("#sort-select option[value='popular']", "인기순", "Most popular");
+  setLocaleContent("#sort-select option[value='rating']", "평점순", "Highest rated");
+  setLocaleContent("#sort-select option[value='low-price']", "낮은 가격순", "Lowest price");
+  document.querySelector(".region-filter")?.setAttribute(
+    "aria-label",
+    localizeText("지역 다중 선택", "Select one or more regions"),
+  );
+  regionFilterButtons.forEach((button) => {
+    const region = button.dataset.regionFilter;
+    button.textContent = region ? localizeRegion(region) : localizeText("전체", "All");
+  });
+  paginationPrev.setAttribute("aria-label", localizeText("이전 상품 보기", "View previous products"));
+  paginationNext.setAttribute("aria-label", localizeText("다음 상품 보기", "View next products"));
+  setLocaleContent("#empty-state", "조건에 맞는 경험을 찾지 못했어요. 다른 지역이나 검색어를 선택해 주세요.", "No matching experiences were found. Try another region or search term.");
+
+  setLocaleContent(".statement-content h2", "바다를 즐기는 일에<br>망설임이 없도록.", "Make enjoying the sea<br>feel effortless.", "innerHTML");
+  setLocaleContent(".statement-content > p:not(.section-kicker)", "처음 타는 서핑 보드도, 특별한 날의 요트도<br>비교부터 예약까지 쉽고 투명하게 준비합니다.", "From your first surfboard to a special yacht trip,<br>compare and book with clarity.", "innerHTML");
+  setLocaleContent(".statement-points > div:nth-child(1) strong", "검증된 로컬 파트너", "Verified local partners");
+  setLocaleContent(".statement-points > div:nth-child(1) p", "안전 기준과 이용 후기를 꼼꼼하게 확인해요.", "We carefully check safety standards and reviews.");
+  setLocaleContent(".statement-points > div:nth-child(2) strong", "한눈에 보는 정보", "Clear information at a glance");
+  setLocaleContent(".statement-points > div:nth-child(2) p", "가격, 일정, 준비물을 쉽게 비교할 수 있어요.", "Compare prices, schedules, and what to bring.");
+  setLocaleContent(".statement-points > div:nth-child(3) strong", "부산다운 큐레이션", "Curated for Busan");
+  setLocaleContent(".statement-points > div:nth-child(3) p", "계절과 지역에 어울리는 경험을 먼저 소개해요.", "Discover experiences suited to each season and area.");
+
+  setLocaleContent("#guide-title", "세 번의 선택으로<br>바다 위에 도착하세요.", "Three choices<br>to reach the sea.", "innerHTML");
+  setLocaleContent(".guide-steps li:nth-child(1) strong", "내게 맞는 경험 찾기", "Find your experience");
+  setLocaleContent(".guide-steps li:nth-child(1) p", "지역, 날짜, 하고 싶은 활동으로 검색해요.", "Search by location, date, and activity.");
+  setLocaleContent(".guide-steps li:nth-child(2) strong", "옵션 확인하고 예약하기", "Review options and reserve");
+  setLocaleContent(".guide-steps li:nth-child(2) p", "가격과 준비물, 이용 후기를 꼼꼼히 비교해요.", "Compare price, preparation, and reviews.");
+  setLocaleContent(".guide-steps li:nth-child(3) strong", "부산 바다 즐기기", "Enjoy the Busan sea");
+  setLocaleContent(".guide-steps li:nth-child(3) p", "예약 시간에 맞춰 도착하면 준비는 끝이에요.", "Arrive on time and you are ready to go.");
+
+  setLocaleContent(".footer-brand + p", "부산의 바다를 더 가깝고, 더 쉽게.", "Closer, simpler access to Busan's sea.");
+  setLocaleContent(".footer-links > div:nth-child(1) strong", "서비스", "Service");
+  setLocaleContent(".footer-links > div:nth-child(1) a[href='#experiences']", "레저 찾기", "Experiences");
+  setLocaleContent(".footer-links > div:nth-child(1) a[href='#experiences']:nth-of-type(2)", "지역별 보기", "Regions");
+  setLocaleContent(".footer-links > div:nth-child(1) a[href='#how-it-works']", "이용 방법", "How it works");
+  setLocaleContent(".footer-links > div:nth-child(2) strong", "고객지원", "Support");
+  setLocaleContent(".footer-links > div:nth-child(2) button:nth-child(2)", "자주 묻는 질문", "FAQ");
+  setLocaleContent(".footer-links > div:nth-child(2) button:nth-child(3)", "1:1 문의", "Contact us");
+  setLocaleContent(".footer-links > div:nth-child(2) button:nth-child(4)", "안전 가이드", "Safety guide");
+  setLocaleContent(".footer-bottom span:last-child", "해커톤 시연을 위한 데모 서비스입니다.", "A demo service for a hackathon presentation.");
+
+  setLocaleContent("#detail-ai-title", "AI가 놓치기 쉬운 약관을 정리해요", "AI highlights easy-to-miss terms");
+  setLocaleContent(".detail-ai-heading div > p:last-child", "긴 예약 약관에서 환불 제한과 소비자에게 불리할 수 있는 조건만 골라 보여드립니다.", "We highlight refund limits and terms that may be unfavorable to you.");
+  setLocaleContent(".detail-ai-refund strong", "환불 주의사항", "Refund watch-outs");
+  setLocaleContent(".detail-ai-watchout strong", "나에게 불리할 수 있어요", "Possible disadvantages");
+  setLocaleContent(".detail-ai-summary > small", "AI 요약은 이해를 돕기 위한 참고 자료입니다. 아래 원문 약관과 최종 전자계약서를 함께 확인하세요.", "The AI summary is for reference. Review the full terms and final e-contract as well.");
+  setLocaleContent("#detail-terms-title", "예약 전 세부 조건", "Pre-booking terms");
+  setLocaleContent("#detail-itinerary-title", "체험은 이렇게 진행돼요", "Here's how the experience works");
+  setLocaleContent(".detail-terms-intro", "환불, 예약, 추가 약관과 안전 조건을 포함한 전체 원문입니다. 각 문장을 차례대로 읽어보세요.", "These are the full terms covering refunds, reservations, additional clauses, and safety. Read each item carefully.");
+  document.querySelector(".detail-terms-accessibility").setAttribute("aria-label", localizeText("예약 조건 접근성 도구", "Booking terms accessibility tools"));
+  detailFontDecreaseButton.setAttribute("aria-label", localizeText("예약 조건 글자 작게", "Decrease booking terms text"));
+  detailFontIncreaseButton.setAttribute("aria-label", localizeText("예약 조건 글자 크게", "Increase booking terms text"));
+  detailSpeechToggleButton.title = localizeText("예약 조건 읽기", "Read booking terms");
+  if (!isReadingDetailTerms) detailSpeechToggleButton.textContent = localizeText("읽기", "Read");
+  setLocaleContent(".detail-price-row span", "1인 기준", "Per person");
+  setLocaleContent(".detail-facts div:nth-child(1) dt", "장소", "Location");
+  setLocaleContent(".detail-facts div:nth-child(2) dt", "소요 시간", "Duration");
+  setLocaleContent(".detail-facts div:nth-child(3) dt", "최소 연령", "Minimum age");
+  setLocaleContent(".detail-facts div:nth-child(4) dt", "최대 인원", "Max guests");
+  setLocaleContent(".detail-facts div:nth-child(5) dt", "운영 시간", "Time slots");
+  setLocaleContent(".detail-included > strong", "포함 사항", "Included");
+  setLocaleContent("#detail-book-button", "조건을 확인하고 예약하기 →", "Review terms and reserve →");
+  setLocaleContent(".product-detail-booking > small", "예약 요청 후 약관 검토와 전자서명이 진행됩니다.", "After booking, you will review the terms and complete e-signature.");
+
+  setLocaleContent(".dialog-price span", "1인 기준", "Per person");
+  setLocaleContent(".booking-form label:nth-of-type(1) > span", "예약자 이름", "Guest name");
+  setLocaleContent(".booking-form label:nth-of-type(2) > span", "전자서명 수신 이메일", "E-signature email");
+  setLocaleContent(".booking-form label:nth-of-type(3) > span", "이용 날짜", "Date");
+  setLocaleContent(".booking-form label:nth-of-type(4) > span", "운영 시간", "Time slot");
+  setLocaleContent(".booking-people-field > span", "인원", "Guests");
+  setLocaleContent("#booking-people option[value='1']", "1명", "1 guest");
+  setLocaleContent("#booking-people option[value='2']", "2명", "2 guests");
+  setLocaleContent("#booking-people option[value='3']", "3명", "3 guests");
+  setLocaleContent("#booking-people option[value='4']", "4명", "4 guests");
+  setLocaleContent("#booking-people option[value='5']", "5명 이상", "5+ guests");
+  setLocaleContent("#booking-form .dialog-submit", "예약 요청하기 →", "Request reservation →");
+  setLocaleContent(".booking-form > small", "웹사이트에서 전자서명을 완료하면 로그인 이메일로 완료 문서를 보내드립니다.", "After completing e-signature here, the completed document will be sent to your login email.");
+
+  setLocaleContent("#recommendation-dialog h2", "나에게 맞는 바다 찾기", "Find your ideal sea experience");
+  setLocaleContent(".recommendation-dialog-head > div > p:last-child", "간단한 조건을 알려주면 상품을 비교하고 Solar가 추천 이유를 설명해요.", "Tell us a few preferences and Solar will compare products and explain its recommendations.");
+  setLocaleContent("#recommendation-form label:nth-of-type(1) > span", "1인 최대 예산", "Maximum budget per person");
+  setLocaleContent("#recommendation-form label:nth-of-type(2) > span", "이용자 나이", "Guest age");
+  setLocaleContent("#recommendation-form label:nth-of-type(3) > span", "희망 지역", "Preferred area");
+  setLocaleContent("#recommendation-form label:nth-of-type(4) > span", "관심 활동", "Activity preference");
+  setLocaleContent("#recommendation-form label:nth-of-type(5) > span", "경험 수준", "Experience level");
+  setLocaleContent("#recommendation-form label:nth-of-type(6) > span", "수영 가능 여부", "Swimming ability");
+  setLocaleContent("#recommendation-form label:nth-of-type(7) > span", "누구와 가나요?", "Who are you going with?");
+  setLocaleContent("#recommendation-form label:nth-of-type(8) > span", "원하는 분위기", "Desired mood");
+  setLocaleContent("#recommend-budget option[value='30000']", "3만원 이하", "Up to KRW 30,000");
+  setLocaleContent("#recommend-budget option[value='50000']", "5만원 이하", "Up to KRW 50,000");
+  setLocaleContent("#recommend-budget option[value='80000']", "8만원 이하", "Up to KRW 80,000");
+  setLocaleContent("#recommend-budget option[value='120000']", "12만원 이하", "Up to KRW 120,000");
+  setLocaleContent("#recommend-region option[value='']", "부산 전체", "All Busan");
+  document.querySelectorAll("#recommend-region option[value]").forEach((option) => {
+    if (option.value) option.textContent = localizeRegion(option.value);
+  });
+  setLocaleContent("#recommend-category option[value='']", "상관없음", "No preference");
+  document.querySelectorAll("#recommend-category option[value]").forEach((option) => {
+    if (option.value) option.textContent = localizeCategory(option.value);
+  });
+  setLocaleContent("#recommend-level option[value='beginner']", "처음이에요", "Beginner");
+  setLocaleContent("#recommend-level option[value='intermediate']", "몇 번 해봤어요", "Some experience");
+  setLocaleContent("#recommend-level option[value='advanced']", "숙련자예요", "Experienced");
+  setLocaleContent("#recommend-swimming option[value='false']", "수영을 못해요", "Cannot swim");
+  setLocaleContent("#recommend-swimming option[value='true']", "수영할 수 있어요", "Can swim");
+  setLocaleContent("#recommend-companion option[value='혼자']", "혼자", "Solo");
+  setLocaleContent("#recommend-companion option[value='연인']", "연인", "Partner");
+  setLocaleContent("#recommend-companion option[value='친구']", "친구", "Friends");
+  setLocaleContent("#recommend-companion option[value='가족']", "가족", "Family");
+  setLocaleContent("#recommend-companion option[value='단체']", "단체", "Group");
+  setLocaleContent("#recommend-mood option[value='휴식']", "조용한 휴식", "Quiet relaxation");
+  setLocaleContent("#recommend-mood option[value='사진']", "사진과 추억", "Photos and memories");
+  setLocaleContent("#recommend-mood option[value='도전']", "새로운 도전", "A new challenge");
+  setLocaleContent("#recommend-mood option[value='스릴']", "짜릿한 스릴", "High-energy thrills");
+  setLocaleContent("#recommend-mood option[value='자연']", "자연과 풍경", "Nature and scenery");
+  setLocaleContent("#recommend-mood option[value='야경']", "야경과 도시", "Night views and city lights");
+  setLocaleContent("#recommendation-submit span:first-child", "AI 추천 받기", "Get AI recommendations");
+  setLocaleContent(".recommendation-privacy", "입력한 조건은 추천을 위해서만 사용하며 이름이나 연락처는 받지 않습니다.", "Your preferences are used only for recommendations. We do not collect your name or contact details.");
+}
+
+function applyLocale() {
+  applyStaticLocale();
+  setProductTranslationStatus("idle");
+  updateAuthInterface();
+  updateCategoryCounts();
+
+  if (experiences.length > 0) renderExperiences();
+  if (currentUser) {
+    renderMyReservations();
+    renderContractNotifications();
+  }
+  if (reservationDetailDialog.open && viewedReservationId) {
+    const reservation = myReservations.find(
+      (item) => item.id === viewedReservationId,
+    );
+    if (reservation) openReservationDetail(reservation);
+  }
+  if (contractDialog.open && pendingBooking) {
+    renderContractBookingSummary(pendingBooking);
+  }
+  if (productDetailDialog.open && state.selectedExperience) {
+    if (
+      isTranslatedLocale() &&
+      !getProductTranslationCache().get(state.selectedExperience.id)?.detail
+    ) {
+      openProductDetail(state.selectedExperience.id);
+    } else {
+      renderProductDetail(state.selectedExperience.id);
+    }
+  }
 }
 
 function categoryMatches(productCategory, selectedCategory) {
@@ -183,7 +833,10 @@ function getProductImage(product) {
 }
 
 function getProductImageAlt(product) {
-  return productMedia[product.id]?.coverAlt ?? `${product.name} 체험 모습`;
+  return (
+    productMedia[product.id]?.coverAlt ??
+    localizeText(`${product.name} 체험 모습`, `${product.name} experience`)
+  );
 }
 
 function getVisibleExperiences() {
@@ -237,7 +890,7 @@ function renderPagination(totalPages) {
       class="pagination-dot ${index === state.page ? "is-active" : ""}"
       type="button"
       data-page="${index}"
-      aria-label="${index + 1}페이지 보기"
+      aria-label="${localizeText(`${index + 1}페이지 보기`, `View page ${index + 1}`)}"
       aria-current="${index === state.page ? "page" : "false"}"
     ></button>
   `).join("");
@@ -252,18 +905,19 @@ function renderExperiences() {
 
   experienceGrid.innerHTML = pageExperiences
     .map((experience) => {
+      const displayExperience = getDisplayExperience(experience);
       const recommendation = state.recommendationMap.get(experience.id);
       const recommendationNote = recommendation
         ? `
           <div class="recommendation-note">
-            <strong>✦ AI 추천 이유 · 적합도 ${recommendation.score}점</strong>
+            <strong>${localizeText(`✦ AI 추천 이유 · 적합도 ${recommendation.score}점`, `✦ AI recommendation · ${recommendation.score} score`)}</strong>
             ${escapeHtml(recommendation.reason)}
             <span class="recommendation-tags">
               ${recommendation.fitPoints
                 .map((point) => `<span>${escapeHtml(point)}</span>`)
                 .join("")}
             </span>
-            <span class="recommendation-caution">주의: ${escapeHtml(recommendation.caution)}</span>
+            <span class="recommendation-caution">${localizeText("주의:", "Caution:")} ${escapeHtml(recommendation.caution)}</span>
           </div>
         `
         : "";
@@ -281,18 +935,18 @@ function renderExperiences() {
               class="favorite-button ${state.favorites.has(experience.id) ? "is-active" : ""}"
               type="button"
               data-favorite="${experience.id}"
-              aria-label="${escapeHtml(experience.name)} 찜하기"
+              aria-label="${escapeHtml(localizeText(`${displayExperience.name} 찜하기`, `Save ${displayExperience.name}`))}"
               aria-pressed="${state.favorites.has(experience.id)}"
             >${state.favorites.has(experience.id) ? "♥" : "♡"}</button>
           </div>
           <button class="card-button" type="button" data-booking="${experience.id}">
             <span class="card-meta">
-              <span>${escapeHtml(experience.region)} · ${escapeHtml(experience.category)}</span>
+              <span>${escapeHtml(localizeRegion(experience.region))} · ${escapeHtml(localizeCategory(experience.category))}</span>
               <span class="card-rating">★ ${experience.rating} (${experience.reviewCount})</span>
             </span>
-            <h3>${escapeHtml(experience.name)}</h3>
+            <h3>${escapeHtml(displayExperience.name)}</h3>
             <span class="card-footer">
-              <span>${escapeHtml(experience.partnerName)} · ${experience.durationMinutes}분</span>
+              <span>${escapeHtml(displayExperience.partnerName)} · ${formatDuration(experience.durationMinutes)}</span>
               <strong>${formatPrice(experience.pricePerPerson)}</strong>
             </span>
           </button>
@@ -302,9 +956,15 @@ function renderExperiences() {
     })
     .join("");
 
-  resultCount.textContent = `${visibleExperiences.length}개의 경험`;
+  resultCount.textContent = localizeText(
+    `${visibleExperiences.length}개의 경험`,
+    `${visibleExperiences.length} experiences`,
+  );
   emptyState.hidden = visibleExperiences.length !== 0;
   renderPagination(totalPages);
+  if (isTranslatedLocale() && pageExperiences.length > 0) {
+    requestProductCardTranslations(pageExperiences);
+  }
 
   if (state.recommendedIds) {
     resultDescription.textContent = state.recommendationMessage;
@@ -312,13 +972,23 @@ function renderExperiences() {
   }
 
   const descriptions = [];
-  if (state.category) descriptions.push(`${state.category} 카테고리`);
-  if (state.regions.size) descriptions.push(`${[...state.regions].join(" · ")} 지역`);
-  if (state.keyword) descriptions.push(`“${state.keyword}” 검색`);
+  if (state.category) {
+    descriptions.push(localizeText(`${state.category} 카테고리`, `${localizeCategory(state.category)} category`));
+  }
+  if (state.regions.size > 0) {
+    const regions = [...state.regions].map((region) => localizeRegion(region));
+    descriptions.push(localizeText(`${regions.join(", ")} 지역`, `${regions.join(", ")} area`));
+  }
+  if (state.keyword) {
+    descriptions.push(localizeText(`“${state.keyword}” 검색`, `Search: “${state.keyword}”`));
+  }
 
   resultDescription.textContent = descriptions.length
-    ? `${descriptions.join(" · ")} 결과입니다.`
-    : "이번 주 여행자들이 가장 많이 선택한 해양레저예요.";
+    ? localizeText(`${descriptions.join(" · ")} 결과입니다.`, `${descriptions.join(" · ")} results.`)
+    : localizeText(
+      "이번 주 여행자들이 가장 많이 선택한 해양레저예요.",
+      "Marine experiences most chosen by travelers this week.",
+    );
 }
 
 function updateCategoryCounts() {
@@ -329,15 +999,52 @@ function updateCategoryCounts() {
     ).length;
     const countLabel = button.querySelector("small");
 
-    if (countLabel) countLabel.textContent = `${count} experiences`;
+    if (countLabel) {
+      countLabel.textContent = localizeText(`${count}개 경험`, `${count} experiences`);
+    }
   });
 }
 
-function clearRecommendations() {
-  state.recommendedIds = null;
-  state.recommendationMap.clear();
-  state.recommendationMessage = "";
-  state.page = 0;
+function formatBookingDateInput(isoDate) {
+  const match = String(isoDate ?? "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? `${match[2]} / ${match[3]} / ${match[1]}` : "";
+}
+
+function parseBookingDateInput(value) {
+  const match = String(value ?? "").trim().match(/^(\d{2})\s*\/\s*(\d{2})\s*\/\s*(\d{4})$/);
+  if (!match) return null;
+
+  const [, month, day, year] = match;
+  const date = new Date(`${year}-${month}-${day}T00:00:00`);
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.getFullYear() !== Number(year) ||
+    date.getMonth() + 1 !== Number(month) ||
+    date.getDate() !== Number(day)
+  ) {
+    return null;
+  }
+
+  return `${year}-${month}-${day}`;
+}
+
+function setProductTranslationStatus(state) {
+  if (!productTranslationStatus || !productTranslationStatusMessage) return;
+
+  if (activeLocale === "ko" || state === "idle") {
+    productTranslationStatus.hidden = true;
+    productTranslationStatus.classList.remove("is-error");
+    return;
+  }
+
+  productTranslationStatus.hidden = false;
+  productTranslationStatus.classList.toggle("is-error", state === "error");
+  productTranslationStatusMessage.textContent = state === "error"
+    ? localizeText(
+      "상품 카드 번역을 준비하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+      "Card translation is unavailable. Please try again shortly.",
+    )
+    : "Translating the experiences on this page.";
 }
 
 function updateRegionFilterButtons() {
@@ -345,9 +1052,7 @@ function updateRegionFilterButtons() {
 
   regionFilterButtons.forEach((button) => {
     const region = button.dataset.regionFilter;
-    const isActive = region
-      ? state.regions.has(region)
-      : isAllRegions;
+    const isActive = region ? state.regions.has(region) : isAllRegions;
     button.classList.toggle("is-active", isActive);
     button.setAttribute("aria-pressed", String(isActive));
   });
@@ -367,6 +1072,13 @@ function toggleRegionFilter(region) {
   regionSelect.value = state.regions.values().next().value ?? "";
   updateRegionFilterButtons();
   renderExperiences();
+}
+
+function clearRecommendations() {
+  state.recommendedIds = null;
+  state.recommendationMap.clear();
+  state.recommendationMessage = "";
+  state.page = 0;
 }
 
 function setCategory(category) {
@@ -391,16 +1103,117 @@ function showToast(message) {
   }, 2800);
 }
 
+function getSavedDetailFontScaleIndex() {
+  try {
+    const savedScale = window.localStorage.getItem("waveon-detail-terms-font-scale");
+    const savedIndex = detailFontScaleOptions.indexOf(savedScale);
+    return savedIndex === -1 ? 0 : savedIndex;
+  } catch {
+    return 0;
+  }
+}
+
+function updateDetailFontScale() {
+  const fontScale = detailFontScaleOptions[detailFontScaleIndex];
+  productDetailDialog.dataset.termsFontScale = fontScale;
+  detailFontDecreaseButton.disabled = detailFontScaleIndex === 0;
+  detailFontIncreaseButton.disabled =
+    detailFontScaleIndex === detailFontScaleOptions.length - 1;
+
+  try {
+    window.localStorage.setItem("waveon-detail-terms-font-scale", fontScale);
+  } catch {
+    // 브라우저 저장소를 사용할 수 없어도 현재 창의 글자 크기는 적용합니다.
+  }
+}
+
+function getDetailTermsSpeechText() {
+  if (!productDetailDialog.open) return "";
+
+  const detailTermsTitle = document.querySelector("#detail-terms-title");
+  const detailTermsIntro = document.querySelector(".detail-terms-intro");
+  const detailContractTerms = document.querySelector("#detail-contract-terms");
+
+  return [
+    detailTermsTitle?.textContent,
+    detailTermsIntro?.textContent,
+    detailContractTerms?.textContent,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function stopDetailTermsReading() {
+  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+  isReadingDetailTerms = false;
+  detailSpeechToggleButton.textContent = localizeText("읽기", "Read");
+  detailSpeechToggleButton.setAttribute("aria-pressed", "false");
+}
+
+function toggleDetailTermsReading() {
+  if (!("speechSynthesis" in window)) {
+    showToast(localizeText("이 브라우저에서는 읽어주기 기능을 사용할 수 없습니다.", "This browser does not support read aloud."));
+    return;
+  }
+
+  if (isReadingDetailTerms || window.speechSynthesis.speaking) {
+    stopDetailTermsReading();
+    return;
+  }
+
+  if (
+    isTranslatedLocale() &&
+    state.selectedExperience &&
+    !getProductTranslationCache().get(state.selectedExperience.id)?.detail
+  ) {
+    showToast(
+      localizeText(
+        "번역된 약관을 준비하고 있습니다. 잠시 후 다시 시도해 주세요.",
+        "Translated terms are still being prepared. Please try again in a moment.",
+      ),
+    );
+    return;
+  }
+
+  const speechText = getDetailTermsSpeechText();
+  if (!speechText) {
+    showToast(localizeText("상품 상세에서 예약 조건을 연 뒤 이용해주세요.", "Open the product details and booking terms first."));
+    return;
+  }
+
+  const utterance = new SpeechSynthesisUtterance(speechText);
+  utterance.lang = localeFormats[activeLocale];
+  utterance.rate = 0.95;
+  utterance.onend = stopDetailTermsReading;
+  utterance.onerror = stopDetailTermsReading;
+
+  isReadingDetailTerms = true;
+  detailSpeechToggleButton.textContent = localizeText("멈춤", "Stop");
+  detailSpeechToggleButton.setAttribute("aria-pressed", "true");
+  window.speechSynthesis.speak(utterance);
+}
+
 function updateAuthInterface() {
   if (currentUser) {
-    loginButton.textContent = "마이페이지";
+    loginButton.textContent = localizeText("마이페이지", "My page");
     loginButton.classList.add("is-authenticated");
-    loginButton.setAttribute("aria-label", `${currentUser.userId} 계정 마이페이지 열기`);
+    loginButton.setAttribute(
+      "aria-label",
+      localizeText(
+        `${currentUser.userId} 계정 마이페이지 열기`,
+        `Open ${currentUser.userId}'s account page`,
+      ),
+    );
     notificationButton.hidden = false;
   } else {
-    loginButton.textContent = "로그인";
+    loginButton.textContent = localizeText("로그인", "Log in");
     loginButton.classList.remove("is-authenticated");
-    loginButton.setAttribute("aria-label", "로그인 또는 회원가입");
+    loginButton.setAttribute(
+      "aria-label",
+      localizeText("로그인 또는 회원가입", "Log in or create an account"),
+    );
     notificationButton.hidden = true;
     notificationBadge.hidden = true;
     contractNotification.hidden = true;
@@ -411,11 +1224,16 @@ function updateAuthInterface() {
 function setAuthMode(mode) {
   authMode = mode === "register" ? "register" : "login";
   const isRegister = authMode === "register";
-  authTitle.textContent = isRegister ? "회원가입" : "로그인";
+  authTitle.textContent = isRegister
+    ? localizeText("회원가입", "Create account")
+    : localizeText("로그인", "Log in");
   authDescription.textContent = isRegister
-    ? "계정을 만들면 로그인 이메일로 전자서명 완료 문서를 보내드립니다."
-    : "아이디와 비밀번호로 로그인해 주세요.";
-  authSubmit.innerHTML = `${isRegister ? "회원가입" : "로그인"} <span>→</span>`;
+    ? localizeText(
+      "계정을 만들면 로그인 이메일로 전자서명 완료 문서를 보내드립니다.",
+      "After you create an account, completed e-signature documents will be sent to your login email.",
+    )
+    : localizeText("아이디와 비밀번호로 로그인해 주세요.", "Log in with your ID and password.");
+  authSubmit.innerHTML = `${isRegister ? localizeText("회원가입", "Create account") : localizeText("로그인", "Log in")} <span>→</span>`;
   authPassword.autocomplete = isRegister ? "new-password" : "current-password";
   authEmailField.hidden = !isRegister;
   authEmail.required = isRegister;
@@ -471,64 +1289,64 @@ async function logout() {
 
 function reservationStatusDetails(status) {
   return {
-    CONTRACT_PENDING: { label: "계약 확인 필요", className: "pending" },
-    SIGNING: { label: "전자서명 진행 중", className: "signing" },
-    COMPLETED: { label: "예약 확정", className: "completed" },
+    CONTRACT_PENDING: { label: localizeText("계약 확인 필요", "Contract review required"), className: "pending" },
+    SIGNING: { label: localizeText("전자서명 진행 중", "E-signature in progress"), className: "signing" },
+    COMPLETED: { label: localizeText("예약 확정", "Reservation confirmed"), className: "completed" },
     CANCELLATION_REQUESTED: {
-      label: "취소 요청 접수",
+      label: localizeText("취소 요청 접수", "Cancellation request received"),
       className: "cancellation-requested",
     },
-    CANCELLED: { label: "예약 취소", className: "cancelled" },
-    ABORTED: { label: "서명 중단", className: "failed" },
-    PROCESSING_FAILED: { label: "문서 처리 실패", className: "failed" },
-  }[status] ?? { label: "상태 확인 중", className: "signing" };
+    CANCELLED: { label: localizeText("예약 취소", "Reservation cancelled"), className: "cancelled" },
+    ABORTED: { label: localizeText("서명 중단", "Signature stopped"), className: "failed" },
+    PROCESSING_FAILED: { label: localizeText("문서 처리 실패", "Document processing failed"), className: "failed" },
+  }[status] ?? { label: localizeText("상태 확인 중", "Checking status"), className: "signing" };
 }
 
 function reservationSignatureDetails(reservation) {
   if (reservation.status === "CANCELLATION_REQUESTED") {
     return {
-      label: "취소 요청 접수",
+      label: localizeText("취소 요청 접수", "Cancellation request received"),
       className: "cancellation-requested",
-      description: "판매자 확인 후 취소 및 환불 처리 결과를 안내합니다.",
+      description: localizeText("판매자 확인 후 취소 및 환불 처리 결과를 안내합니다.", "The seller will confirm the cancellation and refund result."),
     };
   }
 
   if (reservation.status === "CANCELLED") {
     return {
-      label: "예약 취소됨",
+      label: localizeText("예약 취소됨", "Reservation cancelled"),
       className: "cancelled",
-      description: "전자서명 요청 전에 예약을 취소했습니다.",
+      description: localizeText("전자서명 요청 전에 예약을 취소했습니다.", "This reservation was cancelled before the e-signature request."),
     };
   }
 
   if (reservation.documentAvailable) {
     return {
-      label: "전자서명 완료",
+      label: localizeText("전자서명 완료", "E-signature completed"),
       className: "completed",
-      description: "완료된 전자서명 문서가 이 예약에 안전하게 연결되어 있습니다.",
+      description: localizeText("완료된 전자서명 문서가 이 예약에 안전하게 연결되어 있습니다.", "The completed e-signature document is securely linked to this reservation."),
     };
   }
 
   if (reservation.status === "SIGNING") {
     return {
-      label: "전자서명 진행 중",
+      label: localizeText("전자서명 진행 중", "E-signature in progress"),
       className: "signing",
-      description: "서명을 완료하면 이곳에서 완료 문서를 확인할 수 있습니다.",
+      description: localizeText("서명을 완료하면 이곳에서 완료 문서를 확인할 수 있습니다.", "You can review the completed document here after signing."),
     };
   }
 
   if (["ABORTED", "PROCESSING_FAILED"].includes(reservation.status)) {
     return {
-      label: "전자서명 확인 필요",
+      label: localizeText("전자서명 확인 필요", "E-signature review required"),
       className: "failed",
-      description: "전자서명 문서가 저장되지 않았습니다. 고객센터에 문의해 주세요.",
+      description: localizeText("전자서명 문서가 저장되지 않았습니다. 고객센터에 문의해 주세요.", "The e-signature document was not saved. Please contact support."),
     };
   }
 
   return {
-    label: "전자서명 전",
+    label: localizeText("전자서명 전", "Before e-signature"),
     className: "pending",
-    description: "아직 완료된 전자서명이 없습니다. 전자서명 기능이 준비되면 이곳에 저장됩니다.",
+    description: localizeText("아직 완료된 전자서명이 없습니다. 전자서명 기능이 준비되면 이곳에 저장됩니다.", "There is no completed e-signature yet. It will appear here once available."),
   };
 }
 
@@ -536,21 +1354,39 @@ function formatKoreanDate(value) {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("ko-KR", {
+  return new Intl.DateTimeFormat(localeFormats[activeLocale], {
     year: "numeric",
     month: "long",
     day: "numeric",
   }).format(date);
 }
 
+function formatReservationCount(count) {
+  if (activeLocale === "ko") return `${count}건`;
+  if (activeLocale === "ja") return `${count}件`;
+  if (activeLocale === "zh") return `${count}项`;
+  return `${count} reservation${count === 1 ? "" : "s"}`;
+}
+
+function getReservationDisplay(reservation) {
+  const experience = experiences.find(
+    (item) => item.name === reservation.activity,
+  );
+  const displayExperience = experience ? getDisplayExperience(experience) : null;
+  return {
+    activity: displayExperience?.name ?? reservation.activity,
+    venue: displayExperience?.partnerName ?? reservation.venue,
+  };
+}
+
 function renderMyReservations() {
-  mypageReservationCount.textContent = `${myReservations.length}건`;
+  mypageReservationCount.textContent = formatReservationCount(myReservations.length);
 
   if (myReservations.length === 0) {
     mypageReservationList.innerHTML = `
       <div class="mypage-empty">
-        <strong>아직 예약 내역이 없습니다.</strong>
-        <p>마음에 드는 부산 바다 경험을 선택해 첫 예약을 만들어 보세요.</p>
+        <strong>${localizeText("아직 예약 내역이 없습니다.", "No reservations yet.")}</strong>
+        <p>${localizeText("마음에 드는 부산 바다 경험을 선택해 첫 예약을 만들어 보세요.", "Choose a Busan sea experience to make your first reservation.")}</p>
       </div>
     `;
     return;
@@ -559,13 +1395,16 @@ function renderMyReservations() {
   mypageReservationList.innerHTML = myReservations
     .map((reservation) => {
       const status = reservationStatusDetails(reservation.status);
+      const displayReservation = getReservationDisplay(reservation);
       const createdDate = formatKoreanDate(reservation.createdAt);
       const isExpanded = expandedReservationId === reservation.id;
       const canCancel = ["CONTRACT_PENDING", "COMPLETED"].includes(
         reservation.status,
       );
       const cancelLabel =
-        reservation.status === "COMPLETED" ? "예약 취소 요청" : "예약 취소";
+        reservation.status === "COMPLETED"
+          ? localizeText("예약 취소 요청", "Request cancellation")
+          : localizeText("예약 취소", "Cancel reservation");
 
       return `
         <article class="reservation-card ${isExpanded ? "is-expanded" : ""}">
@@ -577,23 +1416,25 @@ function renderMyReservations() {
           >
             <span class="reservation-card-top">
               <span class="reservation-status is-${status.className}">${status.label}</span>
-              <time>${createdDate} 예약</time>
+              <time>${createdDate} ${localizeText("예약", "reservation")}</time>
             </span>
             <span class="reservation-card-copy">
-              <strong>${escapeHtml(reservation.activity)}</strong>
-              <span>${escapeHtml(reservation.venue)}</span>
+              <strong>${escapeHtml(displayReservation.activity)}</strong>
+              <span>${escapeHtml(displayReservation.venue)}</span>
             </span>
             <span class="reservation-card-open">
-              ${isExpanded ? "예약 메뉴 닫기" : "예약 메뉴 열기"}
+              ${isExpanded
+                ? localizeText("예약 메뉴 닫기", "Close reservation menu")
+                : localizeText("예약 메뉴 열기", "Open reservation menu")}
               <b aria-hidden="true">${isExpanded ? "⌃" : "⌄"}</b>
             </span>
           </button>
           <div class="reservation-card-panel${canCancel ? " has-cancel" : ""}" ${isExpanded ? "" : "hidden"}>
             <button type="button" data-view-reservation="${reservation.id}">
-              예약내역 확인하기 <span>→</span>
+              ${localizeText("예약내역 확인하기", "View reservation details")} <span>→</span>
             </button>
             <button type="button" class="is-secondary" data-reservation-product="${reservation.id}">
-              상세페이지로 가기 <span>↗</span>
+              ${localizeText("상세페이지로 가기", "Go to product page")} <span>↗</span>
             </button>
             ${
               canCancel
@@ -609,6 +1450,13 @@ function renderMyReservations() {
       `;
     })
     .join("");
+
+  if (isTranslatedLocale()) {
+    const reservationProducts = myReservations
+      .map((reservation) => experiences.find((item) => item.name === reservation.activity))
+      .filter(Boolean);
+    requestProductCardTranslations(reservationProducts);
+  }
 }
 
 function getPendingContractReservations() {
@@ -624,7 +1472,7 @@ function renderContractNotifications() {
   notificationBadge.hidden = count === 0;
   notificationBadge.textContent = String(count);
   notificationPanelCount.hidden = count === 0;
-  notificationPanelCount.textContent = `${count}건`;
+  notificationPanelCount.textContent = formatReservationCount(count);
 
   if (count === 0) {
     contractNotification.hidden = true;
@@ -635,21 +1483,24 @@ function renderContractNotifications() {
 
   contractNotificationList.innerHTML = reservations
     .map(
-      (reservation) => `
+      (reservation) => {
+        const displayReservation = getReservationDisplay(reservation);
+        return `
         <button
           class="notification-item"
           type="button"
           data-open-contract="${escapeHtml(reservation.id)}"
-          aria-label="${escapeHtml(reservation.activity)} 계약서 확인 및 전자서명 진행"
+          aria-label="${escapeHtml(displayReservation.activity)} ${escapeHtml(localizeText("계약서 확인 및 전자서명 진행", "Review contract and continue e-signature"))}"
         >
           <span class="notification-item-icon" aria-hidden="true">✦</span>
           <span class="notification-item-copy">
-            <strong>계약서 확인 필요</strong>
-            <span>${escapeHtml(reservation.activity)} · ${escapeHtml(reservation.date)}</span>
+            <strong>${localizeText("계약서 확인 필요", "Contract review required")}</strong>
+            <span>${escapeHtml(displayReservation.activity)} · ${escapeHtml(reservation.date)}</span>
           </span>
           <span class="notification-item-arrow" aria-hidden="true">→</span>
         </button>
-      `,
+      `;
+      },
     )
     .join("");
 }
@@ -668,8 +1519,10 @@ function openReservationProduct(reservation) {
 }
 
 function openReservationDetail(reservation) {
+  viewedReservationId = reservation.id;
   const status = reservationStatusDetails(reservation.status);
   const signature = reservationSignatureDetails(reservation);
+  const displayReservation = getReservationDisplay(reservation);
   const documentAction = reservation.documentAvailable
     ? `
       <a
@@ -678,7 +1531,7 @@ function openReservationDetail(reservation) {
         target="_blank"
         rel="noopener"
       >
-        전자서명 확인하기 <span>↗</span>
+        ${localizeText("전자서명 확인하기", "View e-signature")} <span>↗</span>
       </a>
     `
     : ["CONTRACT_PENDING", "SIGNING", "PROCESSING_FAILED"].includes(
@@ -692,14 +1545,14 @@ function openReservationDetail(reservation) {
         >
           ${
             reservation.status === "SIGNING"
-              ? "전자서명 이어하기"
-              : "계약서 확인 및 전자서명"
+              ? localizeText("전자서명 이어하기", "Continue e-signature")
+              : localizeText("계약서 확인 및 전자서명", "Review contract and e-sign")
           } <span>→</span>
         </button>
       `
     : `
       <button class="reservation-document-button" type="button" disabled>
-        저장된 전자서명 없음
+        ${localizeText("저장된 전자서명 없음", "No saved e-signature")}
       </button>
     `;
   const cancelAction =
@@ -712,8 +1565,8 @@ function openReservationDetail(reservation) {
         >
           ${
             reservation.status === "COMPLETED"
-              ? "예약 취소 요청"
-              : "예약 취소"
+              ? localizeText("예약 취소 요청", "Request cancellation")
+              : localizeText("예약 취소", "Cancel reservation")
           } <span>×</span>
         </button>
       `
@@ -722,15 +1575,15 @@ function openReservationDetail(reservation) {
   reservationDetailContent.innerHTML = `
     <section class="reservation-detail-summary">
       <span class="reservation-status is-${status.className}">${status.label}</span>
-      <p>예약번호 ${escapeHtml(reservation.id.slice(0, 10).toUpperCase())}</p>
-      <h3>${escapeHtml(reservation.activity)}</h3>
-      <span>${escapeHtml(reservation.venue)}</span>
+      <p>${localizeText("예약번호", "Reservation number")} ${escapeHtml(reservation.id.slice(0, 10).toUpperCase())}</p>
+      <h3>${escapeHtml(displayReservation.activity)}</h3>
+      <span>${escapeHtml(displayReservation.venue)}</span>
     </section>
     <dl class="reservation-detail-grid">
-      <div><dt>예약 날짜</dt><dd>${escapeHtml(reservation.date)}${reservation.time ? ` · ${escapeHtml(reservation.time)}` : ""}</dd></div>
-      <div><dt>예약 인원</dt><dd>${escapeHtml(reservation.people)}명</dd></div>
-      <div><dt>예약자</dt><dd>${escapeHtml(reservation.name)}</dd></div>
-      <div><dt>예약 신청일</dt><dd>${formatKoreanDate(reservation.createdAt)}</dd></div>
+      <div><dt>${localizeText("예약 날짜", "Reservation date")}</dt><dd>${escapeHtml(reservation.date)}${reservation.time ? ` · ${escapeHtml(reservation.time)}` : ""}</dd></div>
+      <div><dt>${localizeText("예약 인원", "Guests")}</dt><dd>${formatPeople(Number(reservation.people))}</dd></div>
+      <div><dt>${localizeText("예약자", "Booker")}</dt><dd>${escapeHtml(reservation.name)}</dd></div>
+      <div><dt>${localizeText("예약 신청일", "Booked on")}</dt><dd>${formatKoreanDate(reservation.createdAt)}</dd></div>
     </dl>
     <section class="reservation-signature-card is-${signature.className}">
       <div>
@@ -746,13 +1599,13 @@ function openReservationDetail(reservation) {
   `;
 
   mypageDialog.close();
-  reservationDetailDialog.showModal();
+  if (!reservationDetailDialog.open) reservationDetailDialog.showModal();
   document.body.classList.add("dialog-open");
 }
 
 async function loadMyReservations() {
   mypageReservationList.innerHTML =
-    '<p class="mypage-loading">예약과 전자서명 상태를 확인하고 있어요.</p>';
+    `<p class="mypage-loading">${localizeText("예약과 전자서명 상태를 확인하고 있어요.", "Checking reservation and e-signature status…")}</p>`;
 
   try {
     const response = await fetch("/api/reservations");
@@ -770,7 +1623,7 @@ async function loadMyReservations() {
   } catch (error) {
     mypageReservationList.innerHTML = `
       <div class="mypage-empty">
-        <strong>예약 내역을 불러오지 못했습니다.</strong>
+        <strong>${localizeText("예약 내역을 불러오지 못했습니다.", "Unable to load reservations.")}</strong>
         <p>${escapeHtml(error.message)}</p>
       </div>
     `;
@@ -872,17 +1725,18 @@ function openBooking(experienceId) {
   if (!selectedExperience) return;
 
   state.selectedExperience = selectedExperience;
+  const displayExperience = getDisplayExperience(selectedExperience);
   document.querySelector("#dialog-image").src =
     getProductImage(selectedExperience);
-  document.querySelector("#dialog-image").alt = selectedExperience.name;
-  document.querySelector("#dialog-title").textContent = selectedExperience.name;
+  document.querySelector("#dialog-image").alt = displayExperience.name;
+  document.querySelector("#dialog-title").textContent = displayExperience.name;
   document.querySelector("#dialog-location").textContent =
-    `${selectedExperience.region} · ${selectedExperience.partnerName} · ${selectedExperience.durationMinutes}분`;
+    `${localizeRegion(displayExperience.region)} · ${displayExperience.partnerName} · ${formatDuration(selectedExperience.durationMinutes)}`;
   document.querySelector("#dialog-price").textContent = formatPrice(
     selectedExperience.pricePerPerson,
   );
 
-  bookingDate.value = searchDate.value;
+  bookingDate.value = formatBookingDateInput(searchDate.value);
   bookingName.value = currentUser.userId;
   bookingEmail.value = currentUser.email;
   bookingTime.innerHTML = selectedExperience.timeSlots
@@ -899,10 +1753,10 @@ function renderList(elementId, items, itemTemplate) {
 
 function buildVisibleContractTerms(experience, detail, contract) {
   return [
-    ...detail.refundRules.map((text) => ({ type: "환불", text })),
-    ...detail.bookingConditions.map((text) => ({ type: "예약", text })),
-    ...contract.additionalClauses.map((text) => ({ type: "추가", text })),
-    ...experience.safetyNotes.map((text) => ({ type: "안전", text })),
+    ...detail.refundRules.map((text) => ({ type: localizeText("환불", "Refund"), text })),
+    ...detail.bookingConditions.map((text) => ({ type: localizeText("예약", "Booking"), text })),
+    ...contract.additionalClauses.map((text) => ({ type: localizeText("추가", "Additional"), text })),
+    ...experience.safetyNotes.map((text) => ({ type: localizeText("안전", "Safety"), text })),
   ];
 }
 
@@ -912,8 +1766,13 @@ function renderContractSummary(result) {
   const riskElement = document.querySelector("#detail-ai-risk");
 
   document.querySelector("#detail-ai-mode").textContent =
-    result.mode === "solar" ? "UPSTAGE SOLAR 분석 완료" : "기본 분석 결과";
-  riskElement.textContent = `주의도 ${summary.riskLevel}`;
+    result.mode === "solar"
+      ? localizeText("UPSTAGE SOLAR 분석 완료", "UPSTAGE SOLAR analysis")
+      : localizeText("기본 분석 결과", "Basic analysis");
+  riskElement.textContent = localizeText(
+    `주의도 ${summary.riskLevel}`,
+    `Risk: ${localizeRiskLevel(summary.riskLevel)}`,
+  );
   riskElement.dataset.risk = summary.riskLevel;
   document.querySelector("#detail-ai-headline").textContent = summary.headline;
   renderList(
@@ -929,24 +1788,120 @@ function renderContractSummary(result) {
   summaryPanel.hidden = false;
 }
 
-function openProductDetail(experienceId) {
-  const selectedExperience = experiences.find(
+function createContractSummaryFallback(experienceId) {
+  const experience = experiences.find((item) => item.id === experienceId);
+  const sourceDetail = productDetails[experienceId];
+  const sourceContract = productContracts[experienceId];
+  const translation = isTranslatedLocale()
+    ? getProductTranslationCache().get(experienceId)
+    : null;
+  const detail = translation?.detail
+    ? { ...sourceDetail, ...translation.detail }
+    : sourceDetail;
+  const contract = translation?.contract
+    ? { ...sourceContract, ...translation.contract }
+    : sourceContract;
+  const translatedFallback = isTranslatedLocale() && !translation?.detail;
+
+  return {
+    mode: "local",
+    summary: {
+      headline: localizeText(
+        `${experience?.name ?? "이 상품"} 예약 전 환불 시점과 이용 제한 조건을 확인하세요.`,
+        `${translation?.product?.name ?? "This experience"}: review cancellation deadlines and booking restrictions before you reserve.`,
+      ),
+      riskLevel: sourceContract?.riskLevel ?? "보통",
+      refundWarnings: translatedFallback
+        ? [localizeText(
+            "취소 기한과 환불 제한은 전체 약관에서 확인하세요.",
+            "Review the full terms for cancellation deadlines and refund restrictions.",
+          )]
+        : detail?.refundRules?.slice(0, 3) ?? [],
+      unfairTerms: translatedFallback
+        ? [localizeText(
+            "추가 이용 제한이 적용될 수 있으니 예약 전에 전체 약관을 확인하세요.",
+            "Additional booking restrictions may apply. Review the full terms before reserving.",
+          )]
+        : [
+            ...(detail?.bookingConditions ?? []),
+            ...(contract?.additionalClauses ?? []),
+          ].slice(0, 3),
+    },
+  };
+}
+
+function setDetailTranslationLoading(isLoading) {
+  const loadingPanel = document.querySelector("#detail-translation-loading");
+  const loadingSpinner = document.querySelector("#detail-translation-spinner");
+  const loadingMessage = document.querySelector(
+    "#detail-translation-loading-message",
+  );
+
+  if (!loadingPanel || !loadingSpinner || !loadingMessage) return;
+
+  loadingPanel.hidden = !isLoading;
+  loadingSpinner.hidden = !isLoading;
+  loadingMessage.textContent = localizeText(
+    "선택한 언어의 상세 정보를 준비하고 있습니다.",
+    "Preparing the experience details in your selected language.",
+  );
+  productDetailDialog.classList.toggle("is-translating", isLoading);
+  productDetailDialog.setAttribute("aria-busy", String(isLoading));
+}
+
+function showDetailTranslationFailure() {
+  const loadingPanel = document.querySelector("#detail-translation-loading");
+  const loadingSpinner = document.querySelector("#detail-translation-spinner");
+  const loadingMessage = document.querySelector(
+    "#detail-translation-loading-message",
+  );
+
+  if (!loadingPanel || !loadingSpinner || !loadingMessage) return;
+
+  loadingPanel.hidden = false;
+  loadingSpinner.hidden = true;
+  loadingMessage.textContent = localizeText(
+    "상세 정보를 번역하지 못했습니다. 닫은 뒤 다시 시도해 주세요.",
+    "The translated details could not be prepared. Please close and try again.",
+  );
+  productDetailDialog.classList.add("is-translating");
+  productDetailDialog.setAttribute("aria-busy", "false");
+}
+
+function openProductDetail(experienceId, shouldOpenDialog = true) {
+  const sourceExperience = experiences.find(
     (experience) => experience.id === experienceId,
   );
-  const detail = productDetails[experienceId];
-  const contract = productContracts[experienceId];
+  const sourceDetail = productDetails[experienceId];
+  const sourceContract = productContracts[experienceId];
   const media = productMedia[experienceId];
 
-  if (!selectedExperience || !detail || !contract || !media) {
-    showToast("상품 상세 정보를 불러오지 못했습니다.");
+  if (!sourceExperience || !sourceDetail || !sourceContract || !media) {
+    showToast(localizeText("상품 상세 정보를 불러오지 못했습니다.", "Unable to load product details."));
     return;
   }
 
-  state.selectedExperience = selectedExperience;
-  document.querySelector("#detail-image").src = getProductImage(selectedExperience);
+  const translation = isTranslatedLocale()
+    ? getProductTranslationCache().get(experienceId)
+    : null;
+  const selectedExperience = translation
+    ? { ...sourceExperience, ...translation.product }
+    : sourceExperience;
+  const detail = translation?.detail
+    ? { ...sourceDetail, ...translation.detail }
+    : sourceDetail;
+  const contract = translation?.contract
+    ? { ...sourceContract, ...translation.contract }
+    : sourceContract;
+
+  state.selectedExperience = sourceExperience;
+  const isPreparingTranslation =
+    isTranslatedLocale() && shouldOpenDialog && !translation?.detail;
+  setDetailTranslationLoading(isPreparingTranslation);
+  document.querySelector("#detail-image").src = getProductImage(sourceExperience);
   document.querySelector("#detail-image").alt = getProductImageAlt(selectedExperience);
   document.querySelector("#detail-category").textContent =
-    `${selectedExperience.region} · ${selectedExperience.category}`;
+    `${localizeRegion(selectedExperience.region)} · ${localizeCategory(selectedExperience.category)}`;
   document.querySelector("#detail-title").textContent = selectedExperience.name;
   document.querySelector("#detail-partner").textContent =
     `${selectedExperience.partnerName} · ★ ${selectedExperience.rating} (${selectedExperience.reviewCount})`;
@@ -960,12 +1915,16 @@ function openProductDetail(experienceId) {
     selectedExperience.pricePerPerson,
   );
   document.querySelector("#detail-location").textContent = selectedExperience.location;
-  document.querySelector("#detail-duration").textContent =
-    `${selectedExperience.durationMinutes}분`;
+  document.querySelector("#detail-duration").textContent = formatDuration(
+    selectedExperience.durationMinutes,
+  );
   document.querySelector("#detail-age").textContent =
-    `만 ${selectedExperience.minAge}세 이상`;
+    localizeText(
+      `만 ${selectedExperience.minAge}세 이상`,
+      `Ages ${selectedExperience.minAge}+`,
+    );
   document.querySelector("#detail-capacity").textContent =
-    `${selectedExperience.maxParticipants}명`;
+    formatPeople(selectedExperience.maxParticipants);
   document.querySelector("#detail-time-slots").textContent =
     selectedExperience.timeSlots.join(" · ");
 
@@ -984,7 +1943,7 @@ function openProductDetail(experienceId) {
     media.gallery,
     (imageUrl, index) => `
       <figure>
-        <img src="${imageUrl}" alt="${escapeHtml(selectedExperience.name)} 관련 사진 ${index + 1}" loading="lazy" />
+        <img src="${imageUrl}" alt="${escapeHtml(localizeText(`${selectedExperience.name} 관련 사진 ${index + 1}`, `${selectedExperience.name} photo ${index + 1}`))}" loading="lazy" />
       </figure>
     `,
   );
@@ -992,8 +1951,8 @@ function openProductDetail(experienceId) {
   const photoSource = document.querySelector("#detail-photo-source");
   photoSource.href = media.sourceUrl;
   photoSource.textContent = media.sourceUrl.includes("unsplash.com")
-    ? "대표 사진 출처 · Unsplash ↗"
-    : "대표 사진 출처 확인 ↗";
+    ? localizeText("대표 사진 출처 · Unsplash ↗", "Photo source · Unsplash ↗")
+    : localizeText("대표 사진 출처 확인 ↗", "View photo source ↗");
   renderList(
     "#detail-included",
     selectedExperience.included,
@@ -1006,19 +1965,148 @@ function openProductDetail(experienceId) {
       `<li><strong>${escapeHtml(term.type)}.</strong> ${escapeHtml(term.text)}</li>`,
   );
 
-  const cachedSummary = state.contractSummaryCache.get(experienceId);
+  const cachedSummary = state.contractSummaryCache.get(
+    getContractSummaryCacheKey(experienceId),
+  );
   const summaryPanel = document.querySelector("#detail-ai-summary");
   const summaryButton = document.querySelector("#detail-ai-summary-button");
   summaryPanel.hidden = true;
   summaryButton.disabled = false;
   summaryButton.querySelector("span").textContent = cachedSummary
-    ? "AI 요약 다시 보기"
-    : "AI로 이 페이지 요약하기";
+    ? localizeText("AI 요약 다시 보기", "View AI summary again")
+    : localizeText("AI로 이 페이지 요약하기", "Summarize this page with AI");
   if (cachedSummary) renderContractSummary(cachedSummary);
 
-  productDetailDialog.scrollTop = 0;
-  productDetailDialog.showModal();
-  document.body.classList.add("dialog-open");
+  if (shouldOpenDialog) {
+    productDetailDialog.scrollTop = 0;
+    if (!productDetailDialog.open) productDetailDialog.showModal();
+    document.body.classList.add("dialog-open");
+    requestProductTranslation(experienceId);
+  }
+}
+
+function renderProductDetail(experienceId) {
+  openProductDetail(experienceId, false);
+}
+
+async function requestProductTranslation(experienceId) {
+  if (!isTranslatedLocale()) {
+    return;
+  }
+  const locale = activeLocale;
+  const cache = getProductTranslationCache(locale);
+  if (cache.get(experienceId)?.detail) return;
+
+  const requestKey = `${locale}:${experienceId}`;
+  if (productTranslationRequests.has(requestKey)) {
+    await productTranslationRequests.get(requestKey);
+    return;
+  }
+
+  let translationLoaded = false;
+  const translationRequest = fetch("/api/product-translation", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ productId: experienceId, locale }),
+  })
+    .then(async (response) => {
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || "Product translation is unavailable.");
+      }
+      cache.set(experienceId, result.translation);
+      translationLoaded = true;
+    })
+    .catch((error) => {
+      showToast(
+        localizeText(
+          "선택한 언어의 번역을 준비하지 못했습니다.",
+          "The selected language translation could not be prepared.",
+        ),
+      );
+      console.error("상품 번역 오류:", error.message);
+    })
+    .finally(() => {
+      productTranslationRequests.delete(requestKey);
+    });
+
+  productTranslationRequests.set(requestKey, translationRequest);
+  await translationRequest;
+
+  if (
+    activeLocale === locale &&
+    productDetailDialog.open &&
+    state.selectedExperience?.id === experienceId
+  ) {
+    if (translationLoaded) renderProductDetail(experienceId);
+    else showDetailTranslationFailure();
+  }
+}
+
+async function requestProductCardTranslations(productList) {
+  if (!isTranslatedLocale() || productList.length === 0) {
+    setProductTranslationStatus("idle");
+    return;
+  }
+
+  const locale = activeLocale;
+  const cache = getProductTranslationCache(locale);
+  const missingProducts = productList.filter(
+    (product) => !cache.get(product.id)?.product?.name,
+  );
+  if (missingProducts.length === 0) {
+    setProductTranslationStatus("idle");
+    return;
+  }
+
+  const requestKey = `${locale}:${missingProducts.map((product) => product.id).join(",")}`;
+  if (productCardTranslationRequests.has(requestKey)) {
+    await productCardTranslationRequests.get(requestKey);
+    return;
+  }
+
+  setProductTranslationStatus("loading");
+
+  const translationRequest = fetch("/api/product-card-translations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      locale,
+      productIds: missingProducts.map((product) => product.id),
+    }),
+  })
+    .then(async (response) => {
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || "Product card translation is unavailable.");
+      }
+
+      result.translations.forEach((translation) => {
+        const cachedTranslation = cache.get(translation.id);
+        cache.set(translation.id, {
+          ...cachedTranslation,
+          product: {
+            ...cachedTranslation?.product,
+            name: translation.name,
+            partnerName: translation.partnerName,
+          },
+        });
+      });
+      if (activeLocale === locale) {
+        renderExperiences();
+        setProductTranslationStatus("idle");
+      }
+    })
+    .catch((error) => {
+      console.error("상품 카드 번역 오류:", error.message);
+      if (activeLocale === locale) setProductTranslationStatus("error");
+    })
+    .finally(() => {
+      productCardTranslationRequests.delete(requestKey);
+    });
+
+  productCardTranslationRequests.set(requestKey, translationRequest);
+  await translationRequest;
 }
 
 async function loadProducts() {
@@ -1078,7 +2166,9 @@ document.querySelectorAll("[data-region]").forEach((button) => {
   button.addEventListener("click", () => {
     clearRecommendations();
     state.region = button.dataset.region;
+    state.regions = new Set([state.region]);
     regionSelect.value = state.region;
+    updateRegionFilterButtons();
     renderExperiences();
     document.querySelector("#experiences").scrollIntoView({ behavior: "smooth" });
   });
@@ -1088,7 +2178,9 @@ document.querySelector("#search-form").addEventListener("submit", (event) => {
   event.preventDefault();
   clearRecommendations();
   state.region = regionSelect.value;
+  state.regions = state.region ? new Set([state.region]) : new Set();
   state.keyword = keywordInput.value;
+  updateRegionFilterButtons();
   renderExperiences();
   document.querySelector("#experiences").scrollIntoView({ behavior: "smooth" });
 });
@@ -1154,6 +2246,7 @@ document.querySelector("#detail-book-button").addEventListener("click", () => {
 });
 
 productDetailDialog.addEventListener("close", () => {
+  stopDetailTermsReading();
   if (!bookingDialog.open) document.body.classList.remove("dialog-open");
 });
 
@@ -1170,26 +2263,55 @@ document
     const summaryButton = document.querySelector("#detail-ai-summary-button");
     const summaryPanel = document.querySelector("#detail-ai-summary");
     summaryButton.disabled = true;
-    summaryButton.querySelector("span").textContent = "긴 약관을 읽는 중...";
+    summaryButton.querySelector("span").textContent = localizeText(
+      "긴 약관을 읽는 중...",
+      "Reviewing the full terms...",
+    );
     summaryPanel.hidden = true;
 
     try {
       const response = await fetch("/api/contract-summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId: selectedExperience.id }),
+        body: JSON.stringify({
+          productId: selectedExperience.id,
+          locale: activeLocale,
+        }),
       });
       const result = await response.json();
       if (!response.ok) {
         throw new Error(result.message || "약관을 요약하지 못했습니다.");
       }
 
-      state.contractSummaryCache.set(selectedExperience.id, result);
+      state.contractSummaryCache.set(
+        getContractSummaryCacheKey(selectedExperience.id),
+        result,
+      );
       renderContractSummary(result);
-      summaryButton.querySelector("span").textContent = "AI 요약 다시 보기";
+      summaryButton.querySelector("span").textContent = localizeText(
+        "AI 요약 다시 보기",
+        "View AI summary again",
+      );
     } catch (error) {
-      showToast(error.message);
-      summaryButton.querySelector("span").textContent = "AI 요약 다시 시도하기";
+      const fallbackSummary = createContractSummaryFallback(
+        selectedExperience.id,
+      );
+      state.contractSummaryCache.set(
+        getContractSummaryCacheKey(selectedExperience.id),
+        fallbackSummary,
+      );
+      renderContractSummary(fallbackSummary);
+      summaryButton.querySelector("span").textContent = localizeText(
+        "AI 요약 다시 보기",
+        "View AI summary again",
+      );
+      showToast(
+        localizeText(
+          "Solar 응답이 지연되어 약관 기준 요약을 표시합니다.",
+          "Solar was delayed, so a terms-based summary is shown.",
+        ),
+      );
+      console.error("AI 약관 요약 오류:", error.message);
     } finally {
       summaryButton.disabled = false;
     }
@@ -1354,6 +2476,7 @@ reservationDetailContent.addEventListener("click", (event) => {
 });
 
 reservationDetailDialog.addEventListener("close", () => {
+  viewedReservationId = null;
   document.body.classList.remove("dialog-open");
 });
 
@@ -1488,6 +2611,14 @@ document.querySelector("#booking-form").addEventListener("submit", async (event)
     return;
   }
 
+  const reservationDate = parseBookingDateInput(bookingDate.value);
+  if (!reservationDate) {
+    bookingDate.setCustomValidity("Use MM / DD / YYYY.");
+    bookingDate.reportValidity();
+    return;
+  }
+  bookingDate.setCustomValidity("");
+
   const people = document.querySelector("#booking-people").value;
   const experienceTitle = state.selectedExperience?.name ?? "선택한 경험";
   const submitButton = event.currentTarget.querySelector(".dialog-submit");
@@ -1495,14 +2626,14 @@ document.querySelector("#booking-form").addEventListener("submit", async (event)
     name: bookingName.value.trim(),
     productId: state.selectedExperience?.id ?? "",
     people,
-    date: bookingDate.value,
+    date: reservationDate,
     time: bookingTime.value,
     activity: experienceTitle,
     venue: state.selectedExperience?.partnerName ?? "WAVEON BUSAN 제휴 업체",
   };
 
   submitButton.disabled = true;
-  submitButton.textContent = "예약 저장 중…";
+  submitButton.textContent = localizeText("예약 저장 중…", "Saving reservation…");
 
   try {
     const response = await fetch("/api/reservations", {
@@ -1535,7 +2666,7 @@ document.querySelector("#booking-form").addEventListener("submit", async (event)
     showToast(error.message);
   } finally {
     submitButton.disabled = false;
-    submitButton.innerHTML = "예약 요청하기 <span>→</span>";
+    submitButton.innerHTML = `${localizeText("예약 요청하기", "Request reservation")} <span>→</span>`;
   }
 });
 
@@ -1550,8 +2681,14 @@ function openContractReview(reservation = pendingBooking) {
   notificationButton.setAttribute("aria-expanded", "false");
   if (reservationDetailDialog.open) reservationDetailDialog.close();
   contractAgreement.checked = false;
-  contractBookingSummary.textContent = `${pendingBooking.activity} · ${pendingBooking.date}${pendingBooking.time ? ` ${pendingBooking.time}` : ""} · ${pendingBooking.people}명 / ${pendingBooking.venue}`;
+  renderContractBookingSummary(pendingBooking);
   contractDialog.showModal();
+}
+
+function renderContractBookingSummary(reservation) {
+  const displayReservation = getReservationDisplay(reservation);
+  contractBookingSummary.textContent =
+    `${displayReservation.activity} · ${reservation.date}${reservation.time ? ` ${reservation.time}` : ""} · ${formatPeople(Number(reservation.people))} / ${displayReservation.venue}`;
 }
 
 notificationButton.addEventListener("click", () => {
@@ -1576,12 +2713,12 @@ document.querySelector("#contract-close").addEventListener("click", () => contra
 
 startSignatureButton.addEventListener("click", async () => {
   if (!contractAgreement.checked) {
-    showToast("계약서 주요 약관을 확인하고 동의해 주세요.");
+    showToast(localizeText("계약서 주요 약관을 확인하고 동의해 주세요.", "Please review and agree to the key contract terms."));
     return;
   }
 
   startSignatureButton.disabled = true;
-  startSignatureButton.textContent = "계약서 준비 중…";
+  startSignatureButton.textContent = localizeText("계약서 준비 중…", "Preparing contract…");
   try {
     const response = await fetch("/api/signature/start", {
       method: "POST",
@@ -1634,7 +2771,7 @@ startSignatureButton.addEventListener("click", async () => {
     showToast(error.message);
   } finally {
     startSignatureButton.disabled = false;
-    startSignatureButton.innerHTML = "전자서명 진행 <span>→</span>";
+    startSignatureButton.innerHTML = `${localizeText("전자서명 진행", "Proceed to e-signature")} <span>→</span>`;
   }
 });
 
@@ -1689,25 +2826,44 @@ function closeSignatureDialog() {
 
 document.querySelector("#signature-close").addEventListener("click", closeSignatureDialog);
 
+detailFontDecreaseButton.addEventListener("click", () => {
+  detailFontScaleIndex = Math.max(0, detailFontScaleIndex - 1);
+  updateDetailFontScale();
+});
 
-const menuButton = document.querySelector(".menu-button");
-const mainNavigation = document.querySelector("#main-navigation");
+detailFontIncreaseButton.addEventListener("click", () => {
+  detailFontScaleIndex = Math.min(
+    detailFontScaleOptions.length - 1,
+    detailFontScaleIndex + 1,
+  );
+  updateDetailFontScale();
+});
 
-if (menuButton && mainNavigation) {
-  menuButton.addEventListener("click", () => {
-    const isOpen = mainNavigation.classList.toggle("is-open");
-    menuButton.setAttribute("aria-expanded", String(isOpen));
-    menuButton.setAttribute("aria-label", isOpen ? "메뉴 닫기" : "메뉴 열기");
-  });
+detailSpeechToggleButton.addEventListener("click", toggleDetailTermsReading);
 
-  mainNavigation.addEventListener("click", (event) => {
-    if (event.target.closest("a, button")) {
-      mainNavigation.classList.remove("is-open");
-      menuButton.setAttribute("aria-expanded", "false");
-      menuButton.setAttribute("aria-label", "메뉴 열기");
+languageButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const nextLocale = button.dataset.locale;
+    if (!supportedLocales.has(nextLocale) || nextLocale === activeLocale) return;
+
+    stopDetailTermsReading();
+    activeLocale = nextLocale;
+    try {
+      window.localStorage.setItem("waveon-locale", activeLocale);
+    } catch {
+      // 브라우저 저장소를 사용할 수 없어도 현재 페이지의 언어는 전환합니다.
     }
+    applyLocale();
   });
-}
+});
+
+window.addEventListener("pagehide", () => {
+  stopDetailTermsReading();
+});
+
+bookingDate.addEventListener("input", () => {
+  bookingDate.setCustomValidity("");
+});
 
 const localToday = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Seoul",
@@ -1717,10 +2873,12 @@ const localToday = new Intl.DateTimeFormat("en-CA", {
 }).format(new Date());
 
 searchDate.min = localToday;
-bookingDate.min = localToday;
 
 async function initialize() {
+  updateDetailFontScale();
+  applyLocale();
   await Promise.all([loadCurrentUser(), loadProducts()]);
+  applyLocale();
 }
 
 initialize();

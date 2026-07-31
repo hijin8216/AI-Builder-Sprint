@@ -50,10 +50,30 @@ const contractTemplates = contractTemplateData.templates;
 const users = await loadUsers();
 const reservations = await loadReservations();
 const activeSessions = new Map();
+const translationLocales = {
+  en: "English",
+  ja: "Japanese",
+  zh: "Simplified Chinese",
+};
+const productTranslationCaches = new Map(
+  Object.keys(translationLocales).map((locale) => [locale, new Map()]),
+);
+const productCardTranslationCaches = new Map();
+const interfaceTranslationCaches = new Map(
+  Object.keys(translationLocales).map((locale) => [locale, new Map()]),
+);
 let userWriteQueue = Promise.resolve();
 let reservationWriteQueue = Promise.resolve();
 const sessionCookieName = "waveon_session";
 const sessionDurationSeconds = 60 * 60 * 24 * 7;
+
+function getTranslationLocale(value) {
+  return Object.hasOwn(translationLocales, value) ? value : null;
+}
+
+function getTranslationLanguage(locale) {
+  return translationLocales[locale];
+}
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
@@ -366,6 +386,7 @@ app.post("/api/signature/start", async (request, response) => {
     reservation.status = "SIGNING";
     reservation.updatedAt = new Date().toISOString();
     await saveReservations();
+
     response.json({
       documentId: document.id,
       reservationId: reservation.id,
@@ -441,6 +462,14 @@ app.get("/api/reservations/:reservationId/document", async (request, response) =
 app.post("/api/contract-summary", async (request, response) => {
   try {
     const productId = cleanText(request.body?.productId, 20);
+    const outputLocale =
+      request.body?.locale === "ko"
+        ? "ko"
+        : getTranslationLocale(request.body?.locale);
+    if (!outputLocale) {
+      response.status(400).json({ message: "지원하지 않는 요약 언어입니다." });
+      return;
+    }
     const product = products.find((item) => item.id === productId);
     const detail = productDetails[productId];
     const contract = productContracts[productId];
@@ -455,21 +484,176 @@ app.post("/api/contract-summary", async (request, response) => {
       product,
       terms,
       contract.riskLevel,
+      outputLocale,
     );
+    const fallbackSummary =
+      outputLocale === "ko"
+        ? createFocusedLocalSummary(product, terms, contract.riskLevel)
+        : createTranslatedLocalSummary(
+            product,
+            detail,
+            contract,
+            contract.riskLevel,
+            outputLocale,
+          );
 
     response.json({
       mode: solarSummary ? "solar" : "local",
       message: solarSummary
-        ? "Solar가 약관에서 환불 제한과 불리한 조건을 정리했습니다."
-        : "Solar 연결이 없어 약관을 규칙 기반으로 정리했습니다.",
-      summary:
-        solarSummary ??
-        createFocusedLocalSummary(product, terms, contract.riskLevel),
+        ? "Solar highlighted refund limits and potentially unfavorable terms."
+        : "Solar is unavailable, so a terms-based summary is shown.",
+      summary: solarSummary ?? fallbackSummary,
     });
   } catch (error) {
     console.error("약관 요약 처리 오류:", error.message);
     response.status(400).json({
       message: error.message || "약관을 요약하지 못했습니다.",
+    });
+  }
+});
+
+app.post("/api/product-translation", async (request, response) => {
+  try {
+    const productId = cleanText(request.body?.productId, 20);
+    const outputLocale = getTranslationLocale(request.body?.locale);
+    if (!outputLocale) {
+      response.status(400).json({ message: "지원하지 않는 번역 언어입니다." });
+      return;
+    }
+    const product = products.find((item) => item.id === productId);
+    const detail = productDetails[productId];
+    const contract = productContracts[productId];
+
+    if (!product || !detail || !contract) {
+      response.status(404).json({ message: "번역할 상품 정보를 찾지 못했습니다." });
+      return;
+    }
+
+    const translationCache = productTranslationCaches.get(outputLocale);
+    const cachedTranslation = translationCache.get(productId);
+    if (cachedTranslation) {
+      response.json({ translation: cachedTranslation, cached: true });
+      return;
+    }
+
+    const translation = await requestProductTranslation(
+      product,
+      detail,
+      contract,
+      outputLocale,
+    );
+    if (!translation) {
+      response.status(503).json({
+        message: "번역을 준비하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+      });
+      return;
+    }
+
+    translationCache.set(productId, translation);
+    response.json({ translation, cached: false });
+  } catch (error) {
+    console.error("상품 번역 처리 오류:", error.message);
+    response.status(400).json({
+      message: error.message || "상품 번역을 준비하지 못했습니다.",
+    });
+  }
+});
+
+app.post("/api/product-card-translations", async (request, response) => {
+  try {
+    const outputLocale = getTranslationLocale(request.body?.locale);
+    if (!outputLocale) {
+      response.status(400).json({ message: "지원하지 않는 번역 언어입니다." });
+      return;
+    }
+    const requestedIds = Array.isArray(request.body?.productIds)
+      ? request.body.productIds.map((id) => cleanText(id, 20)).filter(Boolean)
+      : [];
+    const requestedProducts = requestedIds.length
+      ? products.filter((product) => requestedIds.includes(product.id)).slice(0, 8)
+      : products.slice(0, 8);
+    if (requestedProducts.length === 0) {
+      response.status(404).json({ message: "번역할 상품을 찾지 못했습니다." });
+      return;
+    }
+
+    const cache = productCardTranslationCaches.get(outputLocale) ?? new Map();
+    productCardTranslationCaches.set(outputLocale, cache);
+    const missingProducts = requestedProducts.filter(
+      (product) => !cache.has(product.id),
+    );
+    const translatedMissingProducts = missingProducts.length
+      ? await requestProductCardTranslations(missingProducts, outputLocale)
+      : [];
+    if (translatedMissingProducts) {
+      translatedMissingProducts.forEach((translation) => {
+        cache.set(translation.id, translation);
+      });
+    }
+    const translations = requestedProducts.map((product) => cache.get(product.id));
+    if (translations.some((translation) => !translation)) {
+      response.status(503).json({
+        message: "상품 목록 번역을 준비하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+      });
+      return;
+    }
+
+    response.json({ translations, cached: missingProducts.length === 0 });
+  } catch (error) {
+    console.error("상품 목록 번역 처리 오류:", error.message);
+    response.status(400).json({
+      message: error.message || "상품 목록 번역을 준비하지 못했습니다.",
+    });
+  }
+});
+
+app.post("/api/interface-translations", async (request, response) => {
+  try {
+    const outputLocale = getTranslationLocale(request.body?.locale);
+    if (!outputLocale) {
+      response.status(400).json({ message: "지원하지 않는 번역 언어입니다." });
+      return;
+    }
+
+    const texts = [
+      ...new Set(
+        (Array.isArray(request.body?.texts) ? request.body.texts : [])
+          .filter((text) => typeof text === "string")
+          .map((text) => text.trim())
+          .filter((text) => text.length > 0 && text.length <= 1200),
+      ),
+    ].slice(0, 120);
+    if (texts.length === 0) {
+      response.status(400).json({ message: "번역할 화면 문구가 없습니다." });
+      return;
+    }
+
+    const cache = interfaceTranslationCaches.get(outputLocale);
+    const missingTexts = texts.filter((text) => !cache.has(text));
+    if (missingTexts.length > 0) {
+      const translatedTexts = await requestInterfaceTranslations(
+        missingTexts,
+        outputLocale,
+      );
+      if (!translatedTexts) {
+        response.status(503).json({ message: "화면 번역을 준비하지 못했습니다." });
+        return;
+      }
+      translatedTexts.forEach(([source, translation]) => {
+        cache.set(source, translation);
+      });
+    }
+
+    response.json({
+      translations: texts.map((source) => ({
+        source,
+        translation: cache.get(source),
+      })),
+    });
+  } catch (error) {
+    console.error("화면 문구 번역 처리 오류:", error.message);
+    response.status(400).json({
+      message: error.message || "화면 번역을 준비하지 못했습니다.",
     });
   }
 });
@@ -1050,12 +1234,440 @@ function buildContractTerms(product, detail, contract) {
   ];
 }
 
-async function requestFocusedContractSummary(product, terms, baselineRiskLevel) {
+async function requestProductTranslation(product, detail, contract, outputLocale) {
+  const apiKey = process.env.UPSTAGE_API_KEY?.trim();
+  if (!apiKey) return null;
+  const outputLanguage = getTranslationLanguage(outputLocale);
+
+  const source = {
+    product: {
+      name: product.name,
+      partnerName: product.partnerName,
+      category: product.category,
+      region: product.region,
+      location: product.location,
+      included: product.included,
+      safetyNotes: product.safetyNotes,
+    },
+    detail: {
+      promotion: detail.promotion,
+      highlights: detail.highlights,
+      refundRules: detail.refundRules,
+      bookingConditions: detail.bookingConditions,
+    },
+    contract: {
+      story: contract.story,
+      itinerary: contract.itinerary,
+      additionalClauses: contract.additionalClauses,
+    },
+  };
+  try {
+    const translatedProduct = await requestProductTranslationSection(
+      { product: source.product },
+      outputLanguage,
+    );
+    const translatedDetail = await requestProductTranslationSection(
+      { detail: source.detail },
+      outputLanguage,
+    );
+    const translatedContract = await requestProductTranslationSection(
+      { contract: source.contract },
+      outputLanguage,
+    );
+
+    if (!translatedProduct || !translatedDetail || !translatedContract) return null;
+    return parseProductTranslation(
+      JSON.stringify({
+        product: translatedProduct.product,
+        detail: translatedDetail.detail,
+        contract: translatedContract.contract,
+      }),
+      source,
+    );
+  } catch (error) {
+    console.error("Solar 상품 번역 연결 오류:", error.message);
+    return null;
+  }
+}
+
+async function requestProductTranslationSection(source, outputLanguage, attempt = 0) {
+  const apiKey = process.env.UPSTAGE_API_KEY?.trim();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 45000);
+
+  try {
+    const apiResponse = await fetch(
+      "https://api.upstage.ai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "solar-pro3",
+          temperature: 0,
+          max_tokens: 4096,
+          messages: [
+            {
+              role: "system",
+              content:
+                `Translate every Korean text value in this JSON into natural ${outputLanguage}. The output must contain zero Korean Hangul characters. Preserve JSON keys, numbers, array lengths, and the exact JSON structure. Return JSON only, without markdown or explanation.`,
+            },
+            { role: "user", content: JSON.stringify(source) },
+          ],
+        }),
+        signal: controller.signal,
+      },
+    );
+    if (!apiResponse.ok) {
+      throw new Error(`Solar API 응답 오류 (${apiResponse.status})`);
+    }
+
+    const apiResult = await apiResponse.json();
+    const content = apiResult.choices?.[0]?.message?.content;
+    if (!content) throw new Error("Solar 응답에 상품 번역이 없습니다.");
+    const translation = parseSolarJson(content);
+    if (containsKoreanCharacters(translation)) {
+      throw new Error(
+        `Solar returned untranslated Korean text in ${Object.keys(source)[0]}.`,
+      );
+    }
+    return translation;
+  } catch (error) {
+    if (attempt === 0) {
+      return requestProductTranslationSection(source, outputLanguage, 1);
+    }
+    console.error("Solar 상품 번역 묶음 오류:", error.message);
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function parseSolarJson(content) {
+  const cleanedContent = content
+    .trim()
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/, "");
+
+  try {
+    return JSON.parse(cleanedContent);
+  } catch {
+    const start = cleanedContent.search(/[\[{]/);
+    if (start < 0) throw new Error("Solar response does not contain JSON.");
+
+    const opening = cleanedContent[start];
+    const closing = opening === "{" ? "}" : "]";
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let index = start; index < cleanedContent.length; index += 1) {
+      const character = cleanedContent[index];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (character === "\\") escaped = true;
+        else if (character === '"') inString = false;
+        continue;
+      }
+      if (character === '"') {
+        inString = true;
+        continue;
+      }
+      if (character === opening) depth += 1;
+      if (character === closing) {
+        depth -= 1;
+        if (depth === 0) return JSON.parse(cleanedContent.slice(start, index + 1));
+      }
+    }
+
+    throw new Error("Solar response JSON is incomplete.");
+  }
+}
+
+function parseSolarJsonList(content) {
+  const cleanedContent = content
+    .trim()
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/, "");
+
+  try {
+    return JSON.parse(cleanedContent);
+  } catch {
+    try {
+      return JSON.parse(`[${cleanedContent}]`);
+    } catch {
+      return parseSolarJson(cleanedContent);
+    }
+  }
+}
+
+function containsKoreanCharacters(value) {
+  if (typeof value === "string") return /[가-힣]/.test(value);
+  if (Array.isArray(value)) return value.some(containsKoreanCharacters);
+  if (value && typeof value === "object") {
+    return Object.values(value).some(containsKoreanCharacters);
+  }
+  return false;
+}
+
+function parseProductTranslation(content, source) {
+  const parsed = parseSolarJson(content);
+
+  const translatedText = (value, label, maximumLength = 1200) => {
+    const result = cleanText(value, maximumLength);
+    if (!result) throw new Error(`${label} 번역이 비어 있습니다.`);
+    return result;
+  };
+  const translatedItems = (items, sourceItems, label) => {
+    if (!Array.isArray(items) || items.length !== sourceItems.length) {
+      throw new Error(`${label} 번역 항목 수가 맞지 않습니다.`);
+    }
+    return items.map((item, index) =>
+      translatedText(item, `${label} ${index + 1}`),
+    );
+  };
+
+  return {
+    product: {
+      name: translatedText(parsed.product?.name, "상품명", 180),
+      partnerName: translatedText(parsed.product?.partnerName, "판매자명", 180),
+      category: translatedText(parsed.product?.category, "카테고리", 100),
+      region: translatedText(parsed.product?.region, "지역", 100),
+      location: translatedText(parsed.product?.location, "장소", 180),
+      included: translatedItems(
+        parsed.product?.included,
+        source.product.included,
+        "포함 사항",
+      ),
+      safetyNotes: translatedItems(
+        parsed.product?.safetyNotes,
+        source.product.safetyNotes,
+        "안전 조건",
+      ),
+    },
+    detail: {
+      promotion: translatedText(parsed.detail?.promotion, "상품 소개"),
+      highlights: translatedItems(
+        parsed.detail?.highlights,
+        source.detail.highlights,
+        "상품 특징",
+      ),
+      refundRules: translatedItems(
+        parsed.detail?.refundRules,
+        source.detail.refundRules,
+        "환불 규정",
+      ),
+      bookingConditions: translatedItems(
+        parsed.detail?.bookingConditions,
+        source.detail.bookingConditions,
+        "예약 조건",
+      ),
+    },
+    contract: {
+      story: translatedItems(parsed.contract?.story, source.contract.story, "상품 설명"),
+      itinerary: translatedItems(
+        parsed.contract?.itinerary,
+        source.contract.itinerary,
+        "진행 순서",
+      ),
+      additionalClauses: translatedItems(
+        parsed.contract?.additionalClauses,
+        source.contract.additionalClauses,
+        "추가 약관",
+      ),
+    },
+  };
+}
+
+async function requestProductCardTranslations(productList, outputLocale, attempt = 0) {
+  const apiKey = process.env.UPSTAGE_API_KEY?.trim();
+  if (!apiKey) return null;
+  const outputLanguage = getTranslationLanguage(outputLocale);
+
+  const source = productList.map((product) => ({
+    id: product.id,
+    name: product.name,
+    partnerName: product.partnerName,
+  }));
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+
+  try {
+    const apiResponse = await fetch(
+      "https://api.upstage.ai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "solar-pro3",
+          temperature: 0,
+          max_tokens: 1024,
+          messages: [
+            {
+              role: "system",
+              content:
+                `You are a precise Korean-to-${outputLanguage} translator. Translate each product name and partner name into natural ${outputLanguage} without adding information. Your output must contain zero Korean Hangul characters. Keep each id unchanged. Return only a JSON array with the same items and fields: id, name, partnerName.`,
+            },
+            { role: "user", content: JSON.stringify(source) },
+          ],
+        }),
+        signal: controller.signal,
+      },
+    );
+
+    if (!apiResponse.ok) {
+      throw new Error(`Solar API 응답 오류 (${apiResponse.status})`);
+    }
+
+    const apiResult = await apiResponse.json();
+    const content = apiResult.choices?.[0]?.message?.content;
+    if (!content) throw new Error("Solar 응답에 상품 목록 번역이 없습니다.");
+    const translations = parseProductCardTranslations(content, source);
+    if (containsKoreanCharacters(translations)) {
+      throw new Error("Solar returned untranslated Korean product cards.");
+    }
+    return translations;
+  } catch (error) {
+    if (attempt === 0) {
+      return requestProductCardTranslations(productList, outputLocale, 1);
+    }
+    console.error("Solar 상품 목록 번역 연결 오류:", error.message);
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function parseProductCardTranslations(content, source) {
+  const parsed = parseSolarJsonList(content);
+  const translatedItems = Array.isArray(parsed)
+    ? parsed
+    : [
+        parsed.translations,
+        parsed.products,
+        parsed.items,
+        parsed.result,
+        ...Object.values(parsed),
+      ].find(Array.isArray) ?? (parsed?.id ? [parsed] : null);
+
+  if (!Array.isArray(translatedItems) || translatedItems.length !== source.length) {
+    throw new Error("상품 목록 영문 번역 항목 수가 맞지 않습니다.");
+  }
+
+  const translationsById = new Map(
+    translatedItems.map((item) => [item?.id, item]),
+  );
+  return source.map((sourceItem) => {
+    const item = translationsById.get(sourceItem.id);
+    if (!item) throw new Error("상품 목록 영문 번역 항목을 찾지 못했습니다.");
+
+    const name = cleanText(item.name, 180);
+    const partnerName = cleanText(item.partnerName, 180);
+    if (!name || !partnerName) {
+      throw new Error("상품 목록 영문 번역 내용이 비어 있습니다.");
+    }
+    return { id: sourceItem.id, name, partnerName };
+  });
+}
+
+async function requestInterfaceTranslations(texts, outputLocale) {
   const apiKey = process.env.UPSTAGE_API_KEY?.trim();
   if (!apiKey) return null;
 
+  const outputLanguage = getTranslationLanguage(outputLocale);
+  const chunks = Array.from(
+    { length: Math.ceil(texts.length / 24) },
+    (_, index) => texts.slice(index * 24, index * 24 + 24),
+  );
+  const translatedChunks = await Promise.all(
+    chunks.map((chunk) => requestInterfaceTranslationChunk(chunk, outputLanguage)),
+  );
+  if (translatedChunks.some((chunk) => !chunk)) return null;
+  return translatedChunks.flat();
+}
+
+async function requestInterfaceTranslationChunk(texts, outputLanguage) {
+  const apiKey = process.env.UPSTAGE_API_KEY?.trim();
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+  const timeout = setTimeout(() => controller.abort(), 60000);
+
+  try {
+    const apiResponse = await fetch(
+      "https://api.upstage.ai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "solar-pro3",
+          temperature: 0,
+          max_tokens: 4096,
+          messages: [
+            {
+              role: "system",
+              content:
+                `Translate each Korean interface string into natural ${outputLanguage}. Preserve all HTML tags, placeholders, numbers, and line breaks exactly. Do not add explanations. Return only a JSON array of translated strings in the exact same order as the input.`,
+            },
+            { role: "user", content: JSON.stringify(texts) },
+          ],
+        }),
+        signal: controller.signal,
+      },
+    );
+
+    if (!apiResponse.ok) {
+      throw new Error(`Solar API 응답 오류 (${apiResponse.status})`);
+    }
+    const apiResult = await apiResponse.json();
+    const content = apiResult.choices?.[0]?.message?.content;
+    const parsed = parseSolarJsonList(content);
+    const translatedTexts = Array.isArray(parsed)
+      ? parsed
+      : [
+          parsed?.translations,
+          parsed?.items,
+          parsed?.result,
+          ...Object.values(parsed ?? {}),
+        ].find(Array.isArray);
+    if (!Array.isArray(translatedTexts) || translatedTexts.length !== texts.length) {
+      throw new Error("Solar 화면 번역 항목 수가 맞지 않습니다.");
+    }
+
+    return texts.map((source, index) => {
+      const translation = cleanText(translatedTexts[index], 1600);
+      if (!translation) throw new Error("Solar 화면 번역 내용이 비어 있습니다.");
+      return [source, translation];
+    });
+  } catch (error) {
+    console.error("Solar 화면 번역 연결 오류:", error.message);
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function requestFocusedContractSummary(
+  product,
+  terms,
+  baselineRiskLevel,
+  outputLocale = "ko",
+) {
+  const apiKey = process.env.UPSTAGE_API_KEY?.trim();
+  if (!apiKey) return null;
+  const outputLanguage =
+    outputLocale === "ko" ? "Korean" : getTranslationLanguage(outputLocale);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
 
   try {
     const apiResponse = await fetch(
@@ -1073,7 +1685,9 @@ async function requestFocusedContractSummary(product, terms, baselineRiskLevel) 
             {
               role: "system",
               content:
-                "당신은 해양레저 예약 약관에서 소비자가 놓치기 쉬운 내용을 찾는 도우미입니다. 환불 제한과 소비자에게 불리할 수 있는 조건만 쉽고 짧은 한국어로 정리하세요. 제공된 약관에 없는 사실은 만들지 마세요.",
+                outputLocale !== "ko"
+                  ? `You help customers find easy-to-miss details in marine leisure booking terms. Summarize only refund restrictions and potentially unfavorable conditions in short, clear ${outputLanguage}. Do not invent facts that are not in the provided terms.`
+                  : "당신은 해양레저 예약 약관에서 소비자가 놓치기 쉬운 내용을 찾는 도우미입니다. 환불 제한과 소비자에게 불리할 수 있는 조건만 쉽고 짧은 한국어로 정리하세요. 제공된 약관에 없는 사실은 만들지 마세요.",
             },
             {
               role: "user",
@@ -1081,6 +1695,7 @@ async function requestFocusedContractSummary(product, terms, baselineRiskLevel) 
                 product,
                 terms,
                 baselineRiskLevel,
+                outputLocale,
               ),
             },
           ],
@@ -1096,7 +1711,11 @@ async function requestFocusedContractSummary(product, terms, baselineRiskLevel) 
     const apiResult = await apiResponse.json();
     const content = apiResult.choices?.[0]?.message?.content;
     if (!content) throw new Error("Solar 응답에 약관 요약이 없습니다.");
-    return parseFocusedContractSummary(content, baselineRiskLevel);
+    return parseFocusedContractSummary(
+      content,
+      baselineRiskLevel,
+      outputLocale,
+    );
   } catch (error) {
     console.error("Solar 약관 요약 연결 오류:", error.message);
     return null;
@@ -1105,7 +1724,30 @@ async function requestFocusedContractSummary(product, terms, baselineRiskLevel) 
   }
 }
 
-function buildFocusedContractPrompt(product, terms, baselineRiskLevel) {
+function buildFocusedContractPrompt(
+  product,
+  terms,
+  baselineRiskLevel,
+  outputLocale = "ko",
+) {
+  if (outputLocale !== "ko") {
+    const outputLanguage = getTranslationLanguage(outputLocale);
+    return `
+The following are Korean booking terms for "${product.name}".
+
+${terms.map((term, index) => `${index + 1}. ${term}`).join("\n")}
+
+Return every value in ${outputLanguage}. Identify only refund restrictions and conditions that could disadvantage the customer. Do not invent facts. Use the provided baseline risk level exactly: "${baselineRiskLevel}".
+Return only valid JSON without markdown:
+{
+  "headline": "One clear sentence in ${outputLanguage} describing the most important booking risk.",
+  "riskLevel": "${baselineRiskLevel}",
+  "refundWarnings": ["Short ${outputLanguage} refund restriction", "Another short ${outputLanguage} restriction"],
+  "unfairTerms": ["Short ${outputLanguage} potentially disadvantageous condition", "Another short ${outputLanguage} condition"]
+}
+`;
+  }
+
   return `
 다음은 "${product.name}" 상품의 예약 약관 원문입니다.
 
@@ -1125,13 +1767,12 @@ ${terms.map((term, index) => `${index + 1}. ${term}`).join("\n")}
 `;
 }
 
-function parseFocusedContractSummary(content, baselineRiskLevel) {
-  const cleanedContent = content
-    .trim()
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/\s*```$/, "");
-  const parsed = JSON.parse(cleanedContent);
+function parseFocusedContractSummary(
+  content,
+  baselineRiskLevel,
+  outputLocale = "ko",
+) {
+  const parsed = parseSolarJson(content);
   const allowedRiskLevels = [
     "매우높음",
     "높음",
@@ -1159,6 +1800,54 @@ function parseFocusedContractSummary(content, baselineRiskLevel) {
     throw new Error("Solar 약관 요약 형식을 확인할 수 없습니다.");
   }
   return summary;
+}
+
+function createTranslatedLocalSummary(
+  product,
+  detail,
+  contract,
+  baselineRiskLevel,
+  outputLocale,
+) {
+  const translation = productTranslationCaches.get(outputLocale)?.get(product.id);
+  const fallbackText = {
+    en: {
+      productName: "This experience",
+      headline: "Review cancellation deadlines and booking restrictions before you reserve.",
+      refund: "Review the full terms for cancellation deadlines and refund restrictions.",
+      unfair: "Additional restrictions may apply. Review the full terms before reserving.",
+    },
+    ja: {
+      productName: "この体験",
+      headline: "予約前にキャンセル期限と利用制限を確認してください。",
+      refund: "キャンセル期限と返金制限は利用規約で確認してください。",
+      unfair: "追加の利用制限が適用される場合があります。予約前に利用規約を確認してください。",
+    },
+    zh: {
+      productName: "此体验",
+      headline: "预订前请查看取消期限和使用限制。",
+      refund: "请在完整条款中查看取消期限和退款限制。",
+      unfair: "可能适用额外限制。预订前请查看完整条款。",
+    },
+  }[outputLocale];
+  const productName = translation?.product?.name ?? fallbackText.productName;
+  const refundWarnings = translation?.detail?.refundRules?.slice(0, 3) ?? [
+    fallbackText.refund,
+  ];
+  const unfairTerms = [
+    ...(translation?.detail?.bookingConditions ?? []),
+    ...(translation?.contract?.additionalClauses ?? []),
+  ].slice(0, 3);
+
+  return {
+    headline: `${productName}: ${fallbackText.headline}`,
+    riskLevel: baselineRiskLevel || "보통",
+    refundWarnings,
+    unfairTerms:
+      unfairTerms.length > 0
+        ? unfairTerms
+        : [fallbackText.unfair],
+  };
 }
 
 function createFocusedLocalSummary(product, terms, baselineRiskLevel) {
