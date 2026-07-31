@@ -180,7 +180,7 @@ body.is-scrolled .site-header {
 
 .language-switcher {
   display: flex;
-  margin-left: 20px;
+  margin-left: auto;
   padding: 3px;
   gap: 2px;
   background: rgba(255, 255, 255, 0.12);

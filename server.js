@@ -140,6 +140,7 @@ app.get("/seller.js", (_request, response) => {
 });
 
 app.get("/seller-locale.js", (_request, response) => {
+  response.set("Cache-Control", "no-store");
   response.sendFile(path.join(projectDirectory, "seller-locale.js"));
 });
 
