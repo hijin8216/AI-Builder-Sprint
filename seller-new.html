@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#072b3e" />
+    <title>새 판매 상품 작성 | WAVEON PARTNER</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;600;700&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/seller.css?v=20260730-6" />
+    <script src="/seller-new.js?v=20260730-2" defer></script>
+  </head>
+  <body>
+    <header class="seller-header">
+      <a class="seller-brand" href="/seller">WAVE<span>ON</span><small>PARTNER</small></a>
+      <nav aria-label="상품 작성 메뉴">
+        <a class="buyer-link" href="/seller">← 판매자 센터</a>
+      </nav>
+    </header>
+
+    <main class="product-editor-page">
+      <header class="product-editor-head">
+        <div>
+          <p id="editor-kicker" class="eyebrow">NEW PRODUCT</p>
+          <h1 id="editor-title">새 판매 상품 작성</h1>
+          <p id="editor-description">항목을 네 단계로 나눠 작성합니다. 마지막 단계에서 약관과 안전 안내를 자세히 입력할 수 있습니다.</p>
+        </div>
+        <span id="editor-account">계정 확인 중</span>
+      </header>
+
+      <ol class="editor-steps" aria-label="상품 작성 단계">
+        <li class="is-active" data-step-indicator="1"><span>1</span><strong>기본 정보</strong></li>
+        <li data-step-indicator="2"><span>2</span><strong>사진·체험</strong></li>
+        <li data-step-indicator="3"><span>3</span><strong>운영 정보</strong></li>
+        <li data-step-indicator="4"><span>4</span><strong>약관·안전</strong></li>
+      </ol>
+
+      <form id="new-product-form" class="seller-form product-editor-form">
+        <fieldset class="form-section editor-step" data-product-step="1">
+          <legend><span>01</span> 기본 상품 정보</legend>
+          <div class="form-grid">
+            <label class="wide">
+              <span>상품명</span>
+              <input name="title" type="text" maxlength="100" placeholder="광안리 선셋 요트 투어" required />
+            </label>
+            <label>
+              <span>업체명</span>
+              <input name="partnerName" type="text" maxlength="60" placeholder="웨이브온 마린" required />
+            </label>
+            <label>
+              <span>카테고리</span>
+              <select name="category" required>
+                <option value="">선택</option>
+                <option>요트</option><option>크루즈</option><option>서핑</option><option>바디보드</option>
+                <option>다이빙</option><option>스노클링</option><option>프리다이빙</option><option>SUP</option>
+                <option>카약</option><option>낚시</option><option>제트스키</option><option>바나나보트</option>
+                <option>웨이크보드</option><option>기타</option>
+              </select>
+            </label>
+            <label>
+              <span>지역</span>
+              <select name="region" required>
+                <option value="">선택</option>
+                <option>해운대</option><option>광안리</option><option>송정</option><option>기장</option>
+                <option>다대포</option><option>영도</option><option>송도</option><option>남구</option>
+              </select>
+            </label>
+            <label>
+              <span>상세 위치</span>
+              <input name="location" type="text" maxlength="100" placeholder="수영만 요트경기장" required />
+            </label>
+            <label>
+              <span>1인 가격</span>
+              <input name="pricePerPerson" type="number" min="1000" max="5000000" step="1000" required />
+            </label>
+            <label>
+              <span>이용 시간(분)</span>
+              <input name="durationMinutes" type="number" min="10" max="1440" required />
+            </label>
+            <label>
+              <span>최소 이용 나이</span>
+              <input name="minAge" type="number" min="0" max="100" value="8" required />
+            </label>
+            <label>
+              <span>최대 인원</span>
+              <input name="maxParticipants" type="number" min="1" max="100" required />
+            </label>
+            <label class="wide">
+              <span>상품 소개</span>
+              <textarea name="description" maxlength="800" rows="6" placeholder="고객이 경험할 내용과 상품의 특징을 소개해 주세요." required></textarea>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset class="form-section editor-step" data-product-step="2" hidden>
+          <legend><span>02</span> 사진과 체험 특성</legend>
+          <div class="image-upload-grid">
+            <label class="image-upload-box">
+              <span>대표 썸네일</span><strong>상품 목록에 보일 사진</strong><small>JPG, PNG, WEBP · 최대 5MB</small>
+              <input id="thumbnail-image-input" type="file" accept="image/jpeg,image/png,image/webp" />
+            </label>
+            <label class="image-upload-box">
+              <span>상세 사진</span><strong>상품 설명용 사진 여러 장</strong><small>최대 6장</small>
+              <input id="detail-images-input" type="file" accept="image/jpeg,image/png,image/webp" multiple />
+            </label>
+          </div>
+          <div id="seller-image-preview" class="seller-image-preview"><p>선택한 사진이 여기에 미리 표시됩니다.</p></div>
+          <div class="form-grid editor-grid-spaced">
+            <label><span>난이도</span><select name="difficulty" required><option value="1">1 · 매우 쉬움</option><option value="2" selected>2 · 쉬움</option><option value="3">3 · 보통</option><option value="4">4 · 어려움</option><option value="5">5 · 전문가</option></select></label>
+            <label><span>스릴 정도</span><select name="thrillLevel" required><option value="1">1 · 잔잔함</option><option value="2" selected>2 · 가벼움</option><option value="3">3 · 보통</option><option value="4">4 · 짜릿함</option><option value="5">5 · 매우 짜릿함</option></select></label>
+            <label><span>활동 강도</span><select name="physicalIntensity" required><option value="1">1 · 휴식형</option><option value="2" selected>2 · 가벼운 활동</option><option value="3">3 · 보통</option><option value="4">4 · 높은 활동</option><option value="5">5 · 매우 높음</option></select></label>
+            <label><span>수영 필요 여부</span><select name="swimmingRequired"><option value="false">수영을 못해도 가능</option><option value="true">수영 가능자만 참여</option></select></label>
+            <div class="wide">
+              <span class="input-label">추천 대상</span>
+              <div class="choice-chips">
+                <label><input name="suitableFor" type="checkbox" value="혼자" /><span>혼자</span></label>
+                <label><input name="suitableFor" type="checkbox" value="친구" checked /><span>친구</span></label>
+                <label><input name="suitableFor" type="checkbox" value="연인" checked /><span>연인</span></label>
+                <label><input name="suitableFor" type="checkbox" value="가족" /><span>가족</span></label>
+              </div>
+            </div>
+            <label class="wide"><span>분위기·검색 태그</span><input name="moods" type="text" placeholder="노을, 사진, 휴식, 기념일" /><small class="field-help">쉼표로 구분해 주세요.</small></label>
+          </div>
+        </fieldset>
+
+        <fieldset class="form-section editor-step" data-product-step="3" hidden>
+          <legend><span>03</span> 운영 정보</legend>
+          <div class="form-grid">
+            <div class="wide">
+              <span class="input-label">이용 가능 요일</span>
+              <div class="choice-chips compact">
+                <label><input name="availableDays" type="checkbox" value="월" checked /><span>월</span></label>
+                <label><input name="availableDays" type="checkbox" value="화" checked /><span>화</span></label>
+                <label><input name="availableDays" type="checkbox" value="수" checked /><span>수</span></label>
+                <label><input name="availableDays" type="checkbox" value="목" checked /><span>목</span></label>
+                <label><input name="availableDays" type="checkbox" value="금" checked /><span>금</span></label>
+                <label><input name="availableDays" type="checkbox" value="토" checked /><span>토</span></label>
+                <label><input name="availableDays" type="checkbox" value="일" checked /><span>일</span></label>
+              </div>
+            </div>
+            <label><span>운영 시간대</span><input name="timeSlots" type="text" placeholder="09:00, 11:30, 14:30" /><small class="field-help">쉼표로 구분</small></label>
+            <label><span>날씨 영향</span><select name="weatherDependency"><option value="low">낮음</option><option value="medium" selected>보통</option><option value="high">높음</option></select></label>
+            <div class="wide">
+              <span class="input-label">지원 언어</span>
+              <div class="choice-chips">
+                <label><input name="languages" type="checkbox" value="ko" checked /><span>한국어</span></label>
+                <label><input name="languages" type="checkbox" value="en" /><span>영어</span></label>
+                <label><input name="languages" type="checkbox" value="ja" /><span>일본어</span></label>
+                <label><input name="languages" type="checkbox" value="zh" /><span>중국어</span></label>
+              </div>
+            </div>
+            <label class="wide"><span>포함 사항</span><textarea name="included" rows="5" placeholder="구명조끼&#10;웰컴 음료&#10;사진 촬영"></textarea><small class="field-help">한 줄에 한 항목씩 입력해 주세요.</small></label>
+          </div>
+        </fieldset>
+
+        <fieldset class="form-section editor-step" data-product-step="4" hidden>
+          <legend><span>04</span> 약관과 안전 정보</legend>
+          <div class="terms-editor-intro">
+            <strong>구매자가 예약 전에 확인해야 하는 내용을 구체적으로 적어주세요.</strong>
+            <p>환불, 기상 취소, 안전 책임, 이용 제한 사항을 빠뜨리지 않는 것이 좋습니다.</p>
+          </div>
+          <div class="form-grid">
+            <label class="wide"><span>환불·취소 정책</span><textarea name="refundPolicy" maxlength="500" rows="4" placeholder="이용 3일 전까지 전액 환불, 2일 전 70%, 당일 환불 불가" required></textarea></label>
+            <label class="wide"><span>상품 이용 약관</span><textarea name="termsAndConditions" maxlength="2000" rows="9" placeholder="기상 악화 시 일정 변경 기준, 지각·노쇼 처리, 장비 파손 책임, 이용 중 준수사항 등을 자세히 입력해 주세요." required></textarea></label>
+            <label class="wide"><span>참가 조건·제한 사항</span><textarea name="participantRequirements" maxlength="1000" rows="5" placeholder="임산부 또는 특정 질환이 있는 이용자는 참여가 제한될 수 있습니다.&#10;미성년자는 보호자 동의가 필요합니다."></textarea><small class="field-help">한 줄에 한 항목씩 입력해 주세요.</small></label>
+            <label class="wide"><span>안전 주의사항</span><textarea name="safetyNotes" maxlength="1000" rows="5" placeholder="강풍 또는 풍랑특보 시 일정이 변경될 수 있습니다.&#10;현장 안전요원의 안내를 따라야 합니다."></textarea><small class="field-help">한 줄에 한 항목씩 입력해 주세요.</small></label>
+            <label class="waiver-choice wide">
+              <input name="waiverRequired" type="checkbox" checked />
+              <span><strong>전자서명 동의서가 필요한 상품입니다.</strong><small>예약 고객에게 모두싸인 계약서를 발송합니다.</small></span>
+            </label>
+          </div>
+        </fieldset>
+
+        <p id="new-product-error" class="form-error" role="alert" hidden></p>
+        <div class="editor-actions">
+          <button id="editor-previous" class="secondary-button" type="button" hidden>← 이전</button>
+          <a class="editor-cancel" href="/seller">취소</a>
+          <button id="editor-next" class="primary-button" type="button">다음 단계 <span>→</span></button>
+          <button id="editor-submit" class="primary-button" type="submit" hidden>상품 등록 완료 <span>→</span></button>
+        </div>
+      </form>
+    </main>
+  </body>
+</html>

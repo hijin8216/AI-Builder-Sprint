@@ -2,7 +2,7 @@ import "dotenv/config";
 
 import express from "express";
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import { readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -33,6 +33,19 @@ const userFilePath = path.join(projectDirectory, "data", "users.local.json");
 const temporaryUserFilePath = `${userFilePath}.tmp`;
 const reservationFilePath = path.join(projectDirectory, "data", "reservations.local.json");
 const temporaryReservationFilePath = `${reservationFilePath}.tmp`;
+const sellerPostFilePath = path.join(projectDirectory, "data", "seller-posts.local.json");
+const temporarySellerPostFilePath = `${sellerPostFilePath}.tmp`;
+const sellerUploadDirectory = path.join(
+  projectDirectory,
+  "data",
+  "seller-uploads.local",
+);
+const sellerContractFilePath = path.join(
+  projectDirectory,
+  "data",
+  "seller-contracts.local.json",
+);
+const temporarySellerContractFilePath = `${sellerContractFilePath}.tmp`;
 const productData = JSON.parse(await readFile(productFilePath, "utf8"));
 const productDetailData = JSON.parse(
   await readFile(productDetailFilePath, "utf8"),
@@ -49,6 +62,11 @@ const productContracts = productContractData.contracts;
 const contractTemplates = contractTemplateData.templates;
 const users = await loadUsers();
 const reservations = await loadReservations();
+const sellerPosts = await loadLocalCollection(sellerPostFilePath, "posts");
+const sellerContracts = await loadLocalCollection(
+  sellerContractFilePath,
+  "contracts",
+);
 const activeSessions = new Map();
 const translationLocales = {
   en: "English",
@@ -64,6 +82,8 @@ const interfaceTranslationCaches = new Map(
 );
 let userWriteQueue = Promise.resolve();
 let reservationWriteQueue = Promise.resolve();
+let sellerPostWriteQueue = Promise.resolve();
+let sellerContractWriteQueue = Promise.resolve();
 const sessionCookieName = "waveon_session";
 const sessionDurationSeconds = 60 * 60 * 24 * 7;
 
@@ -74,6 +94,8 @@ function getTranslationLocale(value) {
 function getTranslationLanguage(locale) {
   return translationLocales[locale];
 }
+
+await approveExistingSellerAccounts();
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
@@ -92,6 +114,39 @@ app.get("/styles.css", (_request, response) => {
 
 app.get("/script.js", (_request, response) => {
   response.sendFile(path.join(projectDirectory, "script.js"));
+});
+
+app.get("/seller", (_request, response) => {
+  response.sendFile(path.join(projectDirectory, "seller.html"));
+});
+
+app.get("/seller/new", (_request, response) => {
+  response.sendFile(path.join(projectDirectory, "seller-new.html"));
+});
+
+app.get("/seller/edit/:postId", (_request, response) => {
+  response.sendFile(path.join(projectDirectory, "seller-new.html"));
+});
+
+app.get("/seller.css", (_request, response) => {
+  response.sendFile(path.join(projectDirectory, "seller.css"));
+});
+
+app.get("/seller.js", (_request, response) => {
+  response.sendFile(path.join(projectDirectory, "seller.js"));
+});
+
+app.get("/seller-new.js", (_request, response) => {
+  response.sendFile(path.join(projectDirectory, "seller-new.js"));
+});
+
+app.get("/seller-images/:fileName", (request, response) => {
+  const fileName = cleanText(request.params.fileName, 80);
+  if (!/^[a-f0-9]{32}\.(jpg|png|webp)$/.test(fileName)) {
+    response.status(404).end();
+    return;
+  }
+  response.sendFile(path.join(sellerUploadDirectory, fileName));
 });
 
 app.get("/data/products.json", (_request, response) => {
@@ -114,7 +169,13 @@ app.get("/api/health", (_request, response) => {
   response.json({
     status: "ok",
     solarConfigured: Boolean(process.env.UPSTAGE_API_KEY?.trim()),
-    productCount: products.length,
+    productCount: getAllProducts().length,
+  });
+});
+
+app.get("/api/products", (_request, response) => {
+  response.json({
+    products: getAllProducts(),
   });
 });
 
@@ -160,6 +221,7 @@ app.post("/api/auth/register", async (request, response) => {
       email: credentials.email,
       userId: credentials.userId,
       password: hashPassword(credentials.password),
+      sellerApproved: false,
       createdAt: new Date().toISOString(),
     };
     users.push(user);
@@ -193,6 +255,96 @@ app.post("/api/auth/login", (request, response) => {
   }
 });
 
+app.post("/api/seller/register", async (request, response) => {
+  try {
+    const registration = normalizeSellerRegistration(request.body);
+    const duplicatedUser = users.find(
+      (user) =>
+        user.email === registration.email ||
+        user.userId === registration.userId,
+    );
+    const now = new Date().toISOString();
+
+    if (duplicatedUser) {
+      const sameAccount =
+        duplicatedUser.email === registration.email &&
+        duplicatedUser.userId === registration.userId &&
+        verifyPassword(registration.password, duplicatedUser.password);
+
+      if (!sameAccount) {
+        response.status(409).json({
+          message: "이미 사용 중인 이메일 또는 아이디입니다.",
+        });
+        return;
+      }
+
+      duplicatedUser.sellerApproved = true;
+      duplicatedUser.sellerApprovedAt ||= now;
+      duplicatedUser.sellerProfile = registration.sellerProfile;
+      await saveUsers();
+
+      const sessionToken = createSession(duplicatedUser.id);
+      setSessionCookie(response, sessionToken);
+      response.json({
+        user: publicUser(duplicatedUser),
+        existing: true,
+      });
+      return;
+    }
+
+    const user = {
+      id: randomBytes(16).toString("hex"),
+      email: registration.email,
+      userId: registration.userId,
+      password: hashPassword(registration.password),
+      sellerApproved: true,
+      sellerApprovedAt: now,
+      sellerProfile: registration.sellerProfile,
+      createdAt: now,
+    };
+    users.push(user);
+    await saveUsers();
+
+    const sessionToken = createSession(user.id);
+    setSessionCookie(response, sessionToken);
+    response.status(201).json({ user: publicUser(user), existing: false });
+  } catch (error) {
+    response.status(400).json({
+      message: error.message || "판매자 등록에 실패했습니다.",
+    });
+  }
+});
+
+app.post("/api/seller/login", (request, response) => {
+  try {
+    const credentials = normalizeLoginCredentials(request.body);
+    const user = users.find(
+      (candidate) => candidate.userId === credentials.userId,
+    );
+
+    if (!user || !verifyPassword(credentials.password, user.password)) {
+      response.status(401).json({
+        message: "아이디 또는 비밀번호가 올바르지 않습니다.",
+      });
+      return;
+    }
+    if (!isApprovedSeller(user)) {
+      response.status(403).json({
+        message: "판매자로 등록된 계정만 판매자 센터를 이용할 수 있습니다.",
+      });
+      return;
+    }
+
+    const sessionToken = createSession(user.id);
+    setSessionCookie(response, sessionToken);
+    response.json({ user: publicUser(user) });
+  } catch (error) {
+    response.status(400).json({
+      message: error.message || "판매자 로그인에 실패했습니다.",
+    });
+  }
+});
+
 app.post("/api/auth/logout", (request, response) => {
   const sessionToken = getSessionToken(request);
   if (sessionToken) activeSessions.delete(sessionToken);
@@ -200,19 +352,296 @@ app.post("/api/auth/logout", (request, response) => {
   response.status(204).end();
 });
 
+app.post(
+  "/api/seller/uploads",
+  express.raw({
+    type: ["image/jpeg", "image/png", "image/webp"],
+    limit: "6mb",
+  }),
+  async (request, response) => {
+    const user = requireSellerUser(request, response);
+    if (!user) return;
+
+    const imageType = detectSellerImageType(request.body);
+    if (!imageType) {
+      response.status(400).json({
+        message: "JPG, PNG 또는 WEBP 이미지 파일만 올릴 수 있습니다.",
+      });
+      return;
+    }
+
+    try {
+      const fileName = `${randomBytes(16).toString("hex")}.${imageType}`;
+      await mkdir(sellerUploadDirectory, { recursive: true });
+      await writeFile(path.join(sellerUploadDirectory, fileName), request.body);
+      response.status(201).json({
+        imageUrl: `/seller-images/${fileName}`,
+      });
+    } catch {
+      response.status(500).json({ message: "사진을 저장하지 못했습니다." });
+    }
+  },
+);
+
+app.get("/api/seller/overview", (request, response) => {
+  const user = requireSellerUser(request, response);
+  if (!user) return;
+
+  const sellerReservations = reservations
+    .filter((reservation) => sellerOwnsReservation(reservation, user.id))
+    .slice()
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+  response.json({
+    user: publicUser(user),
+    modusignConfigured: Boolean(
+      process.env.MODUSIGN_EMAIL?.trim() &&
+        process.env.MODUSIGN_API_KEY?.trim() &&
+        process.env.MODUSIGN_TEMPLATE_ID?.trim(),
+    ),
+    posts: sellerPosts
+      .filter((post) => post.userId === user.id)
+      .slice()
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map(publicSellerPost),
+    contracts: sellerContracts
+      .filter((contract) => contract.userId === user.id)
+      .slice()
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map(publicSellerContract),
+    reservations: sellerReservations.map((reservation) =>
+      publicSellerReservation(reservation, user.id),
+    ),
+  });
+});
+
+app.post("/api/seller/posts", async (request, response) => {
+  const user = requireSellerUser(request, response);
+  if (!user) return;
+
+  try {
+    const input = normalizeSellerPost(request.body);
+    const now = new Date().toISOString();
+    const post = {
+      id: randomBytes(16).toString("hex"),
+      userId: user.id,
+      ...input,
+      status: "PUBLISHED",
+      createdAt: now,
+      updatedAt: now,
+    };
+    sellerPosts.push(post);
+    await saveSellerPosts();
+    response.status(201).json({ post: publicSellerPost(post) });
+  } catch (error) {
+    response.status(400).json({
+      message: error.message || "판매 상품을 저장하지 못했습니다.",
+    });
+  }
+});
+
+app.patch("/api/seller/posts/:postId", async (request, response) => {
+  const user = requireSellerUser(request, response);
+  if (!user) return;
+
+  const postId = cleanText(request.params.postId, 100);
+  const post = sellerPosts.find(
+    (item) => item.id === postId && item.userId === user.id,
+  );
+  if (!post) {
+    response.status(404).json({ message: "수정할 판매 상품을 찾지 못했습니다." });
+    return;
+  }
+
+  try {
+    const input = normalizeSellerPost(request.body);
+    Object.assign(post, input, {
+      updatedAt: new Date().toISOString(),
+    });
+    await saveSellerPosts();
+    response.json({ post: publicSellerPost(post) });
+  } catch (error) {
+    response.status(400).json({
+      message: error.message || "판매 상품을 수정하지 못했습니다.",
+    });
+  }
+});
+
+app.post("/api/seller/contracts", async (request, response) => {
+  const user = requireSellerUser(request, response);
+  if (!user) return;
+
+  try {
+    const reservationId = cleanText(request.body?.reservationId, 100);
+    const reservation = reservations.find(
+      (item) =>
+        item.id === reservationId && sellerOwnsReservation(item, user.id),
+    );
+    if (!reservation) {
+      response.status(404).json({ message: "계약서를 보낼 예약을 찾지 못했습니다." });
+      return;
+    }
+
+    const existingContract = sellerContracts.find(
+      (item) =>
+        item.userId === user.id && item.reservationId === reservation.id,
+    );
+    if (existingContract) {
+      response.status(409).json({
+        message:
+          existingContract.status === "SEND_FAILED"
+            ? "이미 발송을 시도한 예약입니다. 계약 현황에서 다시 발송해 주세요."
+            : "이 예약에는 이미 계약서를 발송했습니다.",
+        contract: publicSellerContract(existingContract),
+      });
+      return;
+    }
+
+    const post = findSellerPostForReservation(reservation, user.id);
+    if (!post) {
+      response.status(404).json({
+        message: "예약에 연결된 판매 상품을 찾지 못했습니다.",
+      });
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const contract = {
+      id: randomBytes(16).toString("hex"),
+      userId: user.id,
+      reservationId: reservation.id,
+      postId: post.id,
+      postTitle: post.title,
+      customerName: reservation.name,
+      customerEmail: reservation.email,
+      reservationDate: reservation.date,
+      people: Number(reservation.people),
+      documentId: "",
+      status: "SENDING",
+      error: "",
+      createdAt: now,
+      updatedAt: now,
+    };
+    sellerContracts.push(contract);
+    await saveSellerContracts();
+
+    try {
+      await deliverSellerContract(contract, post);
+      await applySellerContractToReservation(contract);
+      response.status(201).json({ contract: publicSellerContract(contract) });
+    } catch (error) {
+      contract.status = "SEND_FAILED";
+      contract.error = cleanText(error.message, 240);
+      contract.updatedAt = new Date().toISOString();
+      await saveSellerContracts();
+      response.status(502).json({
+        message: contract.error || "모두싸인 계약서를 발송하지 못했습니다.",
+        contract: publicSellerContract(contract),
+      });
+    }
+  } catch (error) {
+    response.status(400).json({
+      message: error.message || "계약서 발송 정보를 확인해 주세요.",
+    });
+  }
+});
+
+app.post("/api/seller/contracts/:contractId/resend", async (request, response) => {
+  const user = requireSellerUser(request, response);
+  if (!user) return;
+
+  const contractId = cleanText(request.params.contractId, 100);
+  const contract = sellerContracts.find(
+    (item) => item.id === contractId && item.userId === user.id,
+  );
+  if (!contract) {
+    response.status(404).json({ message: "재발송할 계약 기록을 찾지 못했습니다." });
+    return;
+  }
+  const post = sellerPosts.find(
+    (item) => item.id === contract.postId && item.userId === user.id,
+  );
+  if (!post) {
+    response.status(404).json({ message: "계약에 연결된 상품을 찾지 못했습니다." });
+    return;
+  }
+
+  try {
+    contract.status = "SENDING";
+    contract.error = "";
+    contract.updatedAt = new Date().toISOString();
+    await saveSellerContracts();
+    await deliverSellerContract(contract, post);
+    await applySellerContractToReservation(contract);
+    response.json({ contract: publicSellerContract(contract) });
+  } catch (error) {
+    contract.status = "SEND_FAILED";
+    contract.error = cleanText(error.message, 240);
+    contract.updatedAt = new Date().toISOString();
+    await saveSellerContracts();
+    response.status(502).json({
+      message: contract.error || "모두싸인 계약서를 재발송하지 못했습니다.",
+      contract: publicSellerContract(contract),
+    });
+  }
+});
+
+app.post("/api/seller/contracts/:contractId/refresh", async (request, response) => {
+  const user = requireSellerUser(request, response);
+  if (!user) return;
+
+  const contractId = cleanText(request.params.contractId, 100);
+  const contract = sellerContracts.find(
+    (item) => item.id === contractId && item.userId === user.id,
+  );
+  if (!contract?.documentId) {
+    response.status(404).json({ message: "상태를 확인할 계약 문서가 없습니다." });
+    return;
+  }
+
+  try {
+    const document = await requestModusign(`/documents/${contract.documentId}`);
+    contract.status = document.status || contract.status;
+    contract.error = "";
+    contract.updatedAt = new Date().toISOString();
+    await saveSellerContracts();
+    await applySellerContractToReservation(contract);
+    response.json({ contract: publicSellerContract(contract) });
+  } catch (error) {
+    response.status(502).json({
+      message: error.message || "계약 상태를 확인하지 못했습니다.",
+    });
+  }
+});
+
 app.post("/api/reservations", async (request, response) => {
   const user = requireAuthenticatedUser(request, response);
   if (!user) return;
 
   try {
+    const productId = cleanText(request.body?.productId, 100);
+    const selectedProduct = getAllProducts().find(
+      (product) => product.id === productId,
+    );
+    if (!selectedProduct) {
+      response.status(404).json({ message: "예약할 상품을 찾지 못했습니다." });
+      return;
+    }
+
+    const sellerPost = sellerPosts.find(
+      (post) => post.id === productId && post.status === "PUBLISHED",
+    );
     const booking = normalizeBooking({
       ...request.body,
       email: user.email,
+      activity: selectedProduct.name,
+      venue: selectedProduct.partnerName,
     });
     const now = new Date().toISOString();
     const reservation = {
       id: randomBytes(16).toString("hex"),
       userId: user.id,
+      sellerUserId: sellerPost?.userId || "",
       email: user.email,
       name: booking.name,
       productId: booking.productId,
@@ -221,7 +650,7 @@ app.post("/api/reservations", async (request, response) => {
       date: booking.date,
       time: booking.time,
       people: booking.people,
-      status: "CONTRACT_PENDING",
+      status: sellerPost ? "SELLER_REVIEW" : "CONTRACT_PENDING",
       signatureStatus: "",
       documentId: "",
       forwarded: false,
@@ -253,7 +682,8 @@ app.post("/api/reservations/:reservationId/cancel", async (request, response) =>
   }
 
   const canCancelImmediately =
-    reservation.status === "CONTRACT_PENDING" && !reservation.documentId;
+    ["CONTRACT_PENDING", "SELLER_REVIEW"].includes(reservation.status) &&
+    !reservation.documentId;
   const canRequestCancellation =
     reservation.status === "COMPLETED" && Boolean(reservation.documentId);
   if (!canCancelImmediately && !canRequestCancellation) {
@@ -461,7 +891,7 @@ app.get("/api/reservations/:reservationId/document", async (request, response) =
 
 app.post("/api/contract-summary", async (request, response) => {
   try {
-    const productId = cleanText(request.body?.productId, 20);
+    const productId = cleanText(request.body?.productId, 100);
     const outputLocale =
       request.body?.locale === "ko"
         ? "ko"
@@ -470,9 +900,7 @@ app.post("/api/contract-summary", async (request, response) => {
       response.status(400).json({ message: "지원하지 않는 요약 언어입니다." });
       return;
     }
-    const product = products.find((item) => item.id === productId);
-    const detail = productDetails[productId];
-    const contract = productContracts[productId];
+    const { product, detail, contract } = getProductContent(productId);
 
     if (!product || !detail || !contract) {
       response.status(404).json({ message: "요약할 상품 약관을 찾지 못했습니다." });
@@ -514,15 +942,13 @@ app.post("/api/contract-summary", async (request, response) => {
 
 app.post("/api/product-translation", async (request, response) => {
   try {
-    const productId = cleanText(request.body?.productId, 20);
+    const productId = cleanText(request.body?.productId, 100);
     const outputLocale = getTranslationLocale(request.body?.locale);
     if (!outputLocale) {
       response.status(400).json({ message: "지원하지 않는 번역 언어입니다." });
       return;
     }
-    const product = products.find((item) => item.id === productId);
-    const detail = productDetails[productId];
-    const contract = productContracts[productId];
+    const { product, detail, contract } = getProductContent(productId);
 
     if (!product || !detail || !contract) {
       response.status(404).json({ message: "번역할 상품 정보를 찾지 못했습니다." });
@@ -567,11 +993,14 @@ app.post("/api/product-card-translations", async (request, response) => {
       return;
     }
     const requestedIds = Array.isArray(request.body?.productIds)
-      ? request.body.productIds.map((id) => cleanText(id, 20)).filter(Boolean)
+      ? request.body.productIds.map((id) => cleanText(id, 100)).filter(Boolean)
       : [];
+    const availableProducts = getAllProducts();
     const requestedProducts = requestedIds.length
-      ? products.filter((product) => requestedIds.includes(product.id)).slice(0, 8)
-      : products.slice(0, 8);
+      ? availableProducts
+          .filter((product) => requestedIds.includes(product.id))
+          .slice(0, 8)
+      : availableProducts.slice(0, 8);
     if (requestedProducts.length === 0) {
       response.status(404).json({ message: "번역할 상품을 찾지 못했습니다." });
       return;
@@ -739,6 +1168,60 @@ async function saveReservations() {
   return reservationWriteQueue;
 }
 
+async function loadLocalCollection(filePath, key) {
+  try {
+    const storedData = JSON.parse(await readFile(filePath, "utf8"));
+    return Array.isArray(storedData[key]) ? storedData[key] : [];
+  } catch (error) {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  }
+}
+
+async function saveSellerPosts() {
+  sellerPostWriteQueue = sellerPostWriteQueue.catch(() => {}).then(async () => {
+    const postData = JSON.stringify({ posts: sellerPosts }, null, 2);
+    await writeFile(temporarySellerPostFilePath, `${postData}\n`, "utf8");
+    await rename(temporarySellerPostFilePath, sellerPostFilePath);
+  });
+  return sellerPostWriteQueue;
+}
+
+async function saveSellerContracts() {
+  sellerContractWriteQueue = sellerContractWriteQueue
+    .catch(() => {})
+    .then(async () => {
+      const contractData = JSON.stringify(
+        { contracts: sellerContracts },
+        null,
+        2,
+      );
+      await writeFile(
+        temporarySellerContractFilePath,
+        `${contractData}\n`,
+        "utf8",
+      );
+      await rename(temporarySellerContractFilePath, sellerContractFilePath);
+    });
+  return sellerContractWriteQueue;
+}
+
+async function approveExistingSellerAccounts() {
+  const sellerUserIds = new Set(sellerPosts.map((post) => post.userId));
+  let approvalChanged = false;
+
+  users.forEach((user) => {
+    if (sellerUserIds.has(user.id) && user.sellerApproved !== true) {
+      user.sellerApproved = true;
+      approvalChanged = true;
+    }
+  });
+
+  if (approvalChanged) {
+    await saveUsers();
+  }
+}
+
 function normalizeRegistrationCredentials(input = {}) {
   const email = cleanText(input.email, 100).toLowerCase();
   const loginCredentials = normalizeLoginCredentials(input);
@@ -755,6 +1238,43 @@ function normalizeRegistrationCredentials(input = {}) {
   return {
     email,
     ...loginCredentials,
+  };
+}
+
+function normalizeSellerRegistration(input = {}) {
+  const credentials = normalizeRegistrationCredentials(input);
+  const partnerName = cleanText(input.partnerName, 60);
+  const representativeName = cleanText(input.representativeName, 40);
+  const businessRegistrationNumber = cleanText(
+    input.businessRegistrationNumber,
+    20,
+  ).replace(/\D/g, "");
+  const phone = cleanText(input.phone, 20).replace(/\D/g, "");
+
+  if (partnerName.length < 2) {
+    throw new Error("업체명을 두 글자 이상 입력해 주세요.");
+  }
+  if (representativeName.length < 2) {
+    throw new Error("대표자명을 두 글자 이상 입력해 주세요.");
+  }
+  if (businessRegistrationNumber.length !== 10) {
+    throw new Error("사업자등록번호 숫자 10자리를 입력해 주세요.");
+  }
+  if (phone.length < 9 || phone.length > 11) {
+    throw new Error("연락처를 정확히 입력해 주세요.");
+  }
+  if (input.sellerTermsAccepted !== true) {
+    throw new Error("판매자 운영 정책에 동의해 주세요.");
+  }
+
+  return {
+    ...credentials,
+    sellerProfile: {
+      partnerName,
+      representativeName,
+      businessRegistrationNumber,
+      phone,
+    },
   };
 }
 
@@ -801,6 +1321,7 @@ function publicUser(user) {
   return {
     email: user.email,
     userId: user.userId,
+    sellerApproved: isApprovedSeller(user),
   };
 }
 
@@ -824,6 +1345,188 @@ function publicReservation(reservation) {
       ["COMPLETED", "CANCELLATION_REQUESTED"].includes(reservation.status) &&
       Boolean(reservation.documentId),
   };
+}
+
+function publicSellerPost(post) {
+  return {
+    id: post.id,
+    title: post.title,
+    partnerName: post.partnerName,
+    category: post.category,
+    region: post.region,
+    location: post.location,
+    pricePerPerson: post.pricePerPerson,
+    durationMinutes: post.durationMinutes,
+    difficulty: post.difficulty,
+    thrillLevel: post.thrillLevel,
+    physicalIntensity: post.physicalIntensity,
+    swimmingRequired: post.swimmingRequired,
+    minAge: post.minAge,
+    maxParticipants: post.maxParticipants,
+    description: post.description,
+    suitableFor: post.suitableFor || [],
+    moods: post.moods || [],
+    included: post.included || [],
+    availableDays: post.availableDays || [],
+    timeSlots: post.timeSlots || [],
+    languages: post.languages || [],
+    weatherDependency: post.weatherDependency,
+    waiverRequired: post.waiverRequired,
+    refundPolicy: post.refundPolicy,
+    termsAndConditions: post.termsAndConditions || "",
+    participantRequirements: post.participantRequirements || [],
+    safetyNotes: post.safetyNotes || [],
+    thumbnailImage: post.thumbnailImage || "",
+    detailImages: post.detailImages || [],
+    status: post.status,
+    createdAt: post.createdAt,
+    updatedAt: post.updatedAt,
+  };
+}
+
+function publicSellerContract(contract) {
+  return {
+    id: contract.id,
+    reservationId: contract.reservationId || "",
+    postId: contract.postId,
+    postTitle: contract.postTitle,
+    customerName: contract.customerName,
+    customerEmail: contract.customerEmail,
+    reservationDate: contract.reservationDate,
+    people: contract.people,
+    documentId: contract.documentId,
+    status: contract.status,
+    error: contract.error,
+    createdAt: contract.createdAt,
+    updatedAt: contract.updatedAt,
+  };
+}
+
+function publicSellerReservation(reservation, sellerUserId) {
+  const contract = sellerContracts.find(
+    (item) =>
+      item.userId === sellerUserId && item.reservationId === reservation.id,
+  );
+
+  return {
+    id: reservation.id,
+    productId: reservation.productId || "",
+    name: reservation.name,
+    email: reservation.email,
+    activity: reservation.activity,
+    venue: reservation.venue,
+    date: reservation.date,
+    people: reservation.people,
+    status: reservation.status,
+    contract: contract ? publicSellerContract(contract) : null,
+    createdAt: reservation.createdAt,
+  };
+}
+
+function findSellerPostForReservation(reservation, sellerUserId) {
+  return sellerPosts.find(
+    (post) =>
+      post.userId === sellerUserId &&
+      post.status === "PUBLISHED" &&
+      (post.id === reservation.productId || post.title === reservation.activity),
+  );
+}
+
+function sellerOwnsReservation(reservation, sellerUserId) {
+  if (reservation.sellerUserId) {
+    return reservation.sellerUserId === sellerUserId;
+  }
+
+  return Boolean(findSellerPostForReservation(reservation, sellerUserId));
+}
+
+function sellerPostAsProduct(post) {
+  return {
+    id: post.id,
+    name: post.title,
+    partnerName: post.partnerName,
+    category: post.category,
+    region: post.region,
+    location: post.location || post.region,
+    description: post.description,
+    pricePerPerson: post.pricePerPerson,
+    durationMinutes: post.durationMinutes,
+    difficulty: post.difficulty || 2,
+    thrillLevel: post.thrillLevel || 2,
+    physicalIntensity: post.physicalIntensity || 2,
+    swimmingRequired: post.swimmingRequired === true,
+    minAge: post.minAge || 8,
+    maxParticipants: post.maxParticipants,
+    suitableFor: post.suitableFor?.length
+      ? post.suitableFor
+      : ["혼자", "친구", "연인", "가족"],
+    moods: post.moods?.length ? post.moods : ["도전", "휴식"],
+    included: post.included || [],
+    availableDays: post.availableDays?.length
+      ? post.availableDays
+      : ["월", "화", "수", "목", "금", "토", "일"],
+    timeSlots: post.timeSlots || [],
+    languages: post.languages?.length ? post.languages : ["ko"],
+    weatherDependency: post.weatherDependency || "medium",
+    rating: 0,
+    reviewCount: 0,
+    waiverRequired: post.waiverRequired !== false,
+    refundPolicy: post.refundPolicy || "",
+    termsAndConditions: post.termsAndConditions || "",
+    participantRequirements: post.participantRequirements || [],
+    safetyNotes: post.safetyNotes || [],
+    thumbnailImage: post.thumbnailImage || "",
+    detailImages: post.detailImages || [],
+    sellerCreated: true,
+  };
+}
+
+function getAllProducts() {
+  return [
+    ...products,
+    ...sellerPosts
+      .filter((post) => post.status === "PUBLISHED")
+      .map(sellerPostAsProduct),
+  ];
+}
+
+function getProductContent(productId) {
+  const product =
+    getAllProducts().find((item) => item.id === productId) || null;
+  if (!product) {
+    return { product: null, detail: null, contract: null };
+  }
+
+  const detail =
+    productDetails[productId] ||
+    (product.sellerCreated
+      ? {
+          promotion: product.description,
+          highlights: product.included?.length
+            ? product.included
+            : ["판매자가 직접 등록한 WAVEON 파트너 상품"],
+          refundRules: product.refundPolicy ? [product.refundPolicy] : [],
+          bookingConditions: product.participantRequirements || [],
+        }
+      : null);
+  const contract =
+    productContracts[productId] ||
+    (product.sellerCreated
+      ? {
+          riskLevel: "확인필요",
+          story: [product.description],
+          itinerary: [
+            `운영 요일: ${(product.availableDays || []).join(" · ")}`,
+            `운영 시간: ${(product.timeSlots || []).join(" · ") || "예약 후 협의"}`,
+          ],
+          additionalClauses: [
+            product.termsAndConditions,
+            ...(product.safetyNotes || []),
+          ].filter(Boolean),
+        }
+      : null);
+
+  return { product, detail, contract };
 }
 
 function createSession(userId) {
@@ -864,6 +1567,26 @@ function requireAuthenticatedUser(request, response) {
   const user = getAuthenticatedUser(request);
   if (!user) {
     response.status(401).json({ message: "먼저 로그인해 주세요." });
+    return null;
+  }
+  return user;
+}
+
+function isApprovedSeller(user) {
+  return Boolean(
+    user &&
+      (user.sellerApproved === true ||
+        sellerPosts.some((post) => post.userId === user.id)),
+  );
+}
+
+function requireSellerUser(request, response) {
+  const user = requireAuthenticatedUser(request, response);
+  if (!user) return null;
+  if (!isApprovedSeller(user)) {
+    response.status(403).json({
+      message: "판매자로 등록된 계정만 판매자 센터를 이용할 수 있습니다.",
+    });
     return null;
   }
   return user;
@@ -916,6 +1639,173 @@ function cleanText(value, maxLength) {
   return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 }
 
+function cleanTextList(value, maxItems, maxItemLength) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => cleanText(item, maxItemLength))
+    .filter(Boolean)
+    .slice(0, maxItems);
+}
+
+function cleanSellerImageUrl(value) {
+  const imageUrl = cleanText(value, 120);
+  return /^\/seller-images\/[a-f0-9]{32}\.(jpg|png|webp)$/.test(imageUrl)
+    ? imageUrl
+    : "";
+}
+
+function detectSellerImageType(buffer) {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 12) return "";
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return "jpg";
+  }
+  if (
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47
+  ) {
+    return "png";
+  }
+  if (
+    buffer.toString("ascii", 0, 4) === "RIFF" &&
+    buffer.toString("ascii", 8, 12) === "WEBP"
+  ) {
+    return "webp";
+  }
+  return "";
+}
+
+function normalizeSellerPost(input = {}) {
+  const post = {
+    title: cleanText(input.title, 100),
+    partnerName: cleanText(input.partnerName, 60),
+    category: cleanText(input.category, 20),
+    region: cleanText(input.region, 20),
+    location: cleanText(input.location, 100),
+    pricePerPerson: Number(input.pricePerPerson),
+    durationMinutes: Number(input.durationMinutes),
+    difficulty: Number(input.difficulty),
+    thrillLevel: Number(input.thrillLevel),
+    physicalIntensity: Number(input.physicalIntensity),
+    swimmingRequired: input.swimmingRequired === true,
+    minAge: Number(input.minAge),
+    maxParticipants: Number(input.maxParticipants),
+    description: cleanText(input.description, 800),
+    suitableFor: cleanTextList(input.suitableFor, 8, 20),
+    moods: cleanTextList(input.moods, 12, 30),
+    included: cleanTextList(input.included, 20, 80),
+    availableDays: cleanTextList(input.availableDays, 7, 4),
+    timeSlots: cleanTextList(input.timeSlots, 12, 10),
+    languages: cleanTextList(input.languages, 8, 10),
+    weatherDependency: ["low", "medium", "high"].includes(
+      input.weatherDependency,
+    )
+      ? input.weatherDependency
+      : "medium",
+    waiverRequired: input.waiverRequired === true,
+    refundPolicy: cleanText(input.refundPolicy, 500),
+    termsAndConditions: cleanText(input.termsAndConditions, 2000),
+    participantRequirements: cleanTextList(
+      input.participantRequirements,
+      12,
+      160,
+    ),
+    safetyNotes: cleanTextList(input.safetyNotes, 12, 160),
+    thumbnailImage: cleanSellerImageUrl(input.thumbnailImage),
+    detailImages: cleanTextList(input.detailImages, 6, 120)
+      .map(cleanSellerImageUrl)
+      .filter(Boolean),
+  };
+
+  if (
+    !post.title ||
+    !post.partnerName ||
+    !post.category ||
+    !post.region ||
+    !post.location ||
+    !post.description
+  ) {
+    throw new Error(
+      "상품명, 업체명, 카테고리, 지역, 상세 위치와 소개를 입력해 주세요.",
+    );
+  }
+  if (
+    !Number.isInteger(post.pricePerPerson) ||
+    post.pricePerPerson < 1000 ||
+    post.pricePerPerson > 5000000
+  ) {
+    throw new Error("1인 가격은 1천원에서 500만원 사이로 입력해 주세요.");
+  }
+  if (
+    !Number.isInteger(post.durationMinutes) ||
+    post.durationMinutes < 10 ||
+    post.durationMinutes > 1440
+  ) {
+    throw new Error("이용 시간은 10분에서 1440분 사이로 입력해 주세요.");
+  }
+  if (
+    !Number.isInteger(post.minAge) ||
+    post.minAge < 0 ||
+    post.minAge > 100
+  ) {
+    throw new Error("최소 이용 나이는 0세에서 100세 사이로 입력해 주세요.");
+  }
+  if (
+    !Number.isInteger(post.maxParticipants) ||
+    post.maxParticipants < 1 ||
+    post.maxParticipants > 100
+  ) {
+    throw new Error("최대 인원은 1명에서 100명 사이로 입력해 주세요.");
+  }
+  for (const [value, label] of [
+    [post.difficulty, "난이도"],
+    [post.thrillLevel, "스릴 정도"],
+    [post.physicalIntensity, "활동 강도"],
+  ]) {
+    if (!Number.isInteger(value) || value < 1 || value > 5) {
+      throw new Error(`${label}는 1단계에서 5단계 사이로 선택해 주세요.`);
+    }
+  }
+  if (!post.availableDays.length) {
+    throw new Error("이용 가능한 요일을 한 개 이상 선택해 주세요.");
+  }
+  if (!post.languages.length) {
+    throw new Error("지원 언어를 한 개 이상 선택해 주세요.");
+  }
+  if (!post.refundPolicy || !post.termsAndConditions) {
+    throw new Error("환불·취소 정책과 상품 이용 약관을 입력해 주세요.");
+  }
+
+  return post;
+}
+
+function normalizeSellerContract(input = {}) {
+  const contract = {
+    postId: cleanText(input.postId, 100),
+    customerName: cleanText(input.customerName, 30),
+    customerEmail: cleanText(input.customerEmail, 100).toLowerCase(),
+    reservationDate: cleanText(input.reservationDate, 20),
+    people: Number(input.people),
+  };
+
+  if (!contract.postId || !contract.customerName || !contract.reservationDate) {
+    throw new Error("상품, 고객명과 이용 날짜를 확인해 주세요.");
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contract.customerEmail)) {
+    throw new Error("계약서를 받을 고객 이메일을 정확히 입력해 주세요.");
+  }
+  if (
+    !Number.isInteger(contract.people) ||
+    contract.people < 1 ||
+    contract.people > 100
+  ) {
+    throw new Error("예약 인원은 1명에서 100명 사이로 입력해 주세요.");
+  }
+
+  return contract;
+}
+
 function normalizeBooking(input = {}) {
   const booking = {
     name: cleanText(input.name, 30), email: cleanText(input.email, 100),
@@ -951,12 +1841,31 @@ async function requestModusign(pathname, options = {}) {
     Authorization: modusignAuthorization(),
     ...(options.headers ?? {}),
   };
-  const apiResponse = await fetch(`https://api.modusign.co.kr${pathname}`, {
-    ...options,
-    headers,
-  });
+  let apiResponse;
+  try {
+    apiResponse = await fetch(`https://api.modusign.co.kr${pathname}`, {
+      ...options,
+      headers,
+    });
+  } catch {
+    throw new Error("모두싸인 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+  }
   const result = await apiResponse.json().catch(() => ({}));
-  if (!apiResponse.ok) throw new Error(result.message || `모두싸인 요청 오류 (${apiResponse.status})`);
+  if (!apiResponse.ok) {
+    if (apiResponse.status === 403) {
+      throw new Error(
+        "모두싸인 API 사용량 또는 템플릿 접근 권한을 확인해 주세요.",
+      );
+    }
+    if (apiResponse.status === 429) {
+      throw new Error(
+        "모두싸인 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+      );
+    }
+    throw new Error(
+      result.message || `모두싸인 요청 오류 (${apiResponse.status})`,
+    );
+  }
   return result;
 }
 
@@ -1102,6 +2011,60 @@ function hasSignerRole(template) {
   );
 }
 
+async function deliverSellerContract(contract, post) {
+  const templateId = process.env.MODUSIGN_TEMPLATE_ID?.trim();
+  if (!templateId) {
+    throw new Error(".env에 모두싸인 템플릿 ID를 입력해 주세요.");
+  }
+
+  const template = await requestModusign(`/templates/${templateId}`);
+  const role = findModusignSignerRole(template);
+  const document = await requestModusign("/documents/request-with-template", {
+    method: "POST",
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify({
+      templateId,
+      document: {
+        title: `${contract.reservationDate}_${post.title}_${contract.customerName}`,
+        participantMappings: [
+          {
+            role,
+            name: contract.customerName,
+            signingMethod: {
+              type: "EMAIL",
+              value: contract.customerEmail,
+            },
+          },
+        ],
+      },
+    }),
+  });
+
+  contract.documentId = document.id || "";
+  contract.status = document.status || "SENT";
+  contract.error = "";
+  contract.updatedAt = new Date().toISOString();
+  await saveSellerContracts();
+  return document;
+}
+
+async function applySellerContractToReservation(contract) {
+  if (!contract.reservationId || !contract.documentId) return;
+
+  const reservation = reservations.find(
+    (item) => item.id === contract.reservationId,
+  );
+  if (!reservation) return;
+
+  reservation.documentId = contract.documentId;
+  reservation.signatureStatus = contract.status;
+  reservation.status = ["ABORTED", "PROCESSING_FAILED"].includes(contract.status)
+    ? contract.status
+    : "SIGNING";
+  reservation.updatedAt = new Date().toISOString();
+  await saveReservations();
+}
+
 async function getEmbeddedSigningView(document, participantName) {
   const participant =
     document.participants?.find((item) => item.name === participantName) ??
@@ -1168,7 +2131,7 @@ function selectCandidates(profile) {
     advanced: 5,
   }[profile.experienceLevel];
 
-  return products
+  return getAllProducts()
     .filter((product) => product.pricePerPerson <= profile.budget)
     .filter((product) => product.minAge <= profile.age)
     .filter(

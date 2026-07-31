@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="WAVEON BUSAN 판매자가 해양레저 상품과 전자계약을 관리하는 파트너 센터"
+    />
+    <meta name="theme-color" content="#072b3e" />
+    <title>WAVEON PARTNER | 판매자 센터</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;600;700&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/seller.css?v=20260731-1" />
+    <script src="/seller.js?v=20260731-2" defer></script>
+  </head>
+  <body>
+    <header class="seller-header">
+      <a class="seller-brand" href="/seller" aria-label="WAVEON 판매자 센터 홈">
+        WAVE<span>ON</span><small>PARTNER</small>
+      </a>
+      <nav aria-label="판매자 메뉴">
+        <a href="#products">상품 관리</a>
+        <a href="#contracts">전자계약</a>
+        <a class="buyer-link" href="/">구매자 페이지</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="seller-hero">
+        <div class="seller-hero-copy">
+          <p class="eyebrow">SELLER WORKSPACE</p>
+          <h1>부산의 바다 경험을<br /><em>직접 운영하세요.</em></h1>
+          <p>
+            상품을 등록하고 예약 고객에게 모두싸인 계약서를 발송하는
+            판매자 전용 공간입니다.
+          </p>
+        </div>
+        <div class="hero-flow" aria-label="판매자 업무 순서">
+          <div><span>01</span><strong>상품 작성</strong><small>판매할 경험 등록</small></div>
+          <div><span>02</span><strong>고객 확인</strong><small>예약 정보 입력</small></div>
+          <div><span>03</span><strong>계약 발송</strong><small>모두싸인 이메일 전송</small></div>
+        </div>
+      </section>
+
+      <section id="seller-access" class="seller-access" hidden>
+        <div class="seller-auth-copy">
+          <p class="eyebrow">PARTNER SIGN IN</p>
+          <h2>판매자 센터 로그인</h2>
+          <p>
+            승인된 판매자 계정으로 로그인하거나, 사업자 정보를 입력해 새
+            판매자 계정을 등록할 수 있습니다.
+          </p>
+        </div>
+        <div class="seller-auth-panel">
+          <div class="seller-auth-tabs" role="tablist" aria-label="판매자 계정">
+            <button
+              class="seller-auth-tab is-active"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              aria-controls="seller-login-form"
+              data-seller-auth-mode="login"
+            >
+              판매자 로그인
+            </button>
+            <button
+              class="seller-auth-tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="seller-register-form"
+              data-seller-auth-mode="register"
+            >
+              판매자 등록
+            </button>
+          </div>
+
+          <form id="seller-login-form" class="seller-auth-form">
+            <label>
+              <span>아이디</span>
+              <input
+                id="seller-login-id"
+                name="userId"
+                type="text"
+                autocomplete="username"
+                required
+              />
+            </label>
+            <label>
+              <span>비밀번호</span>
+              <input
+                id="seller-login-password"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                required
+              />
+            </label>
+            <p id="seller-login-error" class="form-error" role="alert" hidden></p>
+            <button type="submit">판매자 센터 시작 <span>→</span></button>
+          </form>
+
+          <form
+            id="seller-register-form"
+            class="seller-auth-form seller-register-form"
+            hidden
+          >
+            <label>
+              <span>이메일</span>
+              <input
+                name="email"
+                type="email"
+                autocomplete="email"
+                maxlength="100"
+                required
+              />
+            </label>
+            <label>
+              <span>아이디</span>
+              <input
+                name="userId"
+                type="text"
+                autocomplete="username"
+                minlength="3"
+                maxlength="24"
+                pattern="[a-zA-Z0-9._-]+"
+                required
+              />
+            </label>
+            <label>
+              <span>비밀번호</span>
+              <input
+                name="password"
+                type="password"
+                autocomplete="new-password"
+                minlength="8"
+                maxlength="128"
+                required
+              />
+            </label>
+            <label>
+              <span>비밀번호 확인</span>
+              <input
+                name="passwordConfirm"
+                type="password"
+                autocomplete="new-password"
+                minlength="8"
+                maxlength="128"
+                required
+              />
+            </label>
+            <label>
+              <span>업체명</span>
+              <input name="partnerName" type="text" maxlength="60" required />
+            </label>
+            <label>
+              <span>대표자명</span>
+              <input
+                name="representativeName"
+                type="text"
+                maxlength="40"
+                required
+              />
+            </label>
+            <label>
+              <span>사업자등록번호</span>
+              <input
+                name="businessRegistrationNumber"
+                type="text"
+                inputmode="numeric"
+                maxlength="12"
+                placeholder="123-45-67890"
+                required
+              />
+            </label>
+            <label>
+              <span>연락처</span>
+              <input
+                name="phone"
+                type="tel"
+                autocomplete="tel"
+                maxlength="20"
+                placeholder="010-1234-5678"
+                required
+              />
+            </label>
+            <label class="seller-terms">
+              <input name="sellerTermsAccepted" type="checkbox" required />
+              <span>
+                입력한 사업자 정보가 정확하며 판매자 운영 정책에 동의합니다.
+              </span>
+            </label>
+            <p
+              id="seller-register-error"
+              class="form-error"
+              role="alert"
+              hidden
+            ></p>
+            <button type="submit">판매자 등록 완료 <span>→</span></button>
+            <small class="seller-register-help">
+              기존 구매자 계정을 전환하려면 같은 이메일·아이디·비밀번호를
+              입력해 주세요.
+            </small>
+          </form>
+        </div>
+      </section>
+
+      <div id="seller-dashboard" hidden>
+        <section class="seller-account">
+          <div>
+            <span>판매자 데모 계정</span>
+            <strong id="seller-user-id"></strong>
+            <p id="seller-user-email"></p>
+          </div>
+          <div class="account-actions">
+            <span id="modusign-state" class="api-state">모두싸인 확인 중</span>
+            <button id="seller-logout" type="button">로그아웃</button>
+          </div>
+        </section>
+
+        <section class="dashboard-stats" aria-label="판매자 현황">
+          <article><span>등록 상품</span><strong id="post-count">0</strong><small>개</small></article>
+          <article><span>계약 발송</span><strong id="contract-count">0</strong><small>건</small></article>
+          <article><span>서명 완료</span><strong id="completed-count">0</strong><small>건</small></article>
+        </section>
+
+        <section id="products" class="workspace-section">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">PRODUCT STUDIO</p>
+              <h2>판매 상품 관리</h2>
+            </div>
+            <a class="new-product-link" href="/seller/new">
+              새 상품 작성 <span>→</span>
+            </a>
+          </div>
+
+          <div class="product-workspace has-hidden-form">
+            <form id="seller-post-form" class="seller-form" hidden>
+              <fieldset class="form-section">
+                <legend><span>01</span> 기본 상품 정보</legend>
+                <div class="form-grid">
+                  <label class="wide">
+                    <span>상품명</span>
+                    <input name="title" type="text" maxlength="100" placeholder="광안리 선셋 요트 투어" required />
+                  </label>
+                  <label>
+                    <span>업체명</span>
+                    <input name="partnerName" type="text" maxlength="60" placeholder="웨이브온 마린" required />
+                  </label>
+                  <label>
+                    <span>카테고리</span>
+                    <select name="category" required>
+                      <option value="">선택</option>
+                      <option>요트</option><option>크루즈</option><option>서핑</option>
+                      <option>바디보드</option><option>다이빙</option><option>스노클링</option>
+                      <option>프리다이빙</option><option>SUP</option><option>카약</option>
+                      <option>낚시</option><option>제트스키</option><option>바나나보트</option>
+                      <option>웨이크보드</option><option>기타</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>지역</span>
+                    <select name="region" required>
+                      <option value="">선택</option>
+                      <option>해운대</option><option>광안리</option><option>송정</option>
+                      <option>기장</option><option>다대포</option><option>영도</option>
+                      <option>송도</option><option>남구</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>상세 위치</span>
+                    <input name="location" type="text" maxlength="100" placeholder="수영만 요트경기장" required />
+                  </label>
+                  <label>
+                    <span>1인 가격</span>
+                    <input name="pricePerPerson" type="number" min="1000" max="5000000" step="1000" placeholder="45000" required />
+                  </label>
+                  <label>
+                    <span>이용 시간(분)</span>
+                    <input name="durationMinutes" type="number" min="10" max="1440" placeholder="90" required />
+                  </label>
+                  <label>
+                    <span>최소 이용 나이</span>
+                    <input name="minAge" type="number" min="0" max="100" value="8" required />
+                  </label>
+                  <label>
+                    <span>최대 인원</span>
+                    <input name="maxParticipants" type="number" min="1" max="100" placeholder="8" required />
+                  </label>
+                  <label class="wide">
+                    <span>상품 소개</span>
+                    <textarea name="description" maxlength="800" rows="5" placeholder="고객이 경험할 내용과 상품의 특징을 소개해 주세요." required></textarea>
+                  </label>
+                </div>
+                <p class="form-section-note">평점과 후기 수는 판매자가 입력하지 않고 구매 후기에서 자동으로 집계되는 항목입니다.</p>
+              </fieldset>
+
+              <fieldset class="form-section">
+                <legend><span>02</span> 대표·상세 사진</legend>
+                <div class="image-upload-grid">
+                  <label class="image-upload-box">
+                    <span>대표 썸네일</span>
+                    <strong>상품 목록에 보일 사진</strong>
+                    <small>JPG, PNG, WEBP · 최대 5MB</small>
+                    <input id="thumbnail-image-input" type="file" accept="image/jpeg,image/png,image/webp" />
+                  </label>
+                  <label class="image-upload-box">
+                    <span>상세 사진</span>
+                    <strong>상품 설명용 사진 여러 장</strong>
+                    <small>최대 6장까지 선택</small>
+                    <input id="detail-images-input" type="file" accept="image/jpeg,image/png,image/webp" multiple />
+                  </label>
+                </div>
+                <div id="seller-image-preview" class="seller-image-preview" aria-live="polite">
+                  <p>선택한 사진이 여기에 미리 표시됩니다.</p>
+                </div>
+              </fieldset>
+
+              <fieldset class="form-section">
+                <legend><span>03</span> 체험 난이도와 대상</legend>
+                <div class="form-grid">
+                  <label>
+                    <span>난이도</span>
+                    <select name="difficulty" required>
+                      <option value="1">1 · 매우 쉬움</option><option value="2" selected>2 · 쉬움</option>
+                      <option value="3">3 · 보통</option><option value="4">4 · 어려움</option><option value="5">5 · 전문가</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>스릴 정도</span>
+                    <select name="thrillLevel" required>
+                      <option value="1">1 · 잔잔함</option><option value="2" selected>2 · 가벼움</option>
+                      <option value="3">3 · 보통</option><option value="4">4 · 짜릿함</option><option value="5">5 · 매우 짜릿함</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>활동 강도</span>
+                    <select name="physicalIntensity" required>
+                      <option value="1">1 · 휴식형</option><option value="2" selected>2 · 가벼운 활동</option>
+                      <option value="3">3 · 보통</option><option value="4">4 · 높은 활동</option><option value="5">5 · 매우 높음</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>수영 필요 여부</span>
+                    <select name="swimmingRequired" required>
+                      <option value="false" selected>수영을 못해도 가능</option>
+                      <option value="true">수영 가능자만 참여</option>
+                    </select>
+                  </label>
+                  <div class="wide">
+                    <span class="input-label">추천 대상</span>
+                    <div class="choice-chips">
+                      <label><input name="suitableFor" type="checkbox" value="혼자" /><span>혼자</span></label>
+                      <label><input name="suitableFor" type="checkbox" value="친구" checked /><span>친구</span></label>
+                      <label><input name="suitableFor" type="checkbox" value="연인" checked /><span>연인</span></label>
+                      <label><input name="suitableFor" type="checkbox" value="가족" /><span>가족</span></label>
+                    </div>
+                  </div>
+                  <label class="wide">
+                    <span>분위기·검색 태그</span>
+                    <input name="moods" type="text" maxlength="240" placeholder="노을, 사진, 휴식, 기념일" />
+                    <small class="field-help">쉼표로 구분해 주세요.</small>
+                  </label>
+                </div>
+              </fieldset>
+
+              <fieldset class="form-section">
+                <legend><span>04</span> 운영 정보</legend>
+                <div class="form-grid">
+                  <div class="wide">
+                    <span class="input-label">이용 가능 요일</span>
+                    <div class="choice-chips compact">
+                      <label><input name="availableDays" type="checkbox" value="월" checked /><span>월</span></label>
+                      <label><input name="availableDays" type="checkbox" value="화" checked /><span>화</span></label>
+                      <label><input name="availableDays" type="checkbox" value="수" checked /><span>수</span></label>
+                      <label><input name="availableDays" type="checkbox" value="목" checked /><span>목</span></label>
+                      <label><input name="availableDays" type="checkbox" value="금" checked /><span>금</span></label>
+                      <label><input name="availableDays" type="checkbox" value="토" checked /><span>토</span></label>
+                      <label><input name="availableDays" type="checkbox" value="일" checked /><span>일</span></label>
+                    </div>
+                  </div>
+                  <label>
+                    <span>운영 시간대</span>
+                    <input name="timeSlots" type="text" maxlength="180" placeholder="09:00, 11:30, 14:30" />
+                    <small class="field-help">쉼표로 구분해 주세요.</small>
+                  </label>
+                  <label>
+                    <span>날씨 영향</span>
+                    <select name="weatherDependency">
+                      <option value="low">낮음</option><option value="medium" selected>보통</option><option value="high">높음</option>
+                    </select>
+                  </label>
+                  <div class="wide">
+                    <span class="input-label">지원 언어</span>
+                    <div class="choice-chips">
+                      <label><input name="languages" type="checkbox" value="ko" checked /><span>한국어</span></label>
+                      <label><input name="languages" type="checkbox" value="en" /><span>영어</span></label>
+                      <label><input name="languages" type="checkbox" value="ja" /><span>일본어</span></label>
+                      <label><input name="languages" type="checkbox" value="zh" /><span>중국어</span></label>
+                    </div>
+                  </div>
+                  <label class="wide">
+                    <span>포함 사항</span>
+                    <textarea name="included" maxlength="800" rows="4" placeholder="구명조끼&#10;웰컴 음료&#10;사진 촬영"></textarea>
+                    <small class="field-help">한 줄에 한 항목씩 입력해 주세요.</small>
+                  </label>
+                </div>
+              </fieldset>
+
+              <fieldset class="form-section">
+                <legend><span>05</span> 안전·계약 정보</legend>
+                <div class="form-grid">
+                  <label class="wide">
+                    <span>환불 정책</span>
+                    <textarea name="refundPolicy" maxlength="500" rows="3" placeholder="이용 3일 전까지 전액 환불, 2일 전 70%, 당일 환불 불가"></textarea>
+                  </label>
+                  <label class="wide">
+                    <span>안전 주의사항</span>
+                    <textarea name="safetyNotes" maxlength="1000" rows="4" placeholder="강풍 또는 풍랑특보 시 일정이 변경될 수 있습니다.&#10;선내에서는 승무원의 안내를 따라야 합니다."></textarea>
+                    <small class="field-help">한 줄에 한 항목씩 입력해 주세요.</small>
+                  </label>
+                  <label class="waiver-choice wide">
+                    <input name="waiverRequired" type="checkbox" checked />
+                    <span><strong>전자서명 동의서가 필요한 상품입니다.</strong><small>예약 고객에게 모두싸인 계약서를 발송합니다.</small></span>
+                  </label>
+                </div>
+              </fieldset>
+              <p id="post-form-error" class="form-error" role="alert" hidden></p>
+              <button class="primary-button" type="submit">
+                상품 등록하기 <span>→</span>
+              </button>
+            </form>
+
+            <aside class="post-list-panel">
+              <div class="panel-heading">
+                <h3>내 판매 상품</h3>
+                <span id="post-list-count">0개</span>
+              </div>
+              <div id="seller-post-list" class="seller-post-list">
+                <p class="empty-state">첫 판매 상품을 작성해 주세요.</p>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="contracts" class="workspace-section contract-section">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">E-CONTRACT DESK</p>
+              <h2>새 예약과 계약서 발송</h2>
+            </div>
+            <p>구매자가 예약하면 정보가 자동으로 도착합니다.</p>
+          </div>
+
+          <div class="contract-workspace">
+            <section class="reservation-inbox" aria-labelledby="reservation-inbox-title">
+              <div class="panel-heading">
+                <div>
+                  <span class="live-indicator" aria-hidden="true"></span>
+                  <h3 id="reservation-inbox-title">들어온 예약</h3>
+                </div>
+                <span id="seller-reservation-count">0건</span>
+              </div>
+              <p class="inbox-guide">
+                구매자가 예약한 이름, 이메일, 날짜와 인원을 자동으로 불러옵니다.
+              </p>
+              <div id="seller-reservation-list" class="seller-reservation-list">
+                <p class="empty-state">아직 들어온 예약이 없습니다.</p>
+              </div>
+            </section>
+
+            <div class="contract-history">
+              <div class="panel-heading">
+                <h3>계약 발송 현황</h3>
+                <button id="refresh-overview" type="button">목록 새로고침</button>
+              </div>
+              <div id="seller-contract-list" class="seller-contract-list">
+                <p class="empty-state">아직 발송한 계약서가 없습니다.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <div id="seller-toast" class="seller-toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

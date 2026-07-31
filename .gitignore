@@ -3,7 +3,14 @@ data/users.local.json
 data/users.local.json.tmp
 data/reservations.local.json
 data/reservations.local.json.tmp
+data/seller-posts.local.json
+data/seller-posts.local.json.tmp
+data/seller-contracts.local.json
+data/seller-contracts.local.json.tmp
+data/seller-uploads.local/
 node_modules/
 output/
 npm-debug.log*
+server.out.log
+server.err.log
 .DS_Store

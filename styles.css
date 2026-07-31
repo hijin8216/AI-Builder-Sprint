@@ -201,6 +201,18 @@ img {
   background: white;
 }
 
+.nav-partner {
+  margin-left: 12px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.nav-partner:hover,
+.nav-partner:focus-visible {
+  color: white;
+}
+
 .login-button {
   margin-left: 8px;
   padding: 11px 20px;
@@ -1721,6 +1733,38 @@ html[lang="ko"] .product-translation-status {
   object-fit: cover;
 }
 
+.dialog-gallery {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  left: 18px;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+}
+
+.dialog-gallery button {
+  width: 58px;
+  height: 58px;
+  padding: 0;
+  overflow: hidden;
+  flex: 0 0 auto;
+  background: var(--navy);
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  border-radius: 8px;
+}
+
+.dialog-gallery button.is-active {
+  border-color: white;
+  box-shadow: 0 0 0 2px rgba(3, 29, 43, 0.35);
+}
+
+.dialog-gallery button img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .dialog-close {
   position: absolute;
   top: 16px;
@@ -2088,12 +2132,19 @@ html[lang="ko"] .product-translation-status {
     display: flex;
   }
 
-  .main-nav a,
-  .nav-partner {
+  .main-nav a {
     padding: 14px 6px;
     color: var(--ink);
     border-bottom: 1px solid var(--line);
     text-align: left;
+  }
+
+  .nav-partner {
+    margin-left: 7px;
+    padding: 0;
+    color: rgba(255, 255, 255, 0.76);
+    border: 0;
+    font-size: 10px;
   }
 
   .hero {

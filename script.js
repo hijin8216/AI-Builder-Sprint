@@ -100,6 +100,7 @@ const recommendationError = document.querySelector("#recommendation-error");
 const recommendationSubmit = document.querySelector("#recommendation-submit");
 const toast = document.querySelector("#toast");
 const loginButton = document.querySelector("#login-button");
+const sellerPageLink = document.querySelector("#seller-page-link");
 const authDialog = document.querySelector("#auth-dialog");
 const authForm = document.querySelector("#auth-form");
 const authTitle = document.querySelector("#auth-title");
@@ -149,6 +150,10 @@ const detailFontDecreaseButton = document.querySelector("#detail-font-decrease-b
 const detailFontIncreaseButton = document.querySelector("#detail-font-increase-button");
 const detailSpeechToggleButton = document.querySelector("#detail-speech-toggle-button");
 const languageButtons = [...document.querySelectorAll("[data-locale]")];
+
+if (sellerPageLink && window.location.protocol === "file:") {
+  sellerPageLink.href = "http://127.0.0.1:3000/seller";
+}
 
 let toastTimer;
 let currentUser = null;
@@ -824,6 +829,7 @@ function categoryMatches(productCategory, selectedCategory) {
 }
 
 function getProductImage(product) {
+  if (product.thumbnailImage) return product.thumbnailImage;
   const productCover = productMedia[product.id]?.cover;
   if (productCover) return productCover;
 
@@ -1289,6 +1295,10 @@ async function logout() {
 
 function reservationStatusDetails(status) {
   return {
+    SELLER_REVIEW: {
+      label: localizeText("판매자 확인 중", "Seller review pending"),
+      className: "pending",
+    },
     CONTRACT_PENDING: { label: localizeText("계약 확인 필요", "Contract review required"), className: "pending" },
     SIGNING: { label: localizeText("전자서명 진행 중", "E-signature in progress"), className: "signing" },
     COMPLETED: { label: localizeText("예약 확정", "Reservation confirmed"), className: "completed" },
@@ -1324,6 +1334,20 @@ function reservationSignatureDetails(reservation) {
       label: localizeText("전자서명 완료", "E-signature completed"),
       className: "completed",
       description: localizeText("완료된 전자서명 문서가 이 예약에 안전하게 연결되어 있습니다.", "The completed e-signature document is securely linked to this reservation."),
+    };
+  }
+
+  if (reservation.status === "SELLER_REVIEW") {
+    return {
+      label: localizeText(
+        "판매자 계약서 준비 중",
+        "Seller contract preparation",
+      ),
+      className: "pending",
+      description: localizeText(
+        "판매자가 예약을 확인한 뒤 로그인 이메일로 전자서명 계약서를 보내드립니다.",
+        "The seller will review the reservation and email the e-signature contract to your account address.",
+      ),
     };
   }
 
@@ -1729,6 +1753,31 @@ function openBooking(experienceId) {
   document.querySelector("#dialog-image").src =
     getProductImage(selectedExperience);
   document.querySelector("#dialog-image").alt = displayExperience.name;
+  const dialogGallery = document.querySelector("#dialog-gallery");
+  const productImages = [
+    getProductImage(selectedExperience),
+    ...(selectedExperience.detailImages || []),
+  ].filter((image, index, list) => image && list.indexOf(image) === index);
+  dialogGallery.innerHTML = productImages
+    .map(
+      (image, index) => `
+        <button
+           type="button"
+           class="${index === 0 ? "is-active" : ""}"
+           data-dialog-image="${escapeHtml(image)}"
+           aria-label="${escapeHtml(
+             localizeText(
+               `${index + 1}번째 상품 사진 보기`,
+               `View product image ${index + 1}`,
+             ),
+           )}"
+         >
+           <img src="${escapeHtml(image)}" alt="" />
+         </button>
+      `,
+     )
+     .join("");
+  dialogGallery.hidden = productImages.length <= 1;
   document.querySelector("#dialog-title").textContent = displayExperience.name;
   document.querySelector("#dialog-location").textContent =
     `${localizeRegion(displayExperience.region)} · ${displayExperience.partnerName} · ${formatDuration(selectedExperience.durationMinutes)}`;
@@ -2109,6 +2158,41 @@ async function requestProductCardTranslations(productList) {
   await translationRequest;
 }
 
+function addSellerProductDetailData() {
+  experiences
+    .filter((product) => product.sellerCreated)
+    .forEach((product) => {
+      productDetails[product.id] = {
+        promotion: product.description,
+        highlights: product.included?.length
+          ? product.included
+          : ["판매자가 직접 등록한 WAVEON 파트너 상품"],
+        refundRules: product.refundPolicy ? [product.refundPolicy] : [],
+        bookingConditions: product.participantRequirements || [],
+      };
+      productContracts[product.id] = {
+        riskLevel: "확인필요",
+        story: [product.description],
+        itinerary: [
+          `운영 요일: ${(product.availableDays || []).join(" · ")}`,
+          `운영 시간: ${(product.timeSlots || []).join(" · ") || "예약 후 협의"}`,
+        ],
+        additionalClauses: [
+          product.termsAndConditions,
+          ...(product.safetyNotes || []),
+        ].filter(Boolean),
+      };
+      productMedia[product.id] = {
+        cover: product.thumbnailImage || "",
+        coverAlt: `${product.name} 판매자 등록 사진`,
+        sourceUrl: "#",
+        gallery: product.detailImages?.length
+          ? product.detailImages
+          : [product.thumbnailImage].filter(Boolean),
+      };
+    });
+}
+
 async function loadProducts() {
   try {
     const [
@@ -2117,7 +2201,7 @@ async function loadProducts() {
       contractsResponse,
       mediaResponse,
     ] = await Promise.all([
-      fetch("/data/products.json"),
+      fetch("/api/products"),
       fetch("/data/product-details.json"),
       fetch("/data/product-contracts.json"),
       fetch("/data/product-media.json"),
@@ -2141,6 +2225,7 @@ async function loadProducts() {
     productDetails = detailsData.details;
     productContracts = contractsData.contracts;
     productMedia = mediaData.media;
+    addSellerProductDetailData();
     updateCategoryCounts();
     renderExperiences();
   } catch (error) {
@@ -2598,6 +2683,16 @@ bookingDialog.addEventListener("close", () => {
 });
 
 bookingDialog.addEventListener("click", (event) => {
+  const galleryButton = event.target.closest("[data-dialog-image]");
+  if (galleryButton) {
+    document.querySelector("#dialog-image").src = galleryButton.dataset.dialogImage;
+    document
+      .querySelectorAll("#dialog-gallery [data-dialog-image]")
+      .forEach((button) =>
+        button.classList.toggle("is-active", button === galleryButton),
+      );
+    return;
+  }
   if (event.target === bookingDialog) bookingDialog.close();
 });
 
@@ -2650,17 +2745,32 @@ document.querySelector("#booking-form").addEventListener("submit", async (event)
     }
     if (!response.ok) throw new Error(result.message || "예약을 저장하지 못했습니다.");
 
-    pendingBooking = result.reservation;
+    bookingDialog.close();
+    contractNotification.hidden = true;
     myReservations = [
       result.reservation,
-      ...myReservations.filter((reservation) => reservation.id !== result.reservation.id),
+      ...myReservations.filter(
+        (reservation) => reservation.id !== result.reservation.id,
+      ),
     ];
-    bookingDialog.close();
-    renderContractNotifications();
-    contractNotification.hidden = true;
-    notificationButton.setAttribute("aria-expanded", "false");
+    if (state.selectedExperience?.sellerCreated) {
+      pendingBooking = null;
+      notificationBadge.hidden = true;
+    } else {
+      pendingBooking = result.reservation;
+      renderContractNotifications();
+      notificationButton.setAttribute("aria-expanded", "false");
+    }
     showToast(
-      `${experienceTitle} 예약이 저장됐어요. 계약서 확인 알림을 확인해 주세요.`,
+      state.selectedExperience?.sellerCreated
+        ? localizeText(
+            `${experienceTitle} 예약을 판매자에게 전달했어요. 계약서는 로그인 이메일로 도착합니다.`,
+            `${experienceTitle} was sent to the seller. The contract will arrive at your account email.`,
+          )
+        : localizeText(
+            `${experienceTitle} 예약이 저장됐어요. 계약서를 확인해 주세요.`,
+            `${experienceTitle} was reserved. Please review the contract.`,
+          ),
     );
   } catch (error) {
     showToast(error.message);

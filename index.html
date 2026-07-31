@@ -15,8 +15,8 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;600;700&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=20260730-29" />
-    <script src="script.js?v=20260730-29" defer></script>
+    <link rel="stylesheet" href="styles.css?v=20260731-1" />
+    <script src="script.js?v=20260731-2" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#main-content">본문 바로가기</a>
@@ -35,6 +35,7 @@
           <button type="button" data-locale="zh" aria-pressed="false">中</button>
         </div>
 
+        <a id="seller-page-link" class="nav-partner" href="/seller">판매점 입점</a>
         <button id="login-button" class="login-button" type="button" aria-haspopup="dialog">
           로그인
         </button>
@@ -520,6 +521,7 @@
     <dialog id="booking-dialog" class="booking-dialog">
       <div class="dialog-media">
         <img id="dialog-image" src="" alt="" />
+        <div id="dialog-gallery" class="dialog-gallery" hidden></div>
         <button class="dialog-close" type="button" aria-label="예약 창 닫기">×</button>
       </div>
       <form id="booking-form" class="booking-form">
