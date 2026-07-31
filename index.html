@@ -604,10 +604,23 @@
         <button id="contract-close" type="button" aria-label="계약서 확인 창 닫기">×</button>
       </div>
       <div class="contract-dialog-body">
-        <div id="contract-booking-summary" class="contract-booking-summary"></div>
-        <section class="contract-terms"><h3>주요 약관 안내</h3><p>기상 악화 등 안전상 사유로 일정이 변경될 수 있습니다. 이용 3일 전부터는 취소 수수료가 발생할 수 있으며, 안전수칙 미준수로 인한 사고 및 장비 파손은 이용자 책임입니다.</p></section>
-        <label class="contract-agreement"><input id="contract-agreement" type="checkbox" /><span>주요 약관을 확인했으며, 전체 계약서를 읽고 전자서명하는 것에 동의합니다.</span></label>
-        <button id="start-signature-button" class="dialog-submit" type="button">전자서명 진행 <span>→</span></button>
+        <div class="contract-review-main">
+          <div id="contract-booking-summary" class="contract-booking-summary"></div>
+          <section class="contract-terms"><h3>주요 약관 안내</h3><p>기상 악화 등 안전상 사유로 일정이 변경될 수 있습니다. 이용 3일 전부터는 취소 수수료가 발생할 수 있으며, 안전수칙 미준수로 인한 사고 및 장비 파손은 이용자 책임입니다.</p></section>
+          <label class="contract-agreement"><input id="contract-agreement" type="checkbox" /><span>주요 약관을 확인했으며, 전체 계약서를 읽고 전자서명하는 것에 동의합니다.</span></label>
+          <button id="start-signature-button" class="dialog-submit" type="button">전자서명 진행 <span>→</span></button>
+        </div>
+        <aside class="contract-ai-panel" aria-labelledby="contract-ai-title">
+          <div class="contract-ai-panel-head"><div><p>AI CONTRACT CHECK</p><h3 id="contract-ai-title">AI 요약 · 위험사항 안내</h3></div><span aria-hidden="true">AI</span></div>
+          <p id="contract-ai-loading" class="contract-ai-loading">계약서 조항을 확인하고 있어요.</p>
+          <div id="contract-ai-summary" class="contract-ai-summary" hidden aria-live="polite">
+            <div class="contract-ai-summary-head"><strong id="contract-ai-risk"></strong><span id="contract-ai-mode"></span></div>
+            <h4 id="contract-ai-headline"></h4>
+            <section><strong>환불 · 취소 전 확인</strong><ul id="contract-ai-refund"></ul></section>
+            <section><strong>소비자 주의 조항</strong><ul id="contract-ai-watchout"></ul></section>
+            <small>AI 안내는 이해를 돕기 위한 참고 자료이며, 최종 판단은 계약서 원문을 기준으로 해주세요.</small>
+          </div>
+        </aside>
       </div>
     </dialog>
 

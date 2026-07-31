@@ -143,6 +143,13 @@ const contractDialog = document.querySelector("#contract-dialog");
 const contractBookingSummary = document.querySelector("#contract-booking-summary");
 const contractAgreement = document.querySelector("#contract-agreement");
 const startSignatureButton = document.querySelector("#start-signature-button");
+const contractAiLoading = document.querySelector("#contract-ai-loading");
+const contractAiSummary = document.querySelector("#contract-ai-summary");
+const contractAiRisk = document.querySelector("#contract-ai-risk");
+const contractAiMode = document.querySelector("#contract-ai-mode");
+const contractAiHeadline = document.querySelector("#contract-ai-headline");
+const contractAiRefund = document.querySelector("#contract-ai-refund");
+const contractAiWatchout = document.querySelector("#contract-ai-watchout");
 const signatureDialog = document.querySelector("#signature-dialog");
 const signatureFrameWrap = document.querySelector("#signature-frame-wrap");
 const signatureStatus = document.querySelector("#signature-status");
@@ -706,9 +713,10 @@ function applyStaticLocale() {
   setLocaleContent(".footer-links > div:nth-child(1) a[href='#experiences']:nth-of-type(2)", "지역별 보기", "Regions");
   setLocaleContent(".footer-links > div:nth-child(1) a[href='#how-it-works']", "이용 방법", "How it works");
   setLocaleContent(".footer-links > div:nth-child(2) strong", "고객지원", "Support");
-  setLocaleContent(".footer-links > div:nth-child(2) button:nth-child(2)", "자주 묻는 질문", "FAQ");
-  setLocaleContent(".footer-links > div:nth-child(2) button:nth-child(3)", "1:1 문의", "Contact us");
-  setLocaleContent(".footer-links > div:nth-child(2) button:nth-child(4)", "안전 가이드", "Safety guide");
+  setLocaleContent(".footer-partner", "파트너 입점", "Partner with us");
+  setLocaleContent(".footer-links > div:nth-child(2) button:nth-child(3)", "자주 묻는 질문", "FAQ");
+  setLocaleContent(".footer-links > div:nth-child(2) button:nth-child(4)", "1:1 문의", "Contact us");
+  setLocaleContent(".footer-links > div:nth-child(2) button:nth-child(5)", "안전 가이드", "Safety guide");
   setLocaleContent(".footer-bottom span:last-child", "해커톤 시연을 위한 데모 서비스입니다.", "A demo service for a hackathon presentation.");
 
   setLocaleContent("#detail-ai-title", "AI가 놓치기 쉬운 약관을 정리해요", "AI highlights easy-to-miss terms");
@@ -2792,6 +2800,7 @@ function openContractReview(reservation = pendingBooking) {
   if (reservationDetailDialog.open) reservationDetailDialog.close();
   contractAgreement.checked = false;
   renderContractBookingSummary(pendingBooking);
+  void loadContractAiSummary(pendingBooking);
   contractDialog.showModal();
 }
 
@@ -2799,6 +2808,67 @@ function renderContractBookingSummary(reservation) {
   const displayReservation = getReservationDisplay(reservation);
   contractBookingSummary.textContent =
     `${displayReservation.activity} · ${reservation.date}${reservation.time ? ` ${reservation.time}` : ""} · ${formatPeople(Number(reservation.people))} / ${displayReservation.venue}`;
+}
+
+function renderContractAiSummary(result) {
+  const summary = result.summary;
+  contractAiRisk.textContent = localizeText(
+    `주의도 ${summary.riskLevel}`,
+    `Risk: ${localizeRiskLevel(summary.riskLevel)}`,
+  );
+  contractAiRisk.dataset.risk = summary.riskLevel;
+  contractAiMode.textContent = result.mode === "solar"
+    ? localizeText("AI 분석 완료", "AI analysis complete")
+    : localizeText("약관 기준 요약", "Terms-based summary");
+  contractAiHeadline.textContent = summary.headline;
+  renderList(
+    "#contract-ai-refund",
+    summary.refundWarnings,
+    (item) => `<li>${escapeHtml(item)}</li>`,
+  );
+  renderList(
+    "#contract-ai-watchout",
+    summary.unfairTerms,
+    (item) => `<li>${escapeHtml(item)}</li>`,
+  );
+  contractAiLoading.hidden = true;
+  contractAiSummary.hidden = false;
+}
+
+async function loadContractAiSummary(reservation) {
+  const productId = reservation.productId;
+  if (!productId) return;
+
+  contractAiSummary.hidden = true;
+  contractAiLoading.hidden = false;
+  contractAiLoading.textContent = localizeText(
+    "계약서 조항을 확인하고 있어요.",
+    "Reviewing contract terms…",
+  );
+
+  const cacheKey = getContractSummaryCacheKey(productId);
+  const cachedSummary = state.contractSummaryCache.get(cacheKey);
+  if (cachedSummary) {
+    renderContractAiSummary(cachedSummary);
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/contract-summary", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productId, locale: activeLocale }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || "약관을 요약하지 못했습니다.");
+    state.contractSummaryCache.set(cacheKey, result);
+    renderContractAiSummary(result);
+  } catch (error) {
+    const fallbackSummary = createContractSummaryFallback(productId);
+    state.contractSummaryCache.set(cacheKey, fallbackSummary);
+    renderContractAiSummary(fallbackSummary);
+    console.error("전자서명 전 AI 약관 요약 오류:", error.message);
+  }
 }
 
 notificationButton.addEventListener("click", () => {
