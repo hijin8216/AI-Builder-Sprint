@@ -180,7 +180,7 @@ body.is-scrolled .site-header {
 
 .language-switcher {
   display: flex;
-  margin-left: auto;
+  margin-left: 24px;
   padding: 3px;
   gap: 2px;
   background: rgba(255, 255, 255, 0.12);
@@ -205,6 +205,17 @@ body.is-scrolled .site-header {
 .language-switcher button[aria-pressed="true"] {
   color: var(--navy);
   background: white;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.header-actions .login-button {
+  margin-left: 0;
 }
 
 .nav-partner {
@@ -2228,6 +2239,10 @@ html[lang="ko"] .product-translation-status {
     font-size: 9px;
   }
 
+  .header-actions {
+    gap: 4px;
+  }
+
   .login-button {
     margin-left: 5px;
     padding-inline: 10px;
@@ -2874,6 +2889,13 @@ html[lang="ko"] .product-translation-status {
   border-color: #efc3bd;
 }
 
+.reservation-card-panel button.is-confirm,
+.reservation-confirm-cancellation-button {
+  color: white;
+  background: #526d79;
+  border: 1px solid #526d79;
+}
+
 .reservation-detail-dialog {
   width: min(680px, calc(100% - 32px));
   max-height: calc(100vh - 40px);
@@ -3162,6 +3184,15 @@ html[lang="ko"] .product-translation-status {
   color: #a84242;
   background: #fff7f6;
   border: 1px solid #efc3bd;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.reservation-confirm-cancellation-button {
+  padding: 11px 13px;
   border-radius: 8px;
   font: inherit;
   font-size: 11px;

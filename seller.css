@@ -133,6 +133,32 @@ a {
   color: white;
 }
 
+.seller-reservation-notification {
+  display: inline-flex;
+  min-height: 34px;
+  padding: 0 10px;
+  align-items: center;
+  gap: 7px;
+  color: white;
+  background: rgba(255, 123, 69, 0.16);
+  border: 1px solid rgba(255, 166, 128, 0.5);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.seller-reservation-notification > span:last-child {
+  display: inline-grid;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  place-items: center;
+  color: #7e3515;
+  background: #ffd5c2;
+  border-radius: 999px;
+  font-size: 9px;
+}
+
 .seller-header .buyer-link {
   padding: 9px 13px;
   color: white;
@@ -623,6 +649,56 @@ textarea:focus {
   border: 1px solid rgba(255, 255, 255, 0.35);
 }
 
+.seller-reservation-alert {
+  display: grid;
+  width: 100%;
+  margin-top: 16px;
+  padding: 17px 20px;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  color: #713612;
+  background: #fff8f2;
+  border: 1px solid #f1c39f;
+  border-radius: 12px;
+  text-align: left;
+  box-shadow: 0 8px 24px rgba(149, 82, 33, 0.08);
+}
+
+.seller-reservation-alert-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  color: white;
+  background: #ee7c3f;
+  border-radius: 50%;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.seller-reservation-alert strong,
+.seller-reservation-alert small {
+  display: block;
+}
+
+.seller-reservation-alert strong {
+  font-size: 12px;
+}
+
+.seller-reservation-alert small {
+  margin-top: 4px;
+  color: #936344;
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.seller-reservation-alert > span:last-child {
+  font-size: 10px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .dashboard-stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1100,6 +1176,26 @@ textarea:focus {
   background: var(--ocean);
 }
 
+.seller-reservation-card.is-cancellation-requested {
+  background: #fff8f2;
+  border-color: #eead82;
+}
+
+.seller-reservation-card.is-cancellation-requested::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  content: "";
+  background: #e36d32;
+}
+
+.seller-reservation-card.is-seller-cancelled {
+  background: #f7f8f9;
+  border-color: #d7e0e3;
+}
+
 .card-top {
   display: flex;
   gap: 10px;
@@ -1124,6 +1220,11 @@ textarea:focus {
 .card-status.is-failed {
   color: var(--danger);
   background: #fde8e8;
+}
+
+.card-status.is-cancellation {
+  color: #a3471f;
+  background: #ffe8d8;
 }
 
 .card-status.is-completed {
@@ -1206,10 +1307,51 @@ textarea:focus {
   font-weight: 900;
 }
 
+.seller-cancel-reservation-button,
+.seller-confirm-cancellation-button {
+  display: flex;
+  width: 100%;
+  min-height: 38px;
+  margin-top: 8px;
+  padding: 0 12px;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 7px;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.seller-cancel-reservation-button {
+  color: #a13d3d;
+  background: #fff8f7;
+  border: 1px solid #edc3be;
+}
+
+.seller-confirm-cancellation-button {
+  color: white;
+  background: #526d79;
+  border: 1px solid #526d79;
+}
+
+.seller-cancel-reservation-button:disabled,
+.seller-confirm-cancellation-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .reservation-contract-state {
   color: var(--muted);
   font-size: 9px;
   font-weight: 800;
+}
+
+.reservation-contract-state.is-cancellation {
+  padding: 10px 12px;
+  color: #8f3f20;
+  background: #fff0e5;
+  border: 1px solid #f3c3a3;
+  border-radius: 7px;
+  line-height: 1.55;
 }
 
 .post-meta span,
@@ -1326,6 +1468,12 @@ textarea:focus {
     display: none;
   }
 
+  .seller-reservation-notification {
+    min-height: 32px;
+    padding: 0 8px;
+    font-size: 9px;
+  }
+
   .seller-brand small {
     display: none;
   }
@@ -1432,6 +1580,15 @@ textarea:focus {
   .account-actions {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .seller-reservation-alert {
+    padding: 15px;
+    grid-template-columns: auto 1fr;
+  }
+
+  .seller-reservation-alert > span:last-child {
+    grid-column: 2;
   }
 
   .dashboard-stats {

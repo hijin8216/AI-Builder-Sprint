@@ -15,9 +15,9 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;600;700&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/seller.css?v=20260731-5" />
-    <script src="/seller-locale.js?v=20260731-6" defer></script>
-    <script src="/seller.js?v=20260731-4" defer></script>
+    <link rel="stylesheet" href="/seller.css?v=20260731-6" />
+    <script src="/seller-locale.js?v=20260731-7" defer></script>
+    <script src="/seller.js?v=20260731-7" defer></script>
   </head>
   <body>
     <header class="seller-header">
@@ -31,6 +31,16 @@
         <button type="button" data-seller-locale="zh" aria-pressed="false">中</button>
       </div>
       <nav aria-label="판매자 메뉴">
+        <button
+          id="seller-reservation-notification"
+          class="seller-reservation-notification"
+          type="button"
+          aria-label="예약 알림"
+          hidden
+        >
+          <span id="seller-reservation-notification-label">예약 알림</span>
+          <span id="seller-reservation-badge">0</span>
+        </button>
         <a href="#products">상품 관리</a>
         <a href="#contracts">전자계약</a>
         <a class="buyer-link" href="/">구매자 페이지</a>
@@ -229,6 +239,20 @@
             <button id="seller-logout" type="button">로그아웃</button>
           </div>
         </section>
+
+        <button
+          id="seller-reservation-alert"
+          class="seller-reservation-alert"
+          type="button"
+          hidden
+        >
+          <span class="seller-reservation-alert-icon" aria-hidden="true">!</span>
+          <span>
+            <strong id="seller-reservation-alert-title">확인할 예약이 있습니다.</strong>
+            <small id="seller-reservation-alert-description">새 예약과 취소 요청을 들어온 예약에서 확인하세요.</small>
+          </span>
+          <span id="seller-reservation-alert-action">예약 확인하기 →</span>
+        </button>
 
         <section class="dashboard-stats" aria-label="판매자 현황">
           <article><span>등록 상품</span><strong id="post-count">0</strong><small>개</small></article>

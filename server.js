@@ -397,7 +397,12 @@ app.get("/api/seller/overview", (request, response) => {
   if (!user) return;
 
   const sellerReservations = reservations
-    .filter((reservation) => sellerOwnsReservation(reservation, user.id))
+    .filter(
+      (reservation) =>
+        sellerOwnsReservation(reservation, user.id) &&
+        (!['CANCELLED', 'SELLER_CANCELLED'].includes(reservation.status) ||
+          !reservation.sellerAcknowledgedCancellationAt),
+    )
     .slice()
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
@@ -664,6 +669,10 @@ app.post("/api/reservations", async (request, response) => {
       documentId: "",
       forwarded: false,
       forwardError: "",
+      buyerCancellationAcknowledgedAt: "",
+      sellerCancellationAcknowledgedAt: "",
+      sellerAcknowledgedCancellationAt: "",
+      sellerCancelledAt: "",
       createdAt: now,
       updatedAt: now,
       signedAt: "",
@@ -711,6 +720,10 @@ app.post("/api/reservations/:reservationId/cancel", async (request, response) =>
       ? reservation.signatureStatus
       : "";
     reservation.cancellationRequestedAt = canRequestCancellation ? now : "";
+    if (!canRequestCancellation) {
+      reservation.buyerCancellationAcknowledgedAt = now;
+      reservation.sellerAcknowledgedCancellationAt = "";
+    }
     reservation.updatedAt = now;
     await saveReservations();
     response.json({ reservation: publicReservation(reservation) });
@@ -721,13 +734,140 @@ app.post("/api/reservations/:reservationId/cancel", async (request, response) =>
   }
 });
 
+app.post(
+  "/api/seller/reservations/:reservationId/cancel",
+  async (request, response) => {
+    const user = requireSellerUser(request, response);
+    if (!user) return;
+
+    const reservationId = cleanText(request.params.reservationId, 100);
+    const reservation = reservations.find(
+      (item) =>
+        item.id === reservationId && sellerOwnsReservation(item, user.id),
+    );
+    if (!reservation) {
+      response.status(404).json({ message: "취소할 예약을 찾지 못했습니다." });
+      return;
+    }
+    if (reservation.status === "SELLER_CANCELLED") {
+      response.json({
+        reservation: publicSellerReservation(reservation, user.id),
+      });
+      return;
+    }
+    if (reservation.status === "CANCELLED") {
+      response.status(409).json({
+        message: "구매자가 이미 취소한 예약입니다.",
+      });
+      return;
+    }
+
+    const contract = sellerContracts.find(
+      (item) =>
+        item.userId === user.id && item.reservationId === reservation.id,
+    );
+    const completedDocument =
+      reservation.status === "COMPLETED" ||
+      reservation.signatureStatus === "COMPLETED" ||
+      contract?.status === "COMPLETED";
+    const now = new Date().toISOString();
+
+    reservation.status = "SELLER_CANCELLED";
+    reservation.signatureStatus = completedDocument ? "COMPLETED" : "";
+    reservation.sellerCancelledAt = now;
+    reservation.cancellationRequestedAt = "";
+    reservation.sellerCancellationAcknowledgedAt = "";
+    reservation.sellerAcknowledgedCancellationAt = "";
+    reservation.updatedAt = now;
+
+    if (completedDocument) {
+      reservation.signedAt ||= contract?.updatedAt || now;
+    } else if (contract) {
+      contract.status = "ABORTED";
+      contract.error = "";
+      contract.updatedAt = now;
+    }
+
+    await Promise.all([
+      saveReservations(),
+      contract && !completedDocument ? saveSellerContracts() : Promise.resolve(),
+    ]);
+    response.json({
+      reservation: publicSellerReservation(reservation, user.id),
+    });
+  },
+);
+
+app.post(
+  "/api/reservations/:reservationId/cancellation/read",
+  async (request, response) => {
+    const user = requireAuthenticatedUser(request, response);
+    if (!user) return;
+
+    const reservationId = cleanText(request.params.reservationId, 100);
+    const reservation = reservations.find(
+      (item) => item.id === reservationId && item.userId === user.id,
+    );
+    if (
+      !reservation ||
+      !["CANCELLED", "SELLER_CANCELLED"].includes(reservation.status)
+    ) {
+      response.status(404).json({ message: "확인할 취소 예약이 없습니다." });
+      return;
+    }
+
+    const now = new Date().toISOString();
+    if (reservation.status === "SELLER_CANCELLED") {
+      reservation.sellerCancellationAcknowledgedAt ||= now;
+    } else {
+      reservation.buyerCancellationAcknowledgedAt ||= now;
+    }
+    reservation.updatedAt = now;
+    await saveReservations();
+    response.json({ reservation: publicReservation(reservation) });
+  },
+);
+
+app.post(
+  "/api/seller/reservations/:reservationId/cancellation/read",
+  async (request, response) => {
+    const user = requireSellerUser(request, response);
+    if (!user) return;
+
+    const reservationId = cleanText(request.params.reservationId, 100);
+    const reservation = reservations.find(
+      (item) =>
+        item.id === reservationId && sellerOwnsReservation(item, user.id),
+    );
+    if (
+      !reservation ||
+      !["CANCELLED", "SELLER_CANCELLED"].includes(reservation.status)
+    ) {
+      response.status(404).json({ message: "확인할 취소 예약이 없습니다." });
+      return;
+    }
+
+    if (!reservation.sellerAcknowledgedCancellationAt) {
+      reservation.sellerAcknowledgedCancellationAt = new Date().toISOString();
+      reservation.updatedAt = reservation.sellerAcknowledgedCancellationAt;
+      await saveReservations();
+    }
+    response.json({
+      reservation: publicSellerReservation(reservation, user.id),
+    });
+  },
+);
+
 app.get("/api/reservations", async (request, response) => {
   const user = requireAuthenticatedUser(request, response);
   if (!user) return;
 
   const userReservations = reservations.filter(
     (reservation) =>
-      reservation.userId === user.id && reservation.status !== "CANCELLED",
+      reservation.userId === user.id &&
+      reservation.status !== "CANCELLED" &&
+      (reservation.status !== "SELLER_CANCELLED" ||
+        !reservation.sellerCancellationAcknowledgedAt),
   );
   let changed = false;
 
@@ -737,6 +877,7 @@ app.get("/api/reservations", async (request, response) => {
       ![
         "COMPLETED",
         "CANCELLATION_REQUESTED",
+        "SELLER_CANCELLED",
         "ABORTED",
         "PROCESSING_FAILED",
       ].includes(reservation.status)
@@ -890,7 +1031,11 @@ app.get("/api/signature/status", async (request, response) => {
   }
 
   try {
-    if (reservation.status !== "CANCELLATION_REQUESTED") {
+    if (
+      !["CANCELLATION_REQUESTED", "SELLER_CANCELLED"].includes(
+        reservation.status,
+      )
+    ) {
       const changed = await syncReservationStatus(reservation);
       if (changed) await saveReservations();
     }
@@ -919,7 +1064,11 @@ app.get("/api/reservations/:reservationId/document", async (request, response) =
   }
 
   try {
-    if (reservation.status !== "CANCELLATION_REQUESTED") {
+    if (
+      !["CANCELLATION_REQUESTED", "SELLER_CANCELLED"].includes(
+        reservation.status,
+      )
+    ) {
       const changed = await syncReservationStatus(reservation);
       if (changed) await saveReservations();
     }
@@ -1465,9 +1614,18 @@ function publicReservation(reservation) {
     updatedAt: reservation.updatedAt,
     signedAt: reservation.signedAt,
     cancellationRequestedAt: reservation.cancellationRequestedAt ?? "",
+    sellerCancelledAt: reservation.sellerCancelledAt ?? "",
+    cancellationNoticePending:
+      (reservation.status === "CANCELLED" &&
+        !reservation.buyerCancellationAcknowledgedAt) ||
+      (reservation.status === "SELLER_CANCELLED" &&
+        !reservation.sellerCancellationAcknowledgedAt),
+    sellerCancellationNoticePending:
+      reservation.status === "SELLER_CANCELLED" &&
+      !reservation.sellerCancellationAcknowledgedAt,
     documentAvailable:
-      ["COMPLETED", "CANCELLATION_REQUESTED"].includes(reservation.status) &&
-      Boolean(reservation.documentId),
+      Boolean(reservation.documentId) &&
+      ["COMPLETED", "CANCELLATION_REQUESTED"].includes(reservation.status),
   };
 }
 
@@ -1540,8 +1698,13 @@ function publicSellerReservation(reservation, sellerUserId) {
     activity: reservation.activity,
     venue: reservation.venue,
     date: reservation.date,
+    time: reservation.time || "",
     people: reservation.people,
     status: reservation.status,
+    sellerCancelledAt: reservation.sellerCancelledAt ?? "",
+    cancellationNoticePending:
+      ["CANCELLED", "SELLER_CANCELLED"].includes(reservation.status) &&
+      !reservation.sellerAcknowledgedCancellationAt,
     contract: contract ? publicSellerContract(contract) : null,
     createdAt: reservation.createdAt,
   };

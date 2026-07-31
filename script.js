@@ -1421,12 +1421,32 @@ function reservationStatusDetails(status) {
       className: "cancellation-requested",
     },
     CANCELLED: { label: localizeText("예약 취소", "Reservation cancelled"), className: "cancelled" },
+    SELLER_CANCELLED: {
+      label: localizeText("판매자 예약 취소", "Cancelled by seller"),
+      className: "cancelled",
+    },
     ABORTED: { label: localizeText("서명 중단", "Signature stopped"), className: "failed" },
     PROCESSING_FAILED: { label: localizeText("문서 처리 실패", "Document processing failed"), className: "failed" },
   }[status] ?? { label: localizeText("상태 확인 중", "Checking status"), className: "signing" };
 }
 
 function reservationSignatureDetails(reservation) {
+  if (reservation.status === "SELLER_CANCELLED") {
+    return {
+      label: localizeText("판매자 예약 취소", "Cancelled by seller"),
+      className: "cancelled",
+      description: reservation.documentAvailable
+        ? localizeText(
+            "판매자가 예약을 취소했습니다. 완료된 전자서명 문서는 계속 확인할 수 있습니다.",
+            "The seller cancelled this reservation. Your completed e-signature document remains available.",
+          )
+        : localizeText(
+            "판매자 사정으로 예약이 취소되었고 진행 중인 전자서명은 중단되었습니다.",
+            "The seller cancelled this reservation and the pending e-signature was stopped.",
+          ),
+    };
+  }
+
   if (reservation.status === "CANCELLATION_REQUESTED") {
     return {
       label: localizeText("취소 요청 접수", "Cancellation request received"),
@@ -1588,9 +1608,14 @@ function renderMyReservations() {
   }
 
   updateMyPageView();
-  mypageReservationCount.textContent = formatReservationCount(myReservations.length);
+  const visibleReservations = myReservations.filter(
+    (reservation) => reservation.status !== "CANCELLED",
+  );
+  mypageReservationCount.textContent = formatReservationCount(
+    visibleReservations.length,
+  );
 
-  if (myReservations.length === 0) {
+  if (visibleReservations.length === 0) {
     mypageReservationList.innerHTML = `
       <div class="mypage-empty">
         <strong>${localizeText("아직 예약 내역이 없습니다.", "No reservations yet.")}</strong>
@@ -1600,7 +1625,7 @@ function renderMyReservations() {
     return;
   }
 
-  mypageReservationList.innerHTML = myReservations
+  mypageReservationList.innerHTML = visibleReservations
     .map((reservation) => {
       const status = reservationStatusDetails(reservation.status);
       const displayReservation = getReservationDisplay(reservation);
@@ -1609,6 +1634,9 @@ function renderMyReservations() {
       const canCancel = ["CONTRACT_PENDING", "COMPLETED"].includes(
         reservation.status,
       );
+      const canAcknowledgeCancellation =
+        reservation.status === "SELLER_CANCELLED" &&
+        reservation.cancellationNoticePending;
       const cancelLabel =
         reservation.status === "COMPLETED"
           ? localizeText("예약 취소 요청", "Request cancellation")
@@ -1637,7 +1665,7 @@ function renderMyReservations() {
               <b aria-hidden="true">${isExpanded ? "⌃" : "⌄"}</b>
             </span>
           </button>
-          <div class="reservation-card-panel${canCancel ? " has-cancel" : ""}" ${isExpanded ? "" : "hidden"}>
+          <div class="reservation-card-panel${canCancel || canAcknowledgeCancellation ? " has-cancel" : ""}" ${isExpanded ? "" : "hidden"}>
             <button type="button" data-view-reservation="${reservation.id}">
               ${localizeText("예약내역 확인하기", "View reservation details")} <span>→</span>
             </button>
@@ -1653,6 +1681,15 @@ function renderMyReservations() {
                 `
                 : ""
             }
+            ${
+              canAcknowledgeCancellation
+                ? `
+                  <button type="button" class="is-confirm" data-acknowledge-cancellation="${escapeHtml(reservation.id)}">
+                    ${localizeText("확인 후 목록에서 제거", "Confirm and remove")} <span>→</span>
+                  </button>
+                `
+                : ""
+            }
           </div>
         </article>
       `;
@@ -1660,7 +1697,7 @@ function renderMyReservations() {
     .join("");
 
   if (isTranslatedLocale()) {
-    const reservationProducts = myReservations
+    const reservationProducts = visibleReservations
       .map((reservation) => experiences.find((item) => item.name === reservation.activity))
       .filter(Boolean);
     requestProductCardTranslations(reservationProducts);
@@ -1669,8 +1706,12 @@ function renderMyReservations() {
 
 function getPendingContractReservations() {
   return myReservations.filter(
-    (reservation) =>
-      ["CONTRACT_PENDING", "SIGNING"].includes(reservation.status),
+      (reservation) =>
+      ["CONTRACT_PENDING", "SIGNING", "PROCESSING_FAILED"].includes(
+        reservation.status,
+      ) ||
+      (reservation.status === "SELLER_CANCELLED" &&
+        reservation.sellerCancellationNoticePending),
   );
 }
 
@@ -1695,16 +1736,41 @@ function renderContractNotifications() {
       (reservation) => {
         const displayReservation = getReservationDisplay(reservation);
         const isSigning = reservation.status === "SIGNING";
+        const isSellerCancellation = reservation.status === "SELLER_CANCELLED";
+        const notificationTitle = isSellerCancellation
+          ? localizeText(
+              "판매자가 예약을 취소했어요",
+              "The seller cancelled your reservation",
+            )
+          : reservation.status === "PROCESSING_FAILED"
+            ? localizeText(
+                "전자서명 다시 확인 필요",
+                "E-signature needs attention",
+              )
+            : isSigning
+              ? localizeText("전자서명 이어하기", "Continue e-signature")
+              : localizeText("계약서 확인 필요", "Contract review required");
+        const notificationAction = isSellerCancellation
+          ? localizeText("취소된 예약 확인", "Review cancelled reservation")
+          : isSigning
+            ? localizeText("전자서명 이어하기", "Continue e-signature")
+            : localizeText(
+                "계약서 확인 및 전자서명 진행",
+                "Review contract and continue e-signature",
+              );
+        const notificationTarget = isSellerCancellation
+          ? `data-open-seller-cancellation="${escapeHtml(reservation.id)}"`
+          : `data-open-contract="${escapeHtml(reservation.id)}"`;
         return `
         <button
-          class="notification-item"
+          class="notification-item${isSellerCancellation ? " is-seller-cancellation" : ""}"
           type="button"
-          data-open-contract="${escapeHtml(reservation.id)}"
-          aria-label="${escapeHtml(displayReservation.activity)} ${escapeHtml(localizeText(isSigning ? "전자서명 이어하기" : "계약서 확인 및 전자서명 진행", isSigning ? "Continue e-signature" : "Review contract and continue e-signature"))}"
+          ${notificationTarget}
+          aria-label="${escapeHtml(displayReservation.activity)} ${escapeHtml(notificationAction)}"
         >
-          <span class="notification-item-icon" aria-hidden="true">✦</span>
+          <span class="notification-item-icon" aria-hidden="true">${isSellerCancellation ? "!" : "✦"}</span>
           <span class="notification-item-copy">
-            <strong>${localizeText(isSigning ? "전자서명 이어하기" : "계약서 확인 필요", isSigning ? "Continue e-signature" : "Contract review required")}</strong>
+            <strong>${notificationTitle}</strong>
             <span>${escapeHtml(displayReservation.activity)} · ${escapeHtml(reservation.date)}</span>
           </span>
           <span class="notification-item-arrow" aria-hidden="true">→</span>
@@ -1780,7 +1846,18 @@ function openReservationDetail(reservation) {
           } <span>×</span>
         </button>
       `
-      : "";
+      : reservation.status === "SELLER_CANCELLED" &&
+          reservation.cancellationNoticePending
+        ? `
+          <button
+            class="reservation-confirm-cancellation-button"
+            type="button"
+            data-acknowledge-cancellation="${escapeHtml(reservation.id)}"
+          >
+            ${localizeText("확인 후 목록에서 제거", "Confirm and remove")} <span>→</span>
+          </button>
+        `
+        : "";
 
   reservationDetailContent.innerHTML = `
     <section class="reservation-detail-summary">
@@ -1913,6 +1990,51 @@ async function cancelReservation() {
   } finally {
     reservationCancelConfirm.disabled = false;
     reservationCancelConfirm.textContent = "예약 취소";
+  }
+}
+
+async function acknowledgeCancelledReservation(reservation) {
+  try {
+    const response = await fetch(
+      `/api/reservations/${encodeURIComponent(reservation.id)}/cancellation/read`,
+      { method: "POST" },
+    );
+    const result = await response.json();
+    if (response.status === 401) {
+      currentUser = null;
+      updateAuthInterface();
+      openAuthDialog("login");
+    }
+    if (!response.ok) {
+      throw new Error(
+        result.message || "취소 예약 확인 처리를 하지 못했습니다.",
+      );
+    }
+
+    myReservations = myReservations.filter((item) => item.id !== reservation.id);
+    if (pendingBooking?.id === reservation.id) pendingBooking = null;
+    if (expandedReservationId === reservation.id) expandedReservationId = null;
+    renderMyPageContent();
+    renderContractNotifications();
+
+    if (reservationDetailDialog.open) {
+      reservationDetailDialog.close();
+      openMyPage();
+    }
+    showToast(
+      localizeText(
+        "확인한 취소 예약을 예약 내역에서 정리했습니다.",
+        "The cancelled reservation was removed from your reservations.",
+      ),
+    );
+  } catch (error) {
+    showToast(
+      error.message ||
+        localizeText(
+          "취소 예약 확인 처리를 하지 못했습니다.",
+          "Unable to confirm the cancelled reservation.",
+        ),
+    );
   }
 }
 
@@ -2743,6 +2865,17 @@ mypageReservationList.addEventListener("click", (event) => {
     return;
   }
 
+  const acknowledgeButton = event.target.closest(
+    "[data-acknowledge-cancellation]",
+  );
+  if (acknowledgeButton) {
+    const reservation = myReservations.find(
+      (item) => item.id === acknowledgeButton.dataset.acknowledgeCancellation,
+    );
+    if (reservation) void acknowledgeCancelledReservation(reservation);
+    return;
+  }
+
   const productButton = event.target.closest("[data-reservation-product]");
   if (productButton) {
     const reservation = myReservations.find(
@@ -2776,6 +2909,17 @@ reservationDetailContent.addEventListener("click", (event) => {
       (item) => item.id === cancelButton.dataset.cancelReservation,
     );
     if (reservation) openReservationCancelDialog(reservation);
+    return;
+  }
+
+  const acknowledgeButton = event.target.closest(
+    "[data-acknowledge-cancellation]",
+  );
+  if (acknowledgeButton) {
+    const reservation = myReservations.find(
+      (item) => item.id === acknowledgeButton.dataset.acknowledgeCancellation,
+    );
+    if (reservation) void acknowledgeCancelledReservation(reservation);
     return;
   }
 
@@ -3128,6 +3272,17 @@ notificationTrigger.addEventListener("focusout", (event) => {
   }
 });
 contractNotificationList.addEventListener("click", (event) => {
+  const sellerCancellation = event.target.closest(
+    "[data-open-seller-cancellation]",
+  );
+  if (sellerCancellation) {
+    const reservation = myReservations.find(
+      (item) => item.id === sellerCancellation.dataset.openSellerCancellation,
+    );
+    if (reservation) openReservationDetail(reservation);
+    return;
+  }
+
   const notification = event.target.closest("[data-open-contract]");
   if (!notification) return;
 
@@ -3267,6 +3422,28 @@ async function checkSignatureStatus() {
       updateAuthInterface();
     }
     if (!response.ok) throw new Error(result.message);
+    if (result.reservationStatus === "SELLER_CANCELLED") {
+      const reservation = myReservations.find(
+        (item) => item.id === activeReservationId,
+      );
+      if (reservation) {
+        reservation.status = "SELLER_CANCELLED";
+        reservation.signatureStatus = "";
+        reservation.documentAvailable = false;
+        reservation.cancellationNoticePending = true;
+        reservation.sellerCancellationNoticePending = true;
+      }
+      closeSignatureDialog();
+      renderContractNotifications();
+      renderMyPageContent();
+      showToast(
+        localizeText(
+          "판매자가 예약을 취소해 전자서명이 중단되었습니다.",
+          "The seller cancelled this reservation, so e-signature was stopped.",
+        ),
+      );
+      return;
+    }
     if (result.status === "COMPLETED") {
       updateReservationAfterSignature(activeReservationId, "COMPLETED");
       closeSignatureDialog();
