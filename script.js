@@ -138,6 +138,7 @@ const reservationCancelConfirm = document.querySelector(
 const bookingName = document.querySelector("#booking-name");
 const bookingEmail = document.querySelector("#booking-email");
 const notificationButton = document.querySelector("#notification-button");
+const notificationTrigger = document.querySelector("#notification-trigger");
 const notificationBadge = document.querySelector("#notification-badge");
 const contractNotification = document.querySelector("#contract-notification");
 const contractNotificationList = document.querySelector("#contract-notification-list");
@@ -153,6 +154,7 @@ const contractAiMode = document.querySelector("#contract-ai-mode");
 const contractAiHeadline = document.querySelector("#contract-ai-headline");
 const contractAiRefund = document.querySelector("#contract-ai-refund");
 const contractAiWatchout = document.querySelector("#contract-ai-watchout");
+const contractAiReloadButton = document.querySelector("#contract-ai-reload");
 const signatureDialog = document.querySelector("#signature-dialog");
 const signatureFrameWrap = document.querySelector("#signature-frame-wrap");
 const signatureStatus = document.querySelector("#signature-status");
@@ -177,8 +179,17 @@ let reservationToCancel = null;
 let activeReservationId = null;
 let viewedReservationId = null;
 let signatureStatusTimer = null;
+let isResumingSignature = false;
+let notificationCloseTimer = null;
 let signatureFrameLoaded = false;
 const detailFontScaleOptions = ["normal", "large", "x-large"];
+
+function updateHeaderScrollState() {
+  document.body.classList.toggle("is-scrolled", window.scrollY > 36);
+}
+
+window.addEventListener("scroll", updateHeaderScrollState, { passive: true });
+updateHeaderScrollState();
 let detailFontScaleIndex = getSavedDetailFontScaleIndex();
 let isReadingDetailTerms = false;
 const supportedLocales = new Set(["ko", "en", "ja", "zh"]);
@@ -1658,7 +1669,8 @@ function renderMyReservations() {
 
 function getPendingContractReservations() {
   return myReservations.filter(
-    (reservation) => reservation.status === "CONTRACT_PENDING",
+    (reservation) =>
+      ["CONTRACT_PENDING", "SIGNING"].includes(reservation.status),
   );
 }
 
@@ -1682,16 +1694,17 @@ function renderContractNotifications() {
     .map(
       (reservation) => {
         const displayReservation = getReservationDisplay(reservation);
+        const isSigning = reservation.status === "SIGNING";
         return `
         <button
           class="notification-item"
           type="button"
           data-open-contract="${escapeHtml(reservation.id)}"
-          aria-label="${escapeHtml(displayReservation.activity)} ${escapeHtml(localizeText("계약서 확인 및 전자서명 진행", "Review contract and continue e-signature"))}"
+          aria-label="${escapeHtml(displayReservation.activity)} ${escapeHtml(localizeText(isSigning ? "전자서명 이어하기" : "계약서 확인 및 전자서명 진행", isSigning ? "Continue e-signature" : "Review contract and continue e-signature"))}"
         >
           <span class="notification-item-icon" aria-hidden="true">✦</span>
           <span class="notification-item-copy">
-            <strong>${localizeText("계약서 확인 필요", "Contract review required")}</strong>
+            <strong>${localizeText(isSigning ? "전자서명 이어하기" : "계약서 확인 필요", isSigning ? "Continue e-signature" : "Contract review required")}</strong>
             <span>${escapeHtml(displayReservation.activity)} · ${escapeHtml(reservation.date)}</span>
           </span>
           <span class="notification-item-arrow" aria-hidden="true">→</span>
@@ -2374,13 +2387,24 @@ function addSellerProductDetailData() {
 
 async function loadProducts() {
   try {
+    const loadProductList = async () => {
+      const apiResponse = await fetch("/api/products");
+      if (apiResponse.ok) return apiResponse;
+
+      // 이전 서버 버전은 판매자 등록 API가 없을 수 있습니다.
+      // 이 경우 기본 상품 JSON을 사용해 목록이 비어 보이지 않도록 합니다.
+      const localResponse = await fetch("/data/products.json");
+      if (localResponse.ok) return localResponse;
+      throw new Error("상품 목록을 불러오지 못했습니다.");
+    };
+
     const [
       productsResponse,
       detailsResponse,
       contractsResponse,
       mediaResponse,
     ] = await Promise.all([
-      fetch("/api/products"),
+      loadProductList(),
       fetch("/data/product-details.json"),
       fetch("/data/product-contracts.json"),
       fetch("/data/product-media.json"),
@@ -2996,7 +3020,6 @@ function openContractReview(reservation = pendingBooking) {
   if (reservationDetailDialog.open) reservationDetailDialog.close();
   contractAgreement.checked = false;
   renderContractBookingSummary(pendingBooking);
-  void loadContractAiSummary(pendingBooking);
   contractDialog.showModal();
 }
 
@@ -3013,9 +3036,13 @@ function renderContractAiSummary(result) {
     `Risk: ${localizeRiskLevel(summary.riskLevel)}`,
   );
   contractAiRisk.dataset.risk = summary.riskLevel;
-  contractAiMode.textContent = result.mode === "solar"
-    ? localizeText("AI 분석 완료", "AI analysis complete")
-    : localizeText("약관 기준 요약", "Terms-based summary");
+  contractAiMode.textContent = result.mode === "modusign-document"
+    ? localizeText("실제 계약서 AI 분석", "Actual contract AI analysis")
+    : result.mode === "modusign-document-fallback"
+      ? localizeText("실제 계약서 기준 요약", "Actual contract summary")
+      : result.mode === "solar"
+        ? localizeText("AI 분석 완료", "AI analysis complete")
+        : localizeText("약관 기준 요약", "Terms-based summary");
   contractAiHeadline.textContent = summary.headline;
   renderList(
     "#contract-ai-refund",
@@ -3032,8 +3059,7 @@ function renderContractAiSummary(result) {
 }
 
 async function loadContractAiSummary(reservation) {
-  const productId = reservation.productId;
-  if (!productId) return;
+  if (!reservation?.id) return;
 
   contractAiSummary.hidden = true;
   contractAiLoading.hidden = false;
@@ -3042,7 +3068,7 @@ async function loadContractAiSummary(reservation) {
     "Reviewing contract terms…",
   );
 
-  const cacheKey = getContractSummaryCacheKey(productId);
+  const cacheKey = `signature:${activeLocale}:${reservation.id}`;
   const cachedSummary = state.contractSummaryCache.get(cacheKey);
   if (cachedSummary) {
     renderContractAiSummary(cachedSummary);
@@ -3050,31 +3076,56 @@ async function loadContractAiSummary(reservation) {
   }
 
   try {
-    const response = await fetch("/api/contract-summary", {
+    const response = await fetch("/api/signature/contract-summary", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ productId, locale: activeLocale }),
+      body: JSON.stringify({ reservationId: reservation.id, locale: activeLocale }),
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.message || "약관을 요약하지 못했습니다.");
     state.contractSummaryCache.set(cacheKey, result);
     renderContractAiSummary(result);
   } catch (error) {
-    const fallbackSummary = createContractSummaryFallback(productId);
+    const fallbackSummary = createContractSummaryFallback(reservation.productId);
     state.contractSummaryCache.set(cacheKey, fallbackSummary);
     renderContractAiSummary(fallbackSummary);
     console.error("전자서명 전 AI 약관 요약 오류:", error.message);
   }
 }
 
-notificationButton.addEventListener("click", () => {
-  if (getPendingContractReservations().length === 0) {
-    showToast("새 알림이 없습니다.");
-    return;
+function setNotificationPanelOpen(isOpen) {
+  const canOpen = isOpen && getPendingContractReservations().length > 0;
+  contractNotification.hidden = !canOpen;
+  notificationButton.setAttribute("aria-expanded", String(canOpen));
+}
+
+function clearNotificationCloseTimer() {
+  if (notificationCloseTimer) window.clearTimeout(notificationCloseTimer);
+  notificationCloseTimer = null;
+}
+
+function scheduleNotificationPanelClose() {
+  clearNotificationCloseTimer();
+  notificationCloseTimer = window.setTimeout(() => {
+    setNotificationPanelOpen(false);
+  }, 260);
+}
+
+notificationTrigger.addEventListener("pointerenter", () => {
+  clearNotificationCloseTimer();
+  setNotificationPanelOpen(true);
+});
+notificationTrigger.addEventListener("pointerleave", () => {
+  scheduleNotificationPanelClose();
+});
+notificationTrigger.addEventListener("focusin", () => {
+  clearNotificationCloseTimer();
+  setNotificationPanelOpen(true);
+});
+notificationTrigger.addEventListener("focusout", (event) => {
+  if (!notificationTrigger.contains(event.relatedTarget)) {
+    scheduleNotificationPanelClose();
   }
-  const willOpen = contractNotification.hidden;
-  contractNotification.hidden = !willOpen;
-  notificationButton.setAttribute("aria-expanded", String(willOpen));
 });
 contractNotificationList.addEventListener("click", (event) => {
   const notification = event.target.closest("[data-open-contract]");
@@ -3083,9 +3134,84 @@ contractNotificationList.addEventListener("click", (event) => {
   const reservation = myReservations.find(
     (item) => item.id === notification.dataset.openContract,
   );
-  if (reservation) openContractReview(reservation);
+  if (!reservation) return;
+  if (reservation.status === "SIGNING") {
+    void resumeSignature(reservation);
+    return;
+  }
+  openContractReview(reservation);
 });
 document.querySelector("#contract-close").addEventListener("click", () => contractDialog.close());
+
+function openEmbeddedSignature(result, reservation) {
+  activeReservationId = result.reservationId;
+  pendingBooking = reservation;
+  updateReservationAfterSignature(result.reservationId, "SIGNING");
+  if (contractDialog.open) contractDialog.close();
+  signatureFrameLoaded = false;
+  signatureStatus.textContent = localizeText(
+    "계약서에 서명해 주세요.",
+    "Please sign the contract.",
+  );
+  signatureFrameWrap.innerHTML = `
+    <iframe title="모두싸인 전자서명" src="${escapeHtml(result.embeddedUrl)}"></iframe>
+    <div id="signature-waiting" class="signature-waiting" hidden>
+      <strong>서명 완료를 확인하고 있어요</strong>
+      <p>완료된 계약서는 로그인 이메일로 보내드리고 마이페이지에도 저장합니다.</p>
+    </div>
+  `;
+  signatureFrameWrap.querySelector("iframe").addEventListener("load", () => {
+    if (signatureFrameLoaded) {
+      signatureFrameWrap.querySelector("#signature-waiting").hidden = false;
+      signatureStatus.textContent = "서명 완료를 확인하고 있어요.";
+    }
+    signatureFrameLoaded = true;
+  });
+  signatureDialog.showModal();
+  void loadContractAiSummary(reservation);
+  if (signatureStatusTimer) window.clearInterval(signatureStatusTimer);
+  signatureStatusTimer = window.setInterval(checkSignatureStatus, 30000);
+}
+
+contractAiReloadButton.addEventListener("click", () => {
+  const reservation =
+    pendingBooking ??
+    myReservations.find((item) => item.id === activeReservationId);
+  if (!reservation) {
+    showToast("전자서명 예약 정보를 찾지 못했습니다.");
+    return;
+  }
+  void loadContractAiSummary(reservation);
+});
+
+async function resumeSignature(reservation) {
+  if (isResumingSignature) return;
+  isResumingSignature = true;
+  try {
+    const response = await fetch("/api/signature/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reservationId: reservation.id }),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.message || "기존 전자서명 화면을 다시 열지 못했습니다.");
+    }
+    if (result.completed) {
+      updateReservationAfterSignature(result.reservationId, "COMPLETED");
+      showToast("이미 전자서명이 완료된 예약입니다. 마이페이지에서 문서를 확인해 주세요.");
+      return;
+    }
+    if (!result.embeddedUrl) {
+      throw new Error("기존 전자서명 화면 주소를 받지 못했습니다.");
+    }
+    openEmbeddedSignature(result, reservation);
+  } catch (error) {
+    showToast(error.message || "전자서명 화면을 다시 열지 못했습니다.");
+  } finally {
+    isResumingSignature = false;
+  }
+}
 
 startSignatureButton.addEventListener("click", async () => {
   if (!contractAgreement.checked) {
@@ -3122,27 +3248,7 @@ startSignatureButton.addEventListener("click", async () => {
       throw new Error("전자서명 화면 주소를 받지 못했습니다.");
     }
 
-    activeReservationId = result.reservationId;
-    updateReservationAfterSignature(result.reservationId, "SIGNING");
-    contractDialog.close();
-    signatureFrameLoaded = false;
-    signatureStatus.textContent = "계약서에 서명해 주세요.";
-    signatureFrameWrap.innerHTML = `
-      <iframe title="모두싸인 전자서명" src="${escapeHtml(result.embeddedUrl)}"></iframe>
-      <div id="signature-waiting" class="signature-waiting" hidden>
-        <strong>서명 완료를 확인하고 있어요</strong>
-        <p>완료된 계약서는 로그인 이메일로 보내드리고 마이페이지에도 저장합니다.</p>
-      </div>
-    `;
-    signatureFrameWrap.querySelector("iframe").addEventListener("load", () => {
-      if (signatureFrameLoaded) {
-        signatureFrameWrap.querySelector("#signature-waiting").hidden = false;
-        signatureStatus.textContent = "서명 완료를 확인하고 있어요.";
-      }
-      signatureFrameLoaded = true;
-    });
-    signatureDialog.showModal();
-    signatureStatusTimer = window.setInterval(checkSignatureStatus, 4000);
+    openEmbeddedSignature(result, pendingBooking);
   } catch (error) {
     showToast(error.message);
   } finally {
@@ -3191,14 +3297,23 @@ function updateReservationAfterSignature(reservationId, status) {
   renderMyPageContent();
 }
 
-function closeSignatureDialog() {
+function resetSignatureDialogSession() {
   if (signatureStatusTimer) window.clearInterval(signatureStatusTimer);
   signatureStatusTimer = null;
   activeReservationId = null;
   signatureFrameLoaded = false;
-  signatureDialog.close();
   signatureFrameWrap.innerHTML = "";
 }
+
+function closeSignatureDialog() {
+  if (signatureDialog.open) {
+    signatureDialog.close();
+    return;
+  }
+  resetSignatureDialogSession();
+}
+
+signatureDialog.addEventListener("close", resetSignatureDialogSession);
 
 document.querySelector("#signature-close").addEventListener("click", closeSignatureDialog);
 

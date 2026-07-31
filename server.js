@@ -80,6 +80,9 @@ const productCardTranslationCaches = new Map();
 const interfaceTranslationCaches = new Map(
   Object.keys(translationLocales).map((locale) => [locale, new Map()]),
 );
+const documentSummaryCache = new Map();
+const embeddedSigningViewCache = new Map();
+const embeddedSigningViewCacheDurationMs = 24 * 60 * 60 * 1000;
 let userWriteQueue = Promise.resolve();
 let reservationWriteQueue = Promise.resolve();
 let sellerPostWriteQueue = Promise.resolve();
@@ -779,7 +782,33 @@ app.post("/api/signature/start", async (request, response) => {
   }
 
   try {
-    if (reservation.documentId && reservation.status !== "PROCESSING_FAILED") {
+    if (reservation.documentId) {
+      const savedSigning = getSavedEmbeddedSigningView(reservation);
+      if (savedSigning) {
+        response.json({
+          documentId: reservation.documentId,
+          reservationId: reservation.id,
+          embeddedUrl: savedSigning.embeddedUrl,
+          delivery: "embedded",
+          alreadySent: true,
+          cached: true,
+        });
+        return;
+      }
+
+      const cachedSigning = getCachedEmbeddedSigningView(reservation.documentId);
+      if (cachedSigning) {
+        response.json({
+          documentId: reservation.documentId,
+          reservationId: reservation.id,
+          embeddedUrl: cachedSigning.embeddedUrl,
+          delivery: "embedded",
+          alreadySent: true,
+          cached: true,
+        });
+        return;
+      }
+
       const existingDocument = await requestModusign(
         `/documents/${reservation.documentId}`,
       );
@@ -796,10 +825,21 @@ app.post("/api/signature/start", async (request, response) => {
         return;
       }
 
+      if (["ABORTED", "PROCESSING_FAILED"].includes(reservation.status)) {
+        response.status(409).json({
+          message:
+            "기존 전자서명 문서를 다시 열 수 없습니다. 사용량 보호를 위해 새 문서를 자동으로 만들지 않았습니다.",
+        });
+        return;
+      }
+
       const existingSigning = await getEmbeddedSigningView(
         existingDocument,
         reservation.name,
       );
+      cacheEmbeddedSigningView(reservation.documentId, existingSigning);
+      saveEmbeddedSigningView(reservation, existingSigning);
+      await saveReservations();
       response.json({
         documentId: reservation.documentId,
         reservationId: reservation.id,
@@ -816,9 +856,11 @@ app.post("/api/signature/start", async (request, response) => {
       readyDocument,
       reservation.name,
     );
+    cacheEmbeddedSigningView(document.id, signing);
     reservation.signatureStatus = "ON_GOING";
     reservation.documentId = document.id;
     reservation.status = "SIGNING";
+    saveEmbeddedSigningView(reservation, signing);
     reservation.updatedAt = new Date().toISOString();
     await saveReservations();
 
@@ -941,6 +983,82 @@ app.post("/api/contract-summary", async (request, response) => {
     console.error("약관 요약 처리 오류:", error.message);
     response.status(400).json({
       message: error.message || "약관을 요약하지 못했습니다.",
+    });
+  }
+});
+
+app.post("/api/signature/contract-summary", async (request, response) => {
+  const user = requireAuthenticatedUser(request, response);
+  if (!user) return;
+
+  try {
+    const reservationId = cleanText(request.body?.reservationId, 100);
+    const outputLocale =
+      request.body?.locale === "ko"
+        ? "ko"
+        : getTranslationLocale(request.body?.locale);
+    const reservation = reservations.find(
+      (item) => item.id === reservationId && item.userId === user.id,
+    );
+    if (!reservation?.documentId) {
+      response.status(409).json({
+        message: "모두싸인 계약서가 준비된 뒤에 요약할 수 있습니다.",
+      });
+      return;
+    }
+    if (!outputLocale) {
+      response.status(400).json({ message: "지원하지 않는 요약 언어입니다." });
+      return;
+    }
+
+    const savedSummary = reservation.aiContractSummaries?.[outputLocale];
+    if (savedSummary) {
+      response.json({ ...savedSummary, cached: true });
+      return;
+    }
+
+    const cacheKey = `${reservation.documentId}:${outputLocale}`;
+    const cachedSummary = documentSummaryCache.get(cacheKey);
+    if (cachedSummary) {
+      response.json({ ...cachedSummary, cached: true });
+      return;
+    }
+
+    const document = await requestModusign(`/documents/${reservation.documentId}`);
+    const documentText = await extractModusignDocumentText(document, reservation);
+    const product = getAllProducts().find(
+      (item) => item.id === reservation.productId,
+    ) ?? { name: reservation.activity, refundPolicy: "", safetyNotes: [] };
+    const baselineRiskLevel =
+      productContracts[reservation.productId]?.riskLevel ?? "보통";
+    const solarSummary = await requestFocusedContractSummary(
+      product,
+      [documentText],
+      baselineRiskLevel,
+      outputLocale,
+    );
+    const fallbackSummary =
+      outputLocale === "ko"
+        ? createFocusedDocumentLocalSummary(
+            product,
+            documentText,
+            baselineRiskLevel,
+          )
+        : createTranslatedDocumentFallback(product, baselineRiskLevel, outputLocale);
+    const result = {
+      mode: solarSummary ? "modusign-document" : "modusign-document-fallback",
+      source: "modusign-document",
+      summary: solarSummary ?? fallbackSummary,
+    };
+    documentSummaryCache.set(cacheKey, result);
+    reservation.aiContractSummaries ??= {};
+    reservation.aiContractSummaries[outputLocale] = result;
+    await saveReservations();
+    response.json(result);
+  } catch (error) {
+    console.error("모두싸인 계약서 요약 처리 오류:", error.message);
+    response.status(502).json({
+      message: error.message || "실제 계약서를 요약하지 못했습니다.",
     });
   }
 });
@@ -1864,8 +1982,12 @@ async function requestModusign(pathname, options = {}) {
       );
     }
     if (apiResponse.status === 429) {
+      const retryAfter = apiResponse.headers.get("retry-after");
+      const retryMessage = retryAfter
+        ? ` 약 ${retryAfter}초 후 다시 시도해 주세요.`
+        : " 잠시 후 다시 시도해 주세요.";
       throw new Error(
-        "모두싸인 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+        `모두싸인 요청이 너무 많습니다.${retryMessage}`,
       );
     }
     throw new Error(
@@ -1873,6 +1995,100 @@ async function requestModusign(pathname, options = {}) {
     );
   }
   return result;
+}
+
+async function extractModusignDocumentText(document, reservation) {
+  const downloadUrl = document.file?.downloadUrl;
+  if (!downloadUrl) {
+    throw new Error("모두싸인 문서의 PDF 다운로드 주소를 찾지 못했습니다.");
+  }
+
+  const apiKey = process.env.UPSTAGE_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error("실제 계약서 AI 분석을 위해 .env에 UPSTAGE_API_KEY를 입력해 주세요.");
+  }
+
+  const pdfResponse = await fetch(downloadUrl, {
+    headers: { Authorization: modusignAuthorization() },
+  });
+  if (!pdfResponse.ok) {
+    throw new Error("모두싸인 계약서 PDF를 내려받지 못했습니다.");
+  }
+
+  const bytes = new Uint8Array(await pdfResponse.arrayBuffer());
+  if (bytes.byteLength === 0 || bytes.byteLength > 50 * 1024 * 1024) {
+    throw new Error("계약서 PDF 파일 크기를 확인해 주세요.");
+  }
+
+  const formData = new FormData();
+  formData.append(
+    "document",
+    new Blob([bytes], { type: "application/pdf" }),
+    "modusign-contract.pdf",
+  );
+  formData.append("model", "document-parse");
+  formData.append("ocr", "force");
+  formData.append("output_formats", '["html"]');
+
+  let parseResponse;
+  try {
+    parseResponse = await fetch("https://api.upstage.ai/v1/document-digitization", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: formData,
+    });
+  } catch {
+    throw new Error("Upstage Document Parse 서버에 연결하지 못했습니다.");
+  }
+
+  const parsedDocument = await parseResponse.json().catch(() => ({}));
+  if (!parseResponse.ok) {
+    throw new Error(
+      parsedDocument.message ||
+        `Upstage Document Parse 오류 (${parseResponse.status})`,
+    );
+  }
+
+  const parsedContent = getDocumentParseContent(parsedDocument);
+  const text = redactContractPersonalData(parsedContent, reservation);
+  if (text.length < 40) {
+    throw new Error("계약서에서 읽을 수 있는 약관 텍스트를 찾지 못했습니다.");
+  }
+  return text.slice(0, 28000);
+}
+
+function getDocumentParseContent(parsedDocument) {
+  const content = parsedDocument.content ?? {};
+  const directContent = [content.html, content.markdown, content.text].find(
+    (value) => typeof value === "string" && value.trim(),
+  );
+  if (directContent) return directContent;
+
+  return (parsedDocument.elements ?? [])
+    .map((element) => {
+      const elementContent = element?.content ?? {};
+      return [
+        elementContent.html,
+        elementContent.markdown,
+        elementContent.text,
+      ].find((value) => typeof value === "string" && value.trim()) ?? "";
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+function redactContractPersonalData(text, reservation) {
+  let redacted = cleanText(text, 50000);
+  const knownValues = [reservation.name, reservation.email]
+    .filter(Boolean)
+    .sort((first, second) => second.length - first.length);
+  knownValues.forEach((value) => {
+    redacted = redacted.replaceAll(value, "[개인정보]");
+  });
+  return redacted
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[이메일]")
+    .replace(/(?:\+82[- ]?)?01[0-9][- ]?\d{3,4}[- ]?\d{4}/g, "[연락처]")
+    .replace(/\b\d{6}[- ]?[1-4]\d{6}\b/g, "[식별번호]");
 }
 
 async function forwardCompletedDocument(documentId, signatureDocument) {
@@ -2819,6 +3035,72 @@ function createTranslatedLocalSummary(
   };
 }
 
+function getCachedEmbeddedSigningView(documentId) {
+  const cached = embeddedSigningViewCache.get(documentId);
+  if (!cached) return null;
+  if (cached.expiresAt <= Date.now()) {
+    embeddedSigningViewCache.delete(documentId);
+    return null;
+  }
+  return cached;
+}
+
+function cacheEmbeddedSigningView(documentId, signing) {
+  if (!signing?.embeddedUrl) return;
+  embeddedSigningViewCache.set(documentId, {
+    embeddedUrl: signing.embeddedUrl,
+    expiresAt: Date.now() + embeddedSigningViewCacheDurationMs,
+  });
+}
+
+function getSavedEmbeddedSigningView(reservation) {
+  if (
+    !reservation.embeddedSigningUrl ||
+    Number(reservation.embeddedSigningExpiresAt) <= Date.now()
+  ) {
+    return null;
+  }
+  return { embeddedUrl: reservation.embeddedSigningUrl };
+}
+
+function saveEmbeddedSigningView(reservation, signing) {
+  if (!signing?.embeddedUrl) return;
+  reservation.embeddedSigningUrl = signing.embeddedUrl;
+  reservation.embeddedSigningExpiresAt =
+    Date.now() + embeddedSigningViewCacheDurationMs;
+}
+
+function createTranslatedDocumentFallback(
+  product,
+  baselineRiskLevel,
+  outputLocale,
+) {
+  const labels = {
+    en: {
+      headline: "The actual e-signature document was checked. Review cancellation and liability clauses before signing.",
+      refund: "Review the cancellation deadlines and refund restrictions in the actual contract.",
+      unfair: "Check the actual contract for liability limits, additional fees, and schedule changes.",
+    },
+    ja: {
+      headline: "実際の電子署名契約書を確認しました。署名前にキャンセルと責任に関する条項を確認してください。",
+      refund: "実際の契約書でキャンセル期限と返金制限を確認してください。",
+      unfair: "実際の契約書で責任制限、追加費用、日程変更の条件を確認してください。",
+    },
+    zh: {
+      headline: "已检查实际电子签名合同。签署前请确认取消和责任条款。",
+      refund: "请在实际合同中确认取消期限和退款限制。",
+      unfair: "请在实际合同中确认责任限制、额外费用和日程变更条件。",
+    },
+  }[outputLocale];
+
+  return {
+    headline: `${product.name}: ${labels.headline}`,
+    riskLevel: baselineRiskLevel || "보통",
+    refundWarnings: [labels.refund],
+    unfairTerms: [labels.unfair],
+  };
+}
+
 function createFocusedLocalSummary(product, terms, baselineRiskLevel) {
   const cleanTermPrefix = (term) =>
     term.replace(/^(환불 규정|예약 조건|추가 약관|안전 조건):\s*/, "");
@@ -2841,6 +3123,19 @@ function createFocusedLocalSummary(product, terms, baselineRiskLevel) {
         ? unfairTerms
         : ["현장 상황에 따라 일정이나 체험 내용이 바뀔 수 있습니다."],
   };
+}
+
+function createFocusedDocumentLocalSummary(
+  product,
+  documentText,
+  baselineRiskLevel,
+) {
+  const clauses = documentText
+    .split(/\n+|(?<=[.!?])\s+/)
+    .map((item) => cleanText(item, 260))
+    .filter((item) => item.length >= 12)
+    .slice(0, 120);
+  return createFocusedLocalSummary(product, clauses, baselineRiskLevel);
 }
 
 function normalizeSummaryItems(items, maximumCount, maximumLength) {
