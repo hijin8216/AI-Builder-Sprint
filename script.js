@@ -119,6 +119,9 @@ const mypageUserId = document.querySelector("#mypage-user-id");
 const mypageEmail = document.querySelector("#mypage-email");
 const mypageReservationCount = document.querySelector("#mypage-reservation-count");
 const mypageReservationList = document.querySelector("#mypage-reservation-list");
+const mypageSectionKicker = document.querySelector("#mypage-section-kicker");
+const mypageReservationsTitle = document.querySelector("#mypage-reservations-title");
+const mypageTabButtons = [...document.querySelectorAll("[data-mypage-view]")];
 const reservationDetailDialog = document.querySelector("#reservation-detail-dialog");
 const reservationDetailContent = document.querySelector("#reservation-detail-content");
 const reservationCancelDialog = document.querySelector("#reservation-cancel-dialog");
@@ -168,6 +171,7 @@ let authMode = "login";
 let pendingExperienceId = null;
 let pendingBooking = null;
 let myReservations = [];
+let mypageView = "reservations";
 let expandedReservationId = null;
 let reservationToCancel = null;
 let activeReservationId = null;
@@ -184,6 +188,80 @@ const localeFormats = {
   en: "en-US",
   ja: "ja-JP",
   zh: "zh-CN",
+};
+const mypageCopy = {
+  ko: {
+    reservationsTab: "내 예약",
+    favoritesTab: "찜 목록",
+    reservationsKicker: "RESERVATIONS",
+    favoritesKicker: "SAVED EXPERIENCES",
+    reservationsTitle: "내 예약",
+    favoritesTitle: "찜 목록",
+    reservationCount: (count) => `${count}건`,
+    favoriteCount: (count) => `${count}개`,
+    noFavoritesTitle: "찜한 상품이 없습니다.",
+    noFavoritesDescription: "마음에 드는 상품의 하트를 눌러 찜 목록에 저장해 보세요.",
+  },
+  en: {
+    reservationsTab: "My reservations",
+    favoritesTab: "Saved experiences",
+    reservationsKicker: "RESERVATIONS",
+    favoritesKicker: "SAVED EXPERIENCES",
+    reservationsTitle: "My reservations",
+    favoritesTitle: "Saved experiences",
+    reservationCount: (count) => `${count} reservations`,
+    favoriteCount: (count) => `${count} saved`,
+    noFavoritesTitle: "No saved experiences yet.",
+    noFavoritesDescription: "Use the heart on an experience to save it here.",
+  },
+  ja: {
+    reservationsTab: "予約一覧",
+    favoritesTab: "お気に入り",
+    reservationsKicker: "予約一覧",
+    favoritesKicker: "保存済みの体験",
+    reservationsTitle: "予約一覧",
+    favoritesTitle: "お気に入りリスト",
+    reservationCount: (count) => `${count}件`,
+    favoriteCount: (count) => `${count}件`,
+    noFavoritesTitle: "お気に入りの商品がありません。",
+    noFavoritesDescription: "気に入った商品のハートを押して、お気に入りリストに保存してみてください。",
+  },
+  zh: {
+    reservationsTab: "我的预约",
+    favoritesTab: "收藏列表",
+    reservationsKicker: "我的预约",
+    favoritesKicker: "已收藏的体验",
+    reservationsTitle: "我的预约",
+    favoritesTitle: "收藏列表",
+    reservationCount: (count) => `${count}条预约`,
+    favoriteCount: (count) => `${count}个收藏`,
+    noFavoritesTitle: "还没有收藏的体验。",
+    noFavoritesDescription: "点击体验商品上的爱心，将它保存到收藏列表中。",
+  },
+};
+const footerPartnerCopy = {
+  ko: {
+    label: "파트너 입점",
+    notice: "파트너 입점 문의가 접수되었습니다.",
+  },
+  en: {
+    label: "Partner with us",
+    notice: "Your partner inquiry has been received.",
+  },
+  ja: {
+    label: "パートナーとして参加",
+    notice: "パートナー登録に関するお問い合わせを受け付けました。",
+  },
+  zh: {
+    label: "商家入驻",
+    notice: "已收到您的商家入驻咨询。",
+  },
+};
+const sellerPortalCopy = {
+  ko: "판매점 입점",
+  en: "Seller portal",
+  ja: "出店者登録",
+  zh: "商家入驻",
 };
 const productTranslationCache = new Map(
   [...supportedLocales]
@@ -529,6 +607,14 @@ function getDisplayExperience(experience) {
   return translation ? { ...experience, ...translation.product } : experience;
 }
 
+function getMyPageCopy() {
+  return mypageCopy[activeLocale] ?? mypageCopy.ko;
+}
+
+function getFooterPartnerCopy() {
+  return footerPartnerCopy[activeLocale] ?? footerPartnerCopy.ko;
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -615,7 +701,10 @@ function applyStaticLocale() {
   );
   setLocaleContent(".mypage-account span", "로그인 계정", "Signed-in account");
   setLocaleContent("#logout-button", "로그아웃", "Log out");
-  setLocaleContent("#mypage-reservations-title", "내 예약", "My reservations");
+  const myPageText = getMyPageCopy();
+  document.querySelector("[data-mypage-view='reservations']").textContent = myPageText.reservationsTab;
+  document.querySelector("[data-mypage-view='favorites']").textContent = myPageText.favoritesTab;
+  mypageReservationsTitle.textContent = myPageText.reservationsTitle;
   setLocaleContent(".notification-panel-head strong", "알림", "Notifications");
   setLocaleContent("#reservation-detail-back", "← 내 예약", "← My reservations");
   setLocaleContent("#reservation-detail-dialog h2", "예약내역 확인", "Reservation details");
@@ -713,7 +802,13 @@ function applyStaticLocale() {
   setLocaleContent(".footer-links > div:nth-child(1) a[href='#experiences']:nth-of-type(2)", "지역별 보기", "Regions");
   setLocaleContent(".footer-links > div:nth-child(1) a[href='#how-it-works']", "이용 방법", "How it works");
   setLocaleContent(".footer-links > div:nth-child(2) strong", "고객지원", "Support");
-  setLocaleContent(".footer-partner", "파트너 입점", "Partner with us");
+  const footerPartner = document.querySelector(".footer-partner");
+  const footerPartnerText = getFooterPartnerCopy();
+  footerPartner.textContent = footerPartnerText.label;
+  footerPartner.dataset.notice = footerPartnerText.notice;
+  if (sellerPageLink) {
+    sellerPageLink.textContent = sellerPortalCopy[activeLocale] ?? sellerPortalCopy.ko;
+  }
   setLocaleContent(".footer-links > div:nth-child(2) button:nth-child(3)", "자주 묻는 질문", "FAQ");
   setLocaleContent(".footer-links > div:nth-child(2) button:nth-child(4)", "1:1 문의", "Contact us");
   setLocaleContent(".footer-links > div:nth-child(2) button:nth-child(5)", "안전 가이드", "Safety guide");
@@ -806,7 +901,7 @@ function applyLocale() {
 
   if (experiences.length > 0) renderExperiences();
   if (currentUser) {
-    renderMyReservations();
+    renderMyPageContent();
     renderContractNotifications();
   }
   if (reservationDetailDialog.open && viewedReservationId) {
@@ -1411,7 +1506,77 @@ function getReservationDisplay(reservation) {
   };
 }
 
+function updateMyPageView() {
+  const isFavoritesView = mypageView === "favorites";
+  const text = getMyPageCopy();
+
+  mypageTabButtons.forEach((button) => {
+    const isActive = button.dataset.mypageView === mypageView;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+  });
+
+  mypageSectionKicker.textContent = isFavoritesView
+    ? text.favoritesKicker
+    : text.reservationsKicker;
+  mypageReservationsTitle.textContent = isFavoritesView
+    ? text.favoritesTitle
+    : text.reservationsTitle;
+}
+
+function renderMyFavorites() {
+  updateMyPageView();
+  const text = getMyPageCopy();
+  const favorites = experiences.filter((experience) => state.favorites.has(experience.id));
+  mypageReservationCount.textContent = text.favoriteCount(favorites.length);
+
+  if (favorites.length === 0) {
+    mypageReservationList.innerHTML = `
+      <div class="mypage-empty">
+        <strong>${text.noFavoritesTitle}</strong>
+        <p>${text.noFavoritesDescription}</p>
+      </div>
+    `;
+    return;
+  }
+
+  mypageReservationList.classList.add("mypage-favorite-list");
+  mypageReservationList.innerHTML = favorites
+    .map((experience) => {
+      const displayExperience = getDisplayExperience(experience);
+      return `
+        <article class="mypage-favorite-card">
+          <img src="${getProductImage(experience)}" alt="${escapeHtml(getProductImageAlt(displayExperience))}" />
+          <button class="mypage-favorite-open" type="button" data-open-favorite="${escapeHtml(experience.id)}">
+            <span>${escapeHtml(localizeRegion(experience.region))} · ${escapeHtml(localizeCategory(experience.category))}</span>
+            <strong>${escapeHtml(displayExperience.name)}</strong>
+            <span>${escapeHtml(displayExperience.partnerName)} · ${formatPrice(experience.pricePerPerson)}</span>
+          </button>
+          <button class="mypage-favorite-remove" type="button" data-remove-favorite="${escapeHtml(experience.id)}" aria-label="${escapeHtml(localizeText(`${displayExperience.name} 찜 해제`, `Remove ${displayExperience.name} from saved experiences`))}">♥</button>
+        </article>
+      `;
+    })
+    .join("");
+
+  if (isTranslatedLocale()) requestProductCardTranslations(favorites);
+}
+
+function renderMyPageContent() {
+  mypageReservationList.classList.remove("mypage-favorite-list");
+  if (mypageView === "favorites") {
+    renderMyFavorites();
+    return;
+  }
+  renderMyReservations();
+}
+
 function renderMyReservations() {
+  if (mypageView === "favorites") {
+    renderMyFavorites();
+    return;
+  }
+
+  updateMyPageView();
   mypageReservationCount.textContent = formatReservationCount(myReservations.length);
 
   if (myReservations.length === 0) {
@@ -1636,8 +1801,10 @@ function openReservationDetail(reservation) {
 }
 
 async function loadMyReservations() {
-  mypageReservationList.innerHTML =
-    `<p class="mypage-loading">${localizeText("예약과 전자서명 상태를 확인하고 있어요.", "Checking reservation and e-signature status…")}</p>`;
+  if (mypageView === "reservations") {
+    mypageReservationList.innerHTML =
+      `<p class="mypage-loading">${localizeText("예약과 전자서명 상태를 확인하고 있어요.", "Checking reservation and e-signature status…")}</p>`;
+  }
 
   try {
     const response = await fetch("/api/reservations");
@@ -1650,15 +1817,17 @@ async function loadMyReservations() {
     }
     if (!response.ok) throw new Error(result.message || "예약 내역을 불러오지 못했습니다.");
     myReservations = result.reservations;
-    renderMyReservations();
+    renderMyPageContent();
     renderContractNotifications();
   } catch (error) {
-    mypageReservationList.innerHTML = `
-      <div class="mypage-empty">
-        <strong>${localizeText("예약 내역을 불러오지 못했습니다.", "Unable to load reservations.")}</strong>
-        <p>${escapeHtml(error.message)}</p>
-      </div>
-    `;
+    if (mypageView === "reservations") {
+      mypageReservationList.innerHTML = `
+        <div class="mypage-empty">
+          <strong>${localizeText("예약 내역을 불러오지 못했습니다.", "Unable to load reservations.")}</strong>
+          <p>${escapeHtml(error.message)}</p>
+        </div>
+      `;
+    }
   }
 }
 
@@ -1716,7 +1885,7 @@ async function cancelReservation() {
     if (expandedReservationId === reservation.id) expandedReservationId = null;
 
     const refreshReservationDetail = reservationDetailDialog.open;
-    renderMyReservations();
+    renderMyPageContent();
     renderContractNotifications();
     reservationCancelDialog.close();
     if (refreshReservationDetail) {
@@ -1735,8 +1904,11 @@ async function cancelReservation() {
 }
 
 function openMyPage() {
+  mypageView = "reservations";
+  expandedReservationId = null;
   mypageUserId.textContent = currentUser.userId;
   mypageEmail.textContent = currentUser.email;
+  renderMyPageContent();
   mypageDialog.showModal();
   document.body.classList.add("dialog-open");
   loadMyReservations();
@@ -1898,10 +2070,8 @@ function setDetailTranslationLoading(isLoading) {
 
   loadingPanel.hidden = !isLoading;
   loadingSpinner.hidden = !isLoading;
-  loadingMessage.textContent = localizeText(
-    "선택한 언어의 상세 정보를 준비하고 있습니다.",
-    "Preparing the experience details in your selected language.",
-  );
+  loadingSpinner.toggleAttribute("hidden", !isLoading);
+  loadingMessage.textContent = "Preparing the experience details in your selected language.";
   productDetailDialog.classList.toggle("is-translating", isLoading);
   productDetailDialog.setAttribute("aria-busy", String(isLoading));
 }
@@ -2151,6 +2321,7 @@ async function requestProductCardTranslations(productList) {
       });
       if (activeLocale === locale) {
         renderExperiences();
+        if (mypageDialog.open && mypageView === "favorites") renderMyPageContent();
         setProductTranslationStatus("idle");
       }
     })
@@ -2321,6 +2492,7 @@ experienceGrid.addEventListener("click", (event) => {
     }
 
     renderExperiences();
+    if (mypageDialog.open && mypageView === "favorites") renderMyPageContent();
   }
 
   if (detailButton) {
@@ -2495,6 +2667,14 @@ authForm.addEventListener("submit", async (event) => {
 document.querySelector("#mypage-close").addEventListener("click", () => mypageDialog.close());
 document.querySelector("#logout-button").addEventListener("click", logout);
 
+mypageTabButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    mypageView = button.dataset.mypageView;
+    expandedReservationId = null;
+    renderMyPageContent();
+  });
+});
+
 mypageDialog.addEventListener("close", () => {
   document.body.classList.remove("dialog-open");
 });
@@ -2504,6 +2684,22 @@ mypageDialog.addEventListener("click", (event) => {
 });
 
 mypageReservationList.addEventListener("click", (event) => {
+  const removeFavoriteButton = event.target.closest("[data-remove-favorite]");
+  if (removeFavoriteButton) {
+    state.favorites.delete(removeFavoriteButton.dataset.removeFavorite);
+    renderExperiences();
+    renderMyPageContent();
+    showToast(localizeText("찜 목록에서 제외했어요.", "Removed from saved experiences."));
+    return;
+  }
+
+  const openFavoriteButton = event.target.closest("[data-open-favorite]");
+  if (openFavoriteButton) {
+    mypageDialog.close();
+    openProductDetail(openFavoriteButton.dataset.openFavorite);
+    return;
+  }
+
   const toggleButton = event.target.closest("[data-toggle-reservation]");
   if (toggleButton) {
     expandedReservationId =
@@ -2992,7 +3188,7 @@ function updateReservationAfterSignature(reservationId, status) {
     pendingBooking.documentAvailable = status === "COMPLETED";
   }
   renderContractNotifications();
-  renderMyReservations();
+  renderMyPageContent();
 }
 
 function closeSignatureDialog() {

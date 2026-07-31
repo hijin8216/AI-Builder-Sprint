@@ -11,12 +11,19 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;600;700&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/seller.css?v=20260730-6" />
+    <link rel="stylesheet" href="/seller.css?v=20260731-5" />
+    <script src="/seller-locale.js?v=20260731-2" defer></script>
     <script src="/seller-new.js?v=20260730-2" defer></script>
   </head>
   <body>
     <header class="seller-header">
       <a class="seller-brand" href="/seller">WAVE<span>ON</span><small>PARTNER</small></a>
+      <div class="seller-language-switcher" role="group" aria-label="언어 선택">
+        <button type="button" data-seller-locale="ko" aria-pressed="true">KR</button>
+        <button type="button" data-seller-locale="en" aria-pressed="false">EN</button>
+        <button type="button" data-seller-locale="ja" aria-pressed="false">JP</button>
+        <button type="button" data-seller-locale="zh" aria-pressed="false">中</button>
+      </div>
       <nav aria-label="상품 작성 메뉴">
         <a class="buyer-link" href="/seller">← 판매자 센터</a>
       </nav>

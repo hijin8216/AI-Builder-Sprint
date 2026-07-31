@@ -123,9 +123,22 @@ function showToast(message) {
   }, 3200);
 }
 
-function setFormError(element, message = "") {
+function setFormError(element, message = "", errorCode = "") {
   element.textContent = message;
   element.hidden = !message;
+  if (errorCode) {
+    element.dataset.errorCode = errorCode;
+  } else {
+    delete element.dataset.errorCode;
+  }
+}
+
+function getSellerErrorMessage(error) {
+  return window.SellerLocale?.getErrorMessage(error?.result?.code, error?.message) ?? error?.message;
+}
+
+function setRequestError(element, error) {
+  setFormError(element, getSellerErrorMessage(error), error?.result?.code);
 }
 
 function setSellerAuthMode(mode) {
@@ -455,7 +468,7 @@ async function loadOverview({ silent = false } = {}) {
     }
 
     showLogin();
-    setFormError(sellerLoginError, error.message);
+    setRequestError(sellerLoginError, error);
   }
 }
 
@@ -478,7 +491,7 @@ sellerLoginForm.addEventListener("submit", async (event) => {
     await loadOverview();
     showToast("판매자 페이지에 로그인했습니다.");
   } catch (error) {
-    setFormError(sellerLoginError, error.message);
+    setRequestError(sellerLoginError, error);
   } finally {
     submitButton.disabled = false;
   }
@@ -510,7 +523,7 @@ sellerRegisterForm.addEventListener("submit", async (event) => {
         : "판매자 등록이 완료되었습니다.",
     );
   } catch (error) {
-    setFormError(sellerRegisterError, error.message);
+    setRequestError(sellerRegisterError, error);
   } finally {
     submitButton.disabled = false;
   }
@@ -583,7 +596,7 @@ postForm.addEventListener("submit", async (event) => {
       showLogin();
       return;
     }
-    setFormError(postFormError, error.message);
+    setRequestError(postFormError, error);
   } finally {
     submitButton.disabled = false;
     submitButton.innerHTML = "상품 등록하기 <span>→</span>";
@@ -614,7 +627,7 @@ reservationList.addEventListener("click", async (event) => {
       return;
     }
 
-    showToast(error.message);
+    showToast(getSellerErrorMessage(error));
     await loadOverview();
   } finally {
     actionButton.disabled = false;
@@ -652,7 +665,7 @@ contractList.addEventListener("click", async (event) => {
       return;
     }
 
-    showToast(error.message);
+    showToast(getSellerErrorMessage(error));
     await loadOverview();
   } finally {
     actionButton.disabled = false;

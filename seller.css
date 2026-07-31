@@ -93,6 +93,35 @@ a {
   align-items: center;
 }
 
+.seller-language-switcher {
+  display: inline-grid;
+  grid-template-columns: repeat(4, 38px);
+  min-height: 36px;
+  margin-left: 24px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 8px;
+}
+
+.seller-language-switcher button {
+  min-width: 0;
+  padding: 0;
+  color: rgba(255, 255, 255, 0.68);
+  background: transparent;
+  border: 0;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.seller-language-switcher button + button {
+  border-left: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.seller-language-switcher button[aria-pressed="true"] {
+  color: var(--navy);
+  background: white;
+}
+
 .seller-header nav a {
   color: rgba(255, 255, 255, 0.75);
   font-size: 12px;
@@ -263,11 +292,15 @@ main {
 
 .seller-hero {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 60px;
   min-height: 390px;
   padding: 76px 0 56px;
   align-items: center;
+}
+
+.seller-hero > * {
+  min-width: 0;
 }
 
 .eyebrow {
@@ -284,6 +317,8 @@ main {
   font-size: clamp(42px, 5vw, 66px);
   letter-spacing: -4px;
   line-height: 1.05;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .seller-hero h1 em {
@@ -302,6 +337,8 @@ main {
 .hero-flow {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+  width: 100%;
+  min-width: 0;
   overflow: hidden;
   background: white;
   border: 1px solid var(--line);
@@ -311,6 +348,7 @@ main {
 
 .hero-flow div {
   min-height: 170px;
+  min-width: 0;
   padding: 27px 22px;
   border-right: 1px solid var(--line);
 }
@@ -335,12 +373,16 @@ main {
 .hero-flow strong {
   color: var(--navy);
   font-size: 14px;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .hero-flow small {
   margin-top: 6px;
   color: var(--muted);
   font-size: 10px;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .seller-access {
@@ -1272,6 +1314,12 @@ textarea:focus {
 
   .seller-header nav {
     gap: 10px;
+  }
+
+  .seller-language-switcher {
+    grid-template-columns: repeat(4, 34px);
+    min-height: 34px;
+    margin-left: 14px;
   }
 
   .seller-header nav a:not(.buyer-link) {

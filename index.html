@@ -15,8 +15,8 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;600;700&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=20260731-1" />
-    <script src="script.js?v=20260731-2" defer></script>
+    <link rel="stylesheet" href="styles.css?v=20260731-4" />
+    <script src="script.js?v=20260731-5" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#main-content">본문 바로가기</a>
@@ -405,10 +405,14 @@
           </div>
           <button id="logout-button" type="button">로그아웃</button>
         </section>
+        <div class="mypage-tabs" role="tablist" aria-label="마이페이지 메뉴">
+          <button class="mypage-tab is-active" type="button" role="tab" aria-selected="true" data-mypage-view="reservations">내 예약</button>
+          <button class="mypage-tab" type="button" role="tab" aria-selected="false" data-mypage-view="favorites">찜 목록</button>
+        </div>
         <section class="mypage-reservations" aria-labelledby="mypage-reservations-title">
           <div class="mypage-section-title">
             <div>
-              <p>RESERVATIONS</p>
+              <p id="mypage-section-kicker">RESERVATIONS</p>
               <h3 id="mypage-reservations-title">내 예약</h3>
             </div>
             <span id="mypage-reservation-count">0건</span>

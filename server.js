@@ -136,6 +136,10 @@ app.get("/seller.js", (_request, response) => {
   response.sendFile(path.join(projectDirectory, "seller.js"));
 });
 
+app.get("/seller-locale.js", (_request, response) => {
+  response.sendFile(path.join(projectDirectory, "seller-locale.js"));
+});
+
 app.get("/seller-new.js", (_request, response) => {
   response.sendFile(path.join(projectDirectory, "seller-new.js"));
 });
@@ -330,6 +334,7 @@ app.post("/api/seller/login", (request, response) => {
     }
     if (!isApprovedSeller(user)) {
       response.status(403).json({
+        code: "SELLER_ACCOUNT_REQUIRED",
         message: "판매자로 등록된 계정만 판매자 센터를 이용할 수 있습니다.",
       });
       return;
@@ -1585,6 +1590,7 @@ function requireSellerUser(request, response) {
   if (!user) return null;
   if (!isApprovedSeller(user)) {
     response.status(403).json({
+      code: "SELLER_ACCOUNT_REQUIRED",
       message: "판매자로 등록된 계정만 판매자 센터를 이용할 수 있습니다.",
     });
     return null;
