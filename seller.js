@@ -21,7 +21,6 @@ const sellerImagePreview = document.querySelector("#seller-image-preview");
 
 const reservationList = document.querySelector("#seller-reservation-list");
 const reservationCount = document.querySelector("#seller-reservation-count");
-const contractList = document.querySelector("#seller-contract-list");
 const reservationNotificationButton = document.querySelector(
   "#seller-reservation-notification",
 );
@@ -30,6 +29,7 @@ const reservationAlert = document.querySelector("#seller-reservation-alert");
 const reservationAlertTitle = document.querySelector(
   "#seller-reservation-alert-title",
 );
+const contractList = document.querySelector("#seller-contract-list");
 
 const postStat = document.querySelector("#post-count");
 const contractStat = document.querySelector("#contract-count");
@@ -157,7 +157,6 @@ function renderReservationNotifications() {
     ? notificationParts.join(" · ")
     : sellerText("reservationAttention");
 }
-
 async function requestJson(url, options = {}) {
   let response;
 
@@ -330,6 +329,8 @@ function createSellerPostPayload(formData) {
 function showLogin() {
   sellerState.user = null;
   sellerState.overviewLoaded = false;
+  reservationNotificationButton.hidden = true;
+  reservationAlert.hidden = true;
   sellerAccess.hidden = false;
   sellerDashboard.hidden = true;
 }
@@ -350,6 +351,7 @@ function contractStatusDetails(status) {
     ON_PROCESSING: { label: sellerText("statusProcessing"), className: "is-pending" },
     ON_GOING: { label: sellerText("statusWaiting"), className: "is-pending" },
     SENT: { label: sellerText("statusSent"), className: "is-pending" },
+    ABORTED: { label: "요청 취소", className: "is-failed" },
   };
 
   return details[status] || {
@@ -374,7 +376,13 @@ function renderPosts() {
   postList.innerHTML = sellerState.posts
     .map(
       (post) => `
-        <article class="seller-post-card">
+        <article
+          class="seller-post-card seller-post-card-link"
+          data-edit-seller-post="/seller/edit/${encodeURIComponent(post.id)}"
+          role="link"
+          tabindex="0"
+          aria-label="${escapeHtml(post.title)} ${sellerText("productEdit")}"
+        >
           ${
             post.thumbnailImage
               ? `<img class="seller-post-image" src="${escapeHtml(post.thumbnailImage)}" alt="${escapeHtml(post.title)} ${sellerText("productPhoto")}" />`
@@ -418,9 +426,13 @@ function renderPosts() {
 
 function renderReservations() {
   const waitingReservations = waitingSellerReservations();
+  const attentionCount =
+    waitingReservations.length +
+    cancellationRequestReservations().length +
+    cancelledReservationNotices().length;
   reservationCount.textContent = sellerText(
     "contractCount",
-    waitingReservations.length,
+    attentionCount,
   );
 
   if (!sellerState.reservations.length) {
@@ -469,11 +481,29 @@ function renderReservations() {
           `<span class="reservation-contract-state ${status.className}">${escapeHtml(status.label)}</span>`,
         );
       } else {
-        actionItems.push(
-          `<button class="send-contract-button" type="button" data-send-contract="${escapeHtml(reservation.id)}">${sellerText("sendContract")} <span>→</span></button>`,
-        );
+        actionItems.push(`
+              <p class="template-delivery-note">
+                ${
+                  sellerState.modusignConfigured
+                    ? `${escapeHtml(reservation.email)} · ${sellerText("sendContract")}`
+                    : sellerText("eContractSetupRequired")
+                }
+              </p>
+              <button
+                class="send-contract-button"
+                type="button"
+                data-send-contract="${escapeHtml(reservation.id)}"
+                ${sellerState.modusignConfigured ? "" : "disabled"}
+              >
+                ${
+                  sellerState.modusignConfigured
+                    ? sellerText("sendContract")
+                    : sellerText("eContractSetupRequired")
+                }
+                <span>→</span>
+              </button>
+            `);
       }
-
       if (canSellerCancel) {
         actionItems.push(`
           <button
@@ -486,7 +516,6 @@ function renderReservations() {
           </button>
         `);
       }
-
       if (
         ["CANCELLED", "SELLER_CANCELLED"].includes(reservation.status) &&
         reservation.cancellationNoticePending
@@ -501,7 +530,6 @@ function renderReservations() {
           </button>
         `);
       }
-
       const cardStateClass = sellerCancelled
         ? "is-seller-cancelled"
         : cancellationRequested
@@ -547,12 +575,27 @@ function renderContracts() {
   contractList.innerHTML = sellerState.contracts
     .map((contract) => {
       const status = contractStatusDetails(contract.status);
-      const action =
-        contract.status === "SEND_FAILED"
-          ? `<button class="seller-small-button" type="button" data-resend-contract="${escapeHtml(contract.id)}">${sellerText("resend")}</button>`
-          : contract.documentId
-            ? `<button class="seller-small-button" type="button" data-refresh-contract="${escapeHtml(contract.id)}">${sellerText("checkStatus")}</button>`
-            : "";
+      const needsUnifiedResend =
+        contract.documentId &&
+        !contract.deliveryMode &&
+        !["COMPLETED", "SIGNED"].includes(contract.status);
+      const canArchiveContract = contract.status !== "SENDING";
+      const actions = [];
+      if (contract.status === "SEND_FAILED" || needsUnifiedResend) {
+        actions.push(
+          `<button class="seller-small-button" type="button" data-resend-contract="${escapeHtml(contract.id)}">${sellerText("resend")}</button>`,
+        );
+      } else if (contract.documentId) {
+        actions.push(
+          `<button class="seller-small-button" type="button" data-refresh-contract="${escapeHtml(contract.id)}">${sellerText("checkStatus")}</button>`,
+        );
+      }
+      if (canArchiveContract) {
+        actions.push(
+          `<button class="seller-small-button is-archive" type="button" data-archive-contract="${escapeHtml(contract.id)}">확인 후 목록에서 삭제</button>`,
+        );
+      }
+      const action = actions.join("");
 
       return `
         <article class="seller-contract-card">
@@ -630,7 +673,15 @@ async function loadOverview({ silent = false } = {}) {
               "CANCELLATION_REQUESTED",
         ).length
       : 0;
-
+    const newCancelledNoticeCount = sellerState.overviewLoaded
+      ? incomingReservations.filter(
+          (reservation) =>
+            ["CANCELLED", "SELLER_CANCELLED"].includes(reservation.status) &&
+            reservation.cancellationNoticePending &&
+            previousReservationStatuses.get(reservation.id) !==
+              reservation.status,
+        ).length
+      : 0;
     sellerState.user = result.user;
     sellerState.posts = result.posts || [];
     sellerState.reservations = incomingReservations;
@@ -640,13 +691,21 @@ async function loadOverview({ silent = false } = {}) {
     renderDashboard();
     showDashboard();
 
-    if (silent && (newReservationCount > 0 || newCancellationCount > 0)) {
+    if (
+      silent &&
+      (newReservationCount > 0 ||
+        newCancellationCount > 0 ||
+        newCancelledNoticeCount > 0)
+    ) {
       const updates = [];
       if (newReservationCount > 0) {
         updates.push(sellerText("newReservationCount", newReservationCount));
       }
       if (newCancellationCount > 0) {
         updates.push(sellerText("cancellationRequestCount", newCancellationCount));
+      }
+      if (newCancelledNoticeCount > 0) {
+        updates.push(sellerText("cancellationNoticeCount", newCancelledNoticeCount));
       }
       showToast(updates.join(" · "));
     }
@@ -800,7 +859,12 @@ postForm.addEventListener("submit", async (event) => {
 
 postList.addEventListener("click", async (event) => {
   const deleteButton = event.target.closest("[data-delete-seller-post]");
-  if (!deleteButton) return;
+  if (!deleteButton) {
+    const editCard = event.target.closest("[data-edit-seller-post]");
+    if (!editCard || event.target.closest("a, button")) return;
+    window.location.href = editCard.dataset.editSellerPost;
+    return;
+  }
 
   const post = sellerState.posts.find(
     (item) => item.id === deleteButton.dataset.deleteSellerPost,
@@ -827,6 +891,15 @@ postList.addEventListener("click", async (event) => {
   } finally {
     deleteButton.disabled = false;
   }
+});
+
+postList.addEventListener("keydown", (event) => {
+  const editCard = event.target.closest("[data-edit-seller-post]");
+  if (!editCard || event.target !== editCard) return;
+  if (!["Enter", " "].includes(event.key)) return;
+
+  event.preventDefault();
+  window.location.href = editCard.dataset.editSellerPost;
 });
 
 reservationList.addEventListener("click", async (event) => {
@@ -908,6 +981,18 @@ reservationList.addEventListener("click", async (event) => {
     return;
   }
 
+  const reservation = sellerState.reservations.find(
+    (item) => item.id === actionButton.dataset.sendContract,
+  );
+  if (
+    !reservation ||
+    !window.confirm(
+      `${reservation.name}님에게 상품에 맞는 계약서를 보내시겠습니까?\n수신 이메일: ${reservation.email}`,
+    )
+  ) {
+    return;
+  }
+
   actionButton.disabled = true;
   actionButton.textContent = "발송 중…";
 
@@ -919,7 +1004,7 @@ reservationList.addEventListener("click", async (event) => {
       }),
     });
     await loadOverview();
-    showToast("예약 정보로 고객에게 계약서를 발송했습니다.");
+    showToast("구매자 이메일로 모두싸인 계약서를 발송했습니다.");
   } catch (error) {
     if (error.status === 401) {
       showLogin();
@@ -935,7 +1020,7 @@ reservationList.addEventListener("click", async (event) => {
 
 contractList.addEventListener("click", async (event) => {
   const actionButton = event.target.closest(
-    "[data-resend-contract], [data-refresh-contract]",
+    "[data-resend-contract], [data-refresh-contract], [data-archive-contract]",
   );
 
   if (!actionButton) {
@@ -943,8 +1028,22 @@ contractList.addEventListener("click", async (event) => {
   }
 
   const contractId =
-    actionButton.dataset.resendContract || actionButton.dataset.refreshContract;
-  const action = actionButton.dataset.resendContract ? "resend" : "refresh";
+    actionButton.dataset.resendContract ||
+    actionButton.dataset.refreshContract ||
+    actionButton.dataset.archiveContract;
+  const action = actionButton.dataset.archiveContract
+    ? "archive"
+    : actionButton.dataset.resendContract
+      ? "resend"
+      : "refresh";
+  if (
+    action === "archive" &&
+    !window.confirm(
+      "이 계약 발송 내역을 목록에서 정리하시겠습니까?\n모두싸인 계약과 전자서명 문서는 삭제되지 않습니다.",
+    )
+  ) {
+    return;
+  }
 
   actionButton.disabled = true;
 
@@ -954,8 +1053,10 @@ contractList.addEventListener("click", async (event) => {
     });
     await loadOverview();
     showToast(
-      action === "resend"
-        ? "계약서를 다시 발송했습니다."
+      action === "archive"
+        ? "확인한 계약 발송 내역을 목록에서 정리했습니다."
+        : action === "resend"
+        ? "구매자 웹 알림과 이메일로 계약서를 다시 발송했습니다."
         : "모두싸인 계약 상태를 갱신했습니다.",
     );
   } catch (error) {
@@ -986,4 +1087,4 @@ window.setInterval(() => {
   if (sellerState.user && document.visibilityState === "visible") {
     loadOverview({ silent: true });
   }
-}, 15000);
+}, 5000);

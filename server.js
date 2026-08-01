@@ -83,6 +83,14 @@ const interfaceTranslationCaches = new Map(
 const documentSummaryCache = new Map();
 const embeddedSigningViewCache = new Map();
 const embeddedSigningViewCacheDurationMs = 24 * 60 * 60 * 1000;
+const modusignDocumentCache = new Map();
+const modusignDocumentRequests = new Map();
+const modusignTemplateCache = new Map();
+const modusignTemplateRequests = new Map();
+const modusignMergedTemplateCache = new Map();
+const modusignMergedTemplateRequests = new Map();
+const modusignDocumentCacheDurationMs = 15_000;
+const modusignTemplateCacheDurationMs = 60 * 60 * 1000;
 let userWriteQueue = Promise.resolve();
 let reservationWriteQueue = Promise.resolve();
 let sellerPostWriteQueue = Promise.resolve();
@@ -400,7 +408,7 @@ app.get("/api/seller/overview", (request, response) => {
     .filter(
       (reservation) =>
         sellerOwnsReservation(reservation, user.id) &&
-        (!['CANCELLED', 'SELLER_CANCELLED'].includes(reservation.status) ||
+        (!["CANCELLED", "SELLER_CANCELLED"].includes(reservation.status) ||
           !reservation.sellerAcknowledgedCancellationAt),
     )
     .slice()
@@ -411,7 +419,7 @@ app.get("/api/seller/overview", (request, response) => {
     modusignConfigured: Boolean(
       process.env.MODUSIGN_EMAIL?.trim() &&
         process.env.MODUSIGN_API_KEY?.trim() &&
-        process.env.MODUSIGN_TEMPLATE_ID?.trim(),
+        Object.keys(contractTemplates).length,
     ),
     posts: sellerPosts
       .filter((post) => post.userId === user.id)
@@ -419,7 +427,9 @@ app.get("/api/seller/overview", (request, response) => {
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .map(publicSellerPost),
     contracts: sellerContracts
-      .filter((contract) => contract.userId === user.id)
+      .filter(
+        (contract) => contract.userId === user.id && !contract.archivedAt,
+      )
       .slice()
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .map(publicSellerContract),
@@ -599,6 +609,7 @@ app.post("/api/seller/contracts/:contractId/resend", async (request, response) =
   }
 
   try {
+    await prepareSellerContractForUnifiedResend(contract);
     contract.status = "SENDING";
     contract.error = "";
     contract.updatedAt = new Date().toISOString();
@@ -618,6 +629,97 @@ app.post("/api/seller/contracts/:contractId/resend", async (request, response) =
   }
 });
 
+app.post(
+  "/api/seller/contracts/:contractId/replace-for-web",
+  async (request, response) => {
+    const user = requireSellerUser(request, response);
+    if (!user) return;
+
+    const contractId = cleanText(request.params.contractId, 100);
+    const contract = sellerContracts.find(
+      (item) => item.id === contractId && item.userId === user.id,
+    );
+    if (!contract?.documentId) {
+      response.status(404).json({
+        message: "웹 서명 방식으로 교체할 기존 계약서를 찾지 못했습니다.",
+      });
+      return;
+    }
+    if (contract.deliveryMode === "WEB_AND_EMAIL") {
+      response.status(409).json({
+        message: "이미 웹사이트 서명과 이메일 알림을 함께 지원하는 계약서입니다.",
+      });
+      return;
+    }
+
+    const post = sellerPosts.find(
+      (item) => item.id === contract.postId && item.userId === user.id,
+    );
+    if (!post) {
+      response.status(404).json({
+        message: "계약에 연결된 상품을 찾지 못했습니다.",
+      });
+      return;
+    }
+
+    let replacementStarted = false;
+    try {
+      const legacyDocument = await getModusignDocument(contract.documentId);
+      if (legacyDocument.status === "COMPLETED") {
+        response.status(409).json({
+          message: "이미 서명이 완료된 계약서는 새 방식으로 교체할 수 없습니다.",
+        });
+        return;
+      }
+
+      const legacyDocumentId = contract.documentId;
+      if (!["ABORTED", "PROCESSING_FAILED"].includes(legacyDocument.status)) {
+        await requestModusign(`/documents/${legacyDocumentId}/cancel`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json; charset=utf-8" },
+          body: JSON.stringify({
+            message: "웹사이트 전자서명 방식으로 계약서를 다시 요청합니다.",
+            accessibleByParticipant: false,
+          }),
+        });
+        forgetModusignDocument(legacyDocumentId);
+      }
+
+      replacementStarted = true;
+      contract.replacedDocumentIds = [
+        ...(Array.isArray(contract.replacedDocumentIds)
+          ? contract.replacedDocumentIds
+          : []),
+        legacyDocumentId,
+      ];
+      contract.documentId = "";
+      contract.deliveryMode = "";
+      contract.status = "SENDING";
+      contract.error = "";
+      contract.updatedAt = new Date().toISOString();
+      await saveSellerContracts();
+      await clearSellerContractFromReservation(contract);
+
+      await deliverSellerContract(contract, post);
+      await applySellerContractToReservation(contract);
+      response.json({ contract: publicSellerContract(contract) });
+    } catch (error) {
+      if (replacementStarted) {
+        contract.status = "SEND_FAILED";
+      }
+      contract.error = cleanText(error.message, 240);
+      contract.updatedAt = new Date().toISOString();
+      await saveSellerContracts();
+      response.status(502).json({
+        message:
+          contract.error ||
+          "웹사이트 전자서명 방식으로 계약서를 다시 보내지 못했습니다.",
+        contract: publicSellerContract(contract),
+      });
+    }
+  },
+);
+
 app.post("/api/seller/contracts/:contractId/refresh", async (request, response) => {
   const user = requireSellerUser(request, response);
   if (!user) return;
@@ -632,7 +734,9 @@ app.post("/api/seller/contracts/:contractId/refresh", async (request, response) 
   }
 
   try {
-    const document = await requestModusign(`/documents/${contract.documentId}`);
+    const document = await getModusignDocument(contract.documentId, {
+      force: true,
+    });
     contract.status = document.status || contract.status;
     contract.error = "";
     contract.updatedAt = new Date().toISOString();
@@ -645,6 +749,38 @@ app.post("/api/seller/contracts/:contractId/refresh", async (request, response) 
     });
   }
 });
+
+app.post(
+  "/api/seller/contracts/:contractId/archive",
+  async (request, response) => {
+    const user = requireSellerUser(request, response);
+    if (!user) return;
+
+    const contractId = cleanText(request.params.contractId, 100);
+    const contract = sellerContracts.find(
+      (item) => item.id === contractId && item.userId === user.id,
+    );
+    if (!contract) {
+      response.status(404).json({
+        message: "정리할 계약 발송 내역을 찾지 못했습니다.",
+      });
+      return;
+    }
+    if (contract.status === "SENDING") {
+      response.status(409).json({
+        message: "발송 중인 계약은 발송이 끝난 뒤 목록에서 정리할 수 있습니다.",
+      });
+      return;
+    }
+
+    if (!contract.archivedAt) {
+      contract.archivedAt = new Date().toISOString();
+      contract.updatedAt = new Date().toISOString();
+      await saveSellerContracts();
+    }
+    response.json({ contract: publicSellerContract(contract) });
+  },
+);
 
 app.post("/api/reservations", async (request, response) => {
   const user = requireAuthenticatedUser(request, response);
@@ -717,11 +853,21 @@ app.post("/api/reservations/:reservationId/cancel", async (request, response) =>
     return;
   }
 
-  const canCancelImmediately =
-    ["CONTRACT_PENDING", "SELLER_REVIEW"].includes(reservation.status) &&
-    !reservation.documentId;
+  const cancellableStatuses = [
+    "SELLER_REVIEW",
+    "CONTRACT_PENDING",
+    "SIGNING",
+    "COMPLETED",
+    "ABORTED",
+    "PROCESSING_FAILED",
+  ];
   const canRequestCancellation =
-    reservation.status === "COMPLETED" && Boolean(reservation.documentId);
+    ["CONTRACT_PENDING", "SIGNING", "COMPLETED"].includes(
+      reservation.status,
+    ) && Boolean(reservation.documentId);
+  const canCancelImmediately =
+    cancellableStatuses.includes(reservation.status) &&
+    !canRequestCancellation;
   if (!canCancelImmediately && !canRequestCancellation) {
     response.status(409).json({
       message: "현재 상태의 예약은 취소할 수 없습니다.",
@@ -739,7 +885,7 @@ app.post("/api/reservations/:reservationId/cancel", async (request, response) =>
       : "";
     reservation.cancellationRequestedAt = canRequestCancellation ? now : "";
     if (!canRequestCancellation) {
-      reservation.buyerCancellationAcknowledgedAt = now;
+      reservation.buyerCancellationAcknowledgedAt = "";
       reservation.sellerAcknowledgedCancellationAt = "";
     }
     reservation.updatedAt = now;
@@ -788,31 +934,63 @@ app.post(
       reservation.status === "COMPLETED" ||
       reservation.signatureStatus === "COMPLETED" ||
       contract?.status === "COMPLETED";
-    const now = new Date().toISOString();
+    try {
+      if (
+        reservation.documentId &&
+        !completedDocument &&
+        !["ABORTED", "PROCESSING_FAILED"].includes(
+          reservation.signatureStatus,
+        )
+      ) {
+        await requestModusign(
+          `/documents/${reservation.documentId}/cancel`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json; charset=utf-8" },
+            body: JSON.stringify({
+              message: "판매자 사정으로 예약이 취소되었습니다.",
+              accessibleByParticipant: false,
+            }),
+          },
+        );
+        forgetModusignDocument(reservation.documentId);
+      }
 
-    reservation.status = "SELLER_CANCELLED";
-    reservation.signatureStatus = completedDocument ? "COMPLETED" : "";
-    reservation.sellerCancelledAt = now;
-    reservation.cancellationRequestedAt = "";
-    reservation.sellerCancellationAcknowledgedAt = "";
-    reservation.sellerAcknowledgedCancellationAt = "";
-    reservation.updatedAt = now;
+      const now = new Date().toISOString();
+      reservation.status = "SELLER_CANCELLED";
+      if (completedDocument) {
+        reservation.signatureStatus = "COMPLETED";
+        reservation.signedAt ||= contract?.updatedAt || now;
+      } else {
+        reservation.signatureStatus = reservation.documentId ? "ABORTED" : "";
+      }
+      reservation.sellerCancelledAt = now;
+      reservation.sellerCancellationAcknowledgedAt = "";
+      reservation.sellerAcknowledgedCancellationAt = "";
+      reservation.updatedAt = now;
 
-    if (completedDocument) {
-      reservation.signedAt ||= contract?.updatedAt || now;
-    } else if (contract) {
-      contract.status = "ABORTED";
-      contract.error = "";
-      contract.updatedAt = now;
+      if (contract && !completedDocument) {
+        contract.status = "ABORTED";
+        contract.error = "";
+        contract.updatedAt = now;
+      }
+
+      await Promise.all([
+        saveReservations(),
+        contract && !completedDocument
+          ? saveSellerContracts()
+          : Promise.resolve(),
+      ]);
+      response.json({
+        reservation: publicSellerReservation(reservation, user.id),
+      });
+    } catch (error) {
+      response.status(502).json({
+        message:
+          error.message ||
+          "모두싸인 서명 요청과 예약을 취소하지 못했습니다.",
+      });
     }
-
-    await Promise.all([
-      saveReservations(),
-      contract && !completedDocument ? saveSellerContracts() : Promise.resolve(),
-    ]);
-    response.json({
-      reservation: publicSellerReservation(reservation, user.id),
-    });
   },
 );
 
@@ -883,7 +1061,8 @@ app.get("/api/reservations", async (request, response) => {
   const userReservations = reservations.filter(
     (reservation) =>
       reservation.userId === user.id &&
-      reservation.status !== "CANCELLED" &&
+      (reservation.status !== "CANCELLED" ||
+        !reservation.buyerCancellationAcknowledgedAt) &&
       (reservation.status !== "SELLER_CANCELLED" ||
         !reservation.sellerCancellationAcknowledgedAt),
   );
@@ -942,7 +1121,7 @@ app.post("/api/signature/start", async (request, response) => {
   }
 
   try {
-    if (reservation.documentId) {
+    if (reservation.documentId && reservation.status !== "PROCESSING_FAILED") {
       const savedSigning = getSavedEmbeddedSigningView(reservation);
       if (savedSigning) {
         response.json({
@@ -969,9 +1148,18 @@ app.post("/api/signature/start", async (request, response) => {
         return;
       }
 
-      const existingDocument = await requestModusign(
-        `/documents/${reservation.documentId}`,
+      let existingDocument = await getModusignDocument(
+        reservation.documentId,
       );
+      if (
+        ["DRAFT", "SCHEDULED", "ON_PROCESSING"].includes(
+          existingDocument.status,
+        )
+      ) {
+        existingDocument = await waitForModusignDocument(
+          reservation.documentId,
+        );
+      }
       await syncReservationStatus(reservation);
       await saveReservations();
 
@@ -1090,12 +1278,22 @@ app.get("/api/reservations/:reservationId/document", async (request, response) =
       const changed = await syncReservationStatus(reservation);
       if (changed) await saveReservations();
     }
-    if (!["COMPLETED", "CANCELLATION_REQUESTED"].includes(reservation.status)) {
+    const completedSellerCancellation =
+      reservation.status === "SELLER_CANCELLED" &&
+      reservation.signatureStatus === "COMPLETED";
+    if (
+      !["COMPLETED", "CANCELLATION_REQUESTED"].includes(
+        reservation.status,
+      ) &&
+      !completedSellerCancellation
+    ) {
       response.status(409).json({ message: "전자서명이 아직 완료되지 않았습니다." });
       return;
     }
 
-    const document = await requestModusign(`/documents/${reservation.documentId}`);
+    const document = await getModusignDocument(reservation.documentId, {
+      force: true,
+    });
     const downloadUrl = document.file?.downloadUrl;
     if (!downloadUrl) throw new Error("완료 문서 링크를 찾지 못했습니다.");
     response.redirect(downloadUrl);
@@ -1643,7 +1841,11 @@ function publicReservation(reservation) {
       !reservation.sellerCancellationAcknowledgedAt,
     documentAvailable:
       Boolean(reservation.documentId) &&
-      ["COMPLETED", "CANCELLATION_REQUESTED"].includes(reservation.status),
+      (["COMPLETED", "CANCELLATION_REQUESTED"].includes(
+        reservation.status,
+      ) ||
+        (reservation.status === "SELLER_CANCELLED" &&
+          reservation.signatureStatus === "COMPLETED")),
   };
 }
 
@@ -1695,6 +1897,7 @@ function publicSellerContract(contract) {
     reservationDate: contract.reservationDate,
     people: contract.people,
     documentId: contract.documentId,
+    deliveryMode: contract.deliveryMode || "",
     status: contract.status,
     error: contract.error,
     createdAt: contract.createdAt,
@@ -1782,8 +1985,28 @@ function sellerPostAsProduct(post) {
     safetyNotes: post.safetyNotes || [],
     thumbnailImage: post.thumbnailImage || "",
     detailImages: post.detailImages || [],
+    contractTemplateKeys: getSellerContractTemplateKeys(post.category),
     sellerCreated: true,
   };
+}
+
+function getSellerContractTemplateKeys(category) {
+  const categoryProduct = products.find(
+    (product) =>
+      product.category === category &&
+      Array.isArray(product.contractTemplateKeys) &&
+      product.contractTemplateKeys.length,
+  );
+
+  return categoryProduct
+    ? [...categoryProduct.contractTemplateKeys]
+    : [
+        "reservationTerms",
+        "privacyConsent",
+        "marineSafety",
+        "refundPolicy",
+        "weatherSchedule",
+      ];
 }
 
 function getAllProducts() {
@@ -2141,7 +2364,7 @@ function modusignAuthorization() {
   return `Basic ${Buffer.from(`${email}:${apiKey}`).toString("base64")}`;
 }
 
-async function requestModusign(pathname, options = {}) {
+async function requestModusign(pathname, options = {}, retryAttempt = 0) {
   const headers = {
     Accept: "application/json",
     Authorization: modusignAuthorization(),
@@ -2158,6 +2381,23 @@ async function requestModusign(pathname, options = {}) {
   }
   const result = await apiResponse.json().catch(() => ({}));
   if (!apiResponse.ok) {
+    if (apiResponse.status === 429 && retryAttempt < 1) {
+      const retryAfterHeader =
+        apiResponse.headers.get("x-retry-after") ||
+        apiResponse.headers.get("retry-after");
+      const retryAfterSeconds = Math.min(
+        Math.max(
+          Number.parseInt(retryAfterHeader || "", 10) ||
+            2 ** (retryAttempt + 1),
+          1,
+        ),
+        10,
+      );
+      await new Promise((resolve) =>
+        setTimeout(resolve, retryAfterSeconds * 1000),
+      );
+      return requestModusign(pathname, options, retryAttempt + 1);
+    }
     if (apiResponse.status === 403) {
       throw new Error(
         "모두싸인 API 사용량 또는 템플릿 접근 권한을 확인해 주세요.",
@@ -2273,6 +2513,60 @@ function redactContractPersonalData(text, reservation) {
     .replace(/\b\d{6}[- ]?[1-4]\d{6}\b/g, "[식별번호]");
 }
 
+function rememberModusignDocument(document) {
+  if (!document?.id) return document;
+  modusignDocumentCache.set(document.id, {
+    document,
+    expiresAt: Date.now() + modusignDocumentCacheDurationMs,
+  });
+  return document;
+}
+
+function forgetModusignDocument(documentId) {
+  modusignDocumentCache.delete(documentId);
+  modusignDocumentRequests.delete(documentId);
+}
+
+async function getModusignDocument(documentId, { force = false } = {}) {
+  const cached = modusignDocumentCache.get(documentId);
+  if (!force && cached?.expiresAt > Date.now()) {
+    return cached.document;
+  }
+
+  const pendingRequest = modusignDocumentRequests.get(documentId);
+  if (pendingRequest) return pendingRequest;
+
+  const request = requestModusign(`/documents/${documentId}`)
+    .then(rememberModusignDocument)
+    .finally(() => {
+      modusignDocumentRequests.delete(documentId);
+    });
+  modusignDocumentRequests.set(documentId, request);
+  return request;
+}
+
+async function getModusignTemplate(templateId) {
+  const cached = modusignTemplateCache.get(templateId);
+  if (cached?.expiresAt > Date.now()) return cached.template;
+
+  const pendingRequest = modusignTemplateRequests.get(templateId);
+  if (pendingRequest) return pendingRequest;
+
+  const request = requestModusign(`/templates/${templateId}`)
+    .then((template) => {
+      modusignTemplateCache.set(templateId, {
+        template,
+        expiresAt: Date.now() + modusignTemplateCacheDurationMs,
+      });
+      return template;
+    })
+    .finally(() => {
+      modusignTemplateRequests.delete(templateId);
+    });
+  modusignTemplateRequests.set(templateId, request);
+  return request;
+}
+
 async function forwardCompletedDocument(documentId, signatureDocument) {
   return requestModusign(`/documents/${documentId}/forward`, {
     method: "POST",
@@ -2291,7 +2585,7 @@ async function syncReservationStatus(reservation) {
     forwardError: reservation.forwardError,
     signedAt: reservation.signedAt,
   });
-  const document = await requestModusign(`/documents/${reservation.documentId}`);
+  const document = await getModusignDocument(reservation.documentId);
   reservation.signatureStatus = document.status;
 
   if (document.status === "COMPLETED") {
@@ -2332,7 +2626,7 @@ async function createModusignDocument(booking) {
   const { templateId, template } = await getContractTemplateForBooking(booking);
   const role = findModusignSignerRole(template, { useConfiguredRole: false });
 
-  return requestModusign("/documents/request-with-template", {
+  const document = await requestModusign("/documents/request-with-template", {
     method: "POST",
     headers: { "Content-Type": "application/json; charset=utf-8" },
     body: JSON.stringify({
@@ -2343,6 +2637,7 @@ async function createModusignDocument(booking) {
       },
     }),
   });
+  return rememberModusignDocument(document);
 }
 
 async function getContractTemplateForBooking(booking) {
@@ -2351,6 +2646,10 @@ async function getContractTemplateForBooking(booking) {
     throw new Error("예약 상품을 찾지 못했습니다. 상품을 다시 선택해 주세요.");
   }
 
+  return getContractTemplateForProduct(product);
+}
+
+async function getContractTemplateForProduct(product) {
   const templateKeys = Array.isArray(product.contractTemplateKeys)
     ? product.contractTemplateKeys
     : [];
@@ -2368,35 +2667,56 @@ async function getContractTemplateForBooking(booking) {
   }
 
   if (templateIds.length === 1) {
-    const template = await requestModusign(`/templates/${templateIds[0]}`);
+    const template = await getModusignTemplate(templateIds[0]);
     return { templateId: templateIds[0], template };
   }
 
-  const mergedTemplate = await requestModusign("/templates/merge", {
-    method: "POST",
-    headers: { "Content-Type": "application/json; charset=utf-8" },
-    body: JSON.stringify({
-      sources: templateIds.map((templateId) => ({
-        type: "TEMPLATE",
-        templateId,
-      })),
-    }),
-  });
-  const templateId = getTemplateId(mergedTemplate);
-  if (!templateId) {
-    throw new Error("병합된 계약서의 템플릿 ID를 받지 못했습니다.");
-  }
+  const mergedTemplateKey = templateIds.join("|");
+  const cachedMergedTemplate = modusignMergedTemplateCache.get(mergedTemplateKey);
+  if (cachedMergedTemplate) return cachedMergedTemplate;
 
-  const template = hasSignerRole(mergedTemplate)
-    ? mergedTemplate
-    : await requestModusign(`/templates/${templateId}`);
-  return { templateId, template };
+  const pendingMergedTemplate =
+    modusignMergedTemplateRequests.get(mergedTemplateKey);
+  if (pendingMergedTemplate) return pendingMergedTemplate;
+
+  const mergedTemplateRequest = (async () => {
+    const mergedTemplate = await requestModusign("/templates/merge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      body: JSON.stringify({
+        sources: templateIds.map((templateId) => ({
+          type: "TEMPLATE",
+          templateId,
+        })),
+      }),
+    });
+    const templateId = getTemplateId(mergedTemplate);
+    if (!templateId) {
+      throw new Error("병합된 계약서의 템플릿 ID를 받지 못했습니다.");
+    }
+
+    const template = hasSignerRole(mergedTemplate)
+      ? mergedTemplate
+      : await getModusignTemplate(templateId);
+    const result = { templateId, template };
+    modusignMergedTemplateCache.set(mergedTemplateKey, result);
+    return result;
+  })().finally(() => {
+    modusignMergedTemplateRequests.delete(mergedTemplateKey);
+  });
+
+  modusignMergedTemplateRequests.set(
+    mergedTemplateKey,
+    mergedTemplateRequest,
+  );
+  return mergedTemplateRequest;
 }
 
 function findProductForBooking(booking) {
+  const allProducts = getAllProducts();
   return (
-    products.find((product) => product.id === booking.productId) ??
-    products.find((product) => product.name === booking.activity)
+    allProducts.find((product) => product.id === booking.productId) ??
+    allProducts.find((product) => product.name === booking.activity)
   );
 }
 
@@ -2416,40 +2736,78 @@ function hasSignerRole(template) {
 }
 
 async function deliverSellerContract(contract, post) {
-  const templateId = process.env.MODUSIGN_TEMPLATE_ID?.trim();
-  if (!templateId) {
-    throw new Error(".env에 모두싸인 템플릿 ID를 입력해 주세요.");
-  }
-
-  const template = await requestModusign(`/templates/${templateId}`);
-  const role = findModusignSignerRole(template);
-  const document = await requestModusign("/documents/request-with-template", {
-    method: "POST",
-    headers: { "Content-Type": "application/json; charset=utf-8" },
-    body: JSON.stringify({
-      templateId,
-      document: {
-        title: `${contract.reservationDate}_${post.title}_${contract.customerName}`,
-        participantMappings: [
-          {
-            role,
-            name: contract.customerName,
-            signingMethod: {
-              type: "EMAIL",
-              value: contract.customerEmail,
+  const { templateId, template } = await getContractTemplateForProduct(
+    sellerPostAsProduct(post),
+  );
+  const role = findModusignSignerRole(template, { useConfiguredRole: false });
+  const document = rememberModusignDocument(
+    await requestModusign("/documents/request-with-template", {
+      method: "POST",
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      body: JSON.stringify({
+        templateId,
+        document: {
+          title: `${contract.reservationDate}_${post.title}_${contract.customerName}`,
+          participantMappings: [
+            {
+              role,
+              name: contract.customerName,
+              signingMethod: {
+                type: "SECURE_LINK",
+                value: contract.customerEmail,
+              },
             },
-          },
-        ],
-      },
+          ],
+          carbonCopies: [
+            {
+              contact: contract.customerEmail,
+              locale: "ko",
+            },
+          ],
+        },
+      }),
     }),
-  });
+  );
 
   contract.documentId = document.id || "";
+  contract.deliveryMode = "WEB_AND_EMAIL";
   contract.status = document.status || "SENT";
   contract.error = "";
   contract.updatedAt = new Date().toISOString();
   await saveSellerContracts();
   return document;
+}
+
+async function prepareSellerContractForUnifiedResend(contract) {
+  if (!contract.documentId) return;
+
+  const previousDocumentId = contract.documentId;
+  const previousDocument = await getModusignDocument(previousDocumentId);
+  if (previousDocument.status === "COMPLETED") {
+    throw new Error("이미 서명이 완료된 계약서는 다시 발송할 수 없습니다.");
+  }
+
+  if (!['ABORTED', 'PROCESSING_FAILED'].includes(previousDocument.status)) {
+    await requestModusign(`/documents/${previousDocumentId}/cancel`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      body: JSON.stringify({
+        message: "웹 알림과 이메일을 함께 지원하는 새 계약서로 다시 발송합니다.",
+        accessibleByParticipant: false,
+      }),
+    });
+    forgetModusignDocument(previousDocumentId);
+  }
+
+  contract.replacedDocumentIds = [
+    ...(Array.isArray(contract.replacedDocumentIds)
+      ? contract.replacedDocumentIds
+      : []),
+    previousDocumentId,
+  ];
+  contract.documentId = "";
+  contract.deliveryMode = "";
+  await clearSellerContractFromReservation(contract);
 }
 
 async function applySellerContractToReservation(contract) {
@@ -2465,6 +2823,23 @@ async function applySellerContractToReservation(contract) {
   reservation.status = ["ABORTED", "PROCESSING_FAILED"].includes(contract.status)
     ? contract.status
     : "SIGNING";
+  reservation.updatedAt = new Date().toISOString();
+  await saveReservations();
+}
+
+async function clearSellerContractFromReservation(contract) {
+  if (!contract.reservationId) return;
+
+  const reservation = reservations.find(
+    (item) => item.id === contract.reservationId,
+  );
+  if (!reservation) return;
+
+  reservation.documentId = "";
+  reservation.signatureStatus = "";
+  reservation.status = "SELLER_REVIEW";
+  reservation.forwarded = false;
+  reservation.forwardError = "";
   reservation.updatedAt = new Date().toISOString();
   await saveReservations();
 }
@@ -2517,13 +2892,17 @@ function findModusignSignerRole(template, { useConfiguredRole = true } = {}) {
 }
 
 async function waitForModusignDocument(documentId) {
-  for (let attempt = 0; attempt < 15; attempt += 1) {
-    const document = await requestModusign(`/documents/${documentId}`);
-    if (document.status === "ON_GOING") return document;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+    const document = await getModusignDocument(documentId, {
+      force: attempt > 0,
+    });
+    if (["ON_GOING", "COMPLETED"].includes(document.status)) return document;
     if (["ABORTED", "PROCESSING_FAILED"].includes(document.status)) {
       throw new Error(`계약서를 준비하지 못했습니다. 현재 상태: ${document.status}`);
     }
-    await new Promise((resolve) => setTimeout(resolve, 800));
   }
   throw new Error("계약서 준비 시간이 초과됐습니다. 잠시 후 다시 시도해 주세요.");
 }

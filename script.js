@@ -174,6 +174,7 @@ let pendingExperienceId = null;
 let pendingBooking = null;
 let myReservations = [];
 let mypageView = "reservations";
+let reservationsLoading = false;
 let expandedReservationId = null;
 let reservationToCancel = null;
 let activeReservationId = null;
@@ -1130,29 +1131,6 @@ function updateCategoryCounts() {
   });
 }
 
-function formatBookingDateInput(isoDate) {
-  const match = String(isoDate ?? "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  return match ? `${match[2]} / ${match[3]} / ${match[1]}` : "";
-}
-
-function parseBookingDateInput(value) {
-  const match = String(value ?? "").trim().match(/^(\d{2})\s*\/\s*(\d{2})\s*\/\s*(\d{4})$/);
-  if (!match) return null;
-
-  const [, month, day, year] = match;
-  const date = new Date(`${year}-${month}-${day}T00:00:00`);
-  if (
-    Number.isNaN(date.getTime()) ||
-    date.getFullYear() !== Number(year) ||
-    date.getMonth() + 1 !== Number(month) ||
-    date.getDate() !== Number(day)
-  ) {
-    return null;
-  }
-
-  return `${year}-${month}-${day}`;
-}
-
 function setProductTranslationStatus(state) {
   if (!productTranslationStatus || !productTranslationStatusMessage) return;
 
@@ -1484,8 +1462,8 @@ function reservationSignatureDetails(reservation) {
       ),
       className: "pending",
       description: localizeText(
-        "판매자가 예약을 확인한 뒤 로그인 이메일로 전자서명 계약서를 보내드립니다.",
-        "The seller will review the reservation and email the e-signature contract to your account address.",
+        "판매자가 예약을 확인하면 사이트 알림과 로그인 이메일로 전자서명 계약서를 보내드립니다.",
+        "After seller review, the e-signature contract will arrive in site notifications and your account email.",
       ),
     };
   }
@@ -1511,6 +1489,25 @@ function reservationSignatureDetails(reservation) {
     className: "pending",
     description: localizeText("아직 완료된 전자서명이 없습니다. 전자서명 기능이 준비되면 이곳에 저장됩니다.", "There is no completed e-signature yet. It will appear here once available."),
   };
+}
+
+function canBuyerCancelReservation(reservation) {
+  return [
+    "SELLER_REVIEW",
+    "CONTRACT_PENDING",
+    "SIGNING",
+    "COMPLETED",
+    "ABORTED",
+    "PROCESSING_FAILED",
+  ].includes(reservation.status);
+}
+
+function requiresSellerCancellationReview(reservation) {
+  return (
+    ["SIGNING", "COMPLETED"].includes(reservation.status) ||
+    (reservation.status === "CONTRACT_PENDING" &&
+      Boolean(reservation.signatureStatus))
+  );
 }
 
 function formatKoreanDate(value) {
@@ -1613,13 +1610,10 @@ function renderMyReservations() {
   }
 
   updateMyPageView();
-  const visibleReservations = myReservations.filter(
-    (reservation) => reservation.status !== "CANCELLED",
-  );
+  const visibleReservations = myReservations;
   mypageReservationCount.textContent = formatReservationCount(
     visibleReservations.length,
   );
-
   if (visibleReservations.length === 0) {
     mypageReservationList.innerHTML = `
       <div class="mypage-empty">
@@ -1636,14 +1630,12 @@ function renderMyReservations() {
       const displayReservation = getReservationDisplay(reservation);
       const createdDate = formatKoreanDate(reservation.createdAt);
       const isExpanded = expandedReservationId === reservation.id;
-      const canCancel = ["CONTRACT_PENDING", "COMPLETED"].includes(
-        reservation.status,
-      );
+      const canCancel = canBuyerCancelReservation(reservation);
       const canAcknowledgeCancellation =
-        reservation.status === "SELLER_CANCELLED" &&
+        ["CANCELLED", "SELLER_CANCELLED"].includes(reservation.status) &&
         reservation.cancellationNoticePending;
       const cancelLabel =
-        reservation.status === "COMPLETED"
+        requiresSellerCancellationReview(reservation)
           ? localizeText("예약 취소 요청", "Request cancellation")
           : localizeText("예약 취소", "Cancel reservation");
 
@@ -1711,7 +1703,7 @@ function renderMyReservations() {
 
 function getPendingContractReservations() {
   return myReservations.filter(
-      (reservation) =>
+    (reservation) =>
       ["CONTRACT_PENDING", "SIGNING", "PROCESSING_FAILED"].includes(
         reservation.status,
       ) ||
@@ -1837,7 +1829,7 @@ function openReservationDetail(reservation) {
       </button>
     `;
   const cancelAction =
-    ["CONTRACT_PENDING", "COMPLETED"].includes(reservation.status)
+    canBuyerCancelReservation(reservation)
       ? `
         <button
           class="reservation-cancel-button"
@@ -1845,13 +1837,13 @@ function openReservationDetail(reservation) {
           data-cancel-reservation="${escapeHtml(reservation.id)}"
         >
           ${
-            reservation.status === "COMPLETED"
+            requiresSellerCancellationReview(reservation)
               ? localizeText("예약 취소 요청", "Request cancellation")
               : localizeText("예약 취소", "Cancel reservation")
           } <span>×</span>
         </button>
       `
-      : reservation.status === "SELLER_CANCELLED" &&
+      : ["CANCELLED", "SELLER_CANCELLED"].includes(reservation.status) &&
           reservation.cancellationNoticePending
         ? `
           <button
@@ -1895,13 +1887,30 @@ function openReservationDetail(reservation) {
   document.body.classList.add("dialog-open");
 }
 
-async function loadMyReservations() {
-  if (mypageView === "reservations") {
+async function loadMyReservations({ silent = false } = {}) {
+  if (reservationsLoading) return;
+  reservationsLoading = true;
+
+  if (!silent && mypageView === "reservations") {
     mypageReservationList.innerHTML =
       `<p class="mypage-loading">${localizeText("예약과 전자서명 상태를 확인하고 있어요.", "Checking reservation and e-signature status…")}</p>`;
   }
 
   try {
+    const previousContractIds = new Set(
+      getPendingContractReservations()
+        .filter((reservation) => reservation.status !== "SELLER_CANCELLED")
+        .map((reservation) => reservation.id),
+    );
+    const previousSellerCancellationIds = new Set(
+      myReservations
+        .filter(
+          (reservation) =>
+            reservation.status === "SELLER_CANCELLED" &&
+            reservation.sellerCancellationNoticePending,
+        )
+        .map((reservation) => reservation.id),
+    );
     const response = await fetch("/api/reservations");
     const result = await response.json();
     if (response.status === 401) {
@@ -1914,8 +1923,37 @@ async function loadMyReservations() {
     myReservations = result.reservations;
     renderMyPageContent();
     renderContractNotifications();
+
+    if (silent) {
+      const pendingNotifications = getPendingContractReservations();
+      const newContractCount = pendingNotifications.filter(
+        (reservation) =>
+          reservation.status !== "SELLER_CANCELLED" &&
+          !previousContractIds.has(reservation.id),
+      ).length;
+      const newSellerCancellationCount = pendingNotifications.filter(
+        (reservation) =>
+          reservation.status === "SELLER_CANCELLED" &&
+          !previousSellerCancellationIds.has(reservation.id),
+      ).length;
+      if (newSellerCancellationCount > 0) {
+        showToast(
+          localizeText(
+            `판매자가 예약 ${newSellerCancellationCount}건을 취소했습니다. 알림에서 확인해 주세요.`,
+            `The seller cancelled ${newSellerCancellationCount} reservation${newSellerCancellationCount === 1 ? "" : "s"}. Check your notifications.`,
+          ),
+        );
+      } else if (newContractCount > 0) {
+        showToast(
+          localizeText(
+            `판매자가 보낸 새 계약서 ${newContractCount}건이 도착했습니다.`,
+            `${newContractCount} new contract${newContractCount === 1 ? "" : "s"} arrived from the seller.`,
+          ),
+        );
+      }
+    }
   } catch (error) {
-    if (mypageView === "reservations") {
+    if (!silent && mypageView === "reservations") {
       mypageReservationList.innerHTML = `
         <div class="mypage-empty">
           <strong>${localizeText("예약 내역을 불러오지 못했습니다.", "Unable to load reservations.")}</strong>
@@ -1923,16 +1961,19 @@ async function loadMyReservations() {
         </div>
       `;
     }
+  } finally {
+    reservationsLoading = false;
   }
 }
 
 function openReservationCancelDialog(reservation) {
-  if (!["CONTRACT_PENDING", "COMPLETED"].includes(reservation.status)) {
+  if (!canBuyerCancelReservation(reservation)) {
     showToast("현재 상태의 예약은 취소할 수 없습니다.");
     return;
   }
 
-  const isCancellationRequest = reservation.status === "COMPLETED";
+  const isCancellationRequest =
+    requiresSellerCancellationReview(reservation);
   reservationToCancel = reservation;
   reservationCancelTitle.textContent = isCancellationRequest
     ? "예약 취소를 요청할까요?"
@@ -1971,11 +2012,9 @@ async function cancelReservation() {
 
     const cancellationRequested =
       result.reservation.status === "CANCELLATION_REQUESTED";
-    myReservations = cancellationRequested
-      ? myReservations.map((item) =>
-          item.id === reservation.id ? result.reservation : item,
-        )
-      : myReservations.filter((item) => item.id !== reservation.id);
+    myReservations = myReservations.map((item) =>
+      item.id === reservation.id ? result.reservation : item,
+    );
     if (pendingBooking?.id === reservation.id) pendingBooking = null;
     if (expandedReservationId === reservation.id) expandedReservationId = null;
 
@@ -1988,7 +2027,9 @@ async function cancelReservation() {
       openMyPage();
     }
     showToast(
-      cancellationRequested ? "취소 요청이 접수되었습니다." : "예약을 취소했습니다.",
+      cancellationRequested
+        ? "취소 요청이 접수되었습니다."
+        : "예약이 취소되었습니다. 확인을 누르면 목록에서 사라집니다.",
     );
   } catch (error) {
     showToast(error.message || "예약을 취소하지 못했습니다.");
@@ -2105,7 +2146,8 @@ function openBooking(experienceId) {
     selectedExperience.pricePerPerson,
   );
 
-  bookingDate.value = formatBookingDateInput(searchDate.value);
+  bookingDate.value =
+    searchDate.value && searchDate.value >= localToday ? searchDate.value : "";
   bookingName.value = currentUser.userId;
   bookingEmail.value = currentUser.email;
   bookingTime.innerHTML = selectedExperience.timeSlots
@@ -3003,15 +3045,6 @@ mypageReservationList.addEventListener("click", (event) => {
     return;
   }
 
-  const cancelButton = event.target.closest("[data-cancel-reservation]");
-  if (cancelButton) {
-    const reservation = myReservations.find(
-      (item) => item.id === cancelButton.dataset.cancelReservation,
-    );
-    if (reservation) openReservationCancelDialog(reservation);
-    return;
-  }
-
   const acknowledgeButton = event.target.closest(
     "[data-acknowledge-cancellation]",
   );
@@ -3019,7 +3052,16 @@ mypageReservationList.addEventListener("click", (event) => {
     const reservation = myReservations.find(
       (item) => item.id === acknowledgeButton.dataset.acknowledgeCancellation,
     );
-    if (reservation) void acknowledgeCancelledReservation(reservation);
+    if (reservation) acknowledgeCancelledReservation(reservation);
+    return;
+  }
+
+  const cancelButton = event.target.closest("[data-cancel-reservation]");
+  if (cancelButton) {
+    const reservation = myReservations.find(
+      (item) => item.id === cancelButton.dataset.cancelReservation,
+    );
+    if (reservation) openReservationCancelDialog(reservation);
     return;
   }
 
@@ -3050,15 +3092,6 @@ document.querySelector("#reservation-detail-close").addEventListener("click", ()
 });
 
 reservationDetailContent.addEventListener("click", (event) => {
-  const cancelButton = event.target.closest("[data-cancel-reservation]");
-  if (cancelButton) {
-    const reservation = myReservations.find(
-      (item) => item.id === cancelButton.dataset.cancelReservation,
-    );
-    if (reservation) openReservationCancelDialog(reservation);
-    return;
-  }
-
   const acknowledgeButton = event.target.closest(
     "[data-acknowledge-cancellation]",
   );
@@ -3066,7 +3099,16 @@ reservationDetailContent.addEventListener("click", (event) => {
     const reservation = myReservations.find(
       (item) => item.id === acknowledgeButton.dataset.acknowledgeCancellation,
     );
-    if (reservation) void acknowledgeCancelledReservation(reservation);
+    if (reservation) acknowledgeCancelledReservation(reservation);
+    return;
+  }
+
+  const cancelButton = event.target.closest("[data-cancel-reservation]");
+  if (cancelButton) {
+    const reservation = myReservations.find(
+      (item) => item.id === cancelButton.dataset.cancelReservation,
+    );
+    if (reservation) openReservationCancelDialog(reservation);
     return;
   }
 
@@ -3225,9 +3267,14 @@ document.querySelector("#booking-form").addEventListener("submit", async (event)
     return;
   }
 
-  const reservationDate = parseBookingDateInput(bookingDate.value);
+  const reservationDate = bookingDate.value;
   if (!reservationDate) {
-    bookingDate.setCustomValidity("Use MM / DD / YYYY.");
+    bookingDate.setCustomValidity(
+      localizeText(
+        "달력에서 이용 날짜를 선택해 주세요.",
+        "Choose a date from the calendar.",
+      ),
+    );
     bookingDate.reportValidity();
     return;
   }
@@ -3676,6 +3723,12 @@ window.addEventListener("pagehide", () => {
   stopDetailTermsReading();
 });
 
+window.setInterval(() => {
+  if (currentUser && document.visibilityState === "visible") {
+    loadMyReservations({ silent: true });
+  }
+}, 8000);
+
 bookingDate.addEventListener("input", () => {
   bookingDate.setCustomValidity("");
 });
@@ -3688,6 +3741,7 @@ const localToday = new Intl.DateTimeFormat("en-CA", {
 }).format(new Date());
 
 searchDate.min = localToday;
+bookingDate.min = localToday;
 
 async function initialize() {
   updateDetailFontScale();

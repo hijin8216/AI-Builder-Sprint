@@ -1126,6 +1126,7 @@ textarea:focus {
 .seller-post-card-link {
   display: block;
   color: inherit;
+  cursor: pointer;
   text-decoration: none;
   transition:
     border-color 160ms ease,
@@ -1324,7 +1325,16 @@ textarea:focus {
 .reservation-actions {
   display: flex;
   margin-top: 14px;
+  align-items: stretch;
+  flex-direction: column;
   justify-content: flex-end;
+}
+
+.template-delivery-note {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.55;
 }
 
 .send-contract-button {
@@ -1340,6 +1350,17 @@ textarea:focus {
   border-radius: 7px;
   font-size: 9px;
   font-weight: 900;
+}
+
+.send-contract-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.seller-post-card-link:focus-visible {
+  border-color: #52aebe;
+  box-shadow: 0 0 0 3px rgba(82, 174, 190, 0.2);
+  outline: 0;
 }
 
 .seller-cancel-reservation-button,
@@ -1426,6 +1447,15 @@ textarea:focus {
   border-radius: 6px;
 }
 
+.legacy-contract-copy {
+  margin-top: 10px !important;
+  padding: 9px;
+  color: #7a5200 !important;
+  background: #fff7df;
+  border-radius: 6px;
+  line-height: 1.55;
+}
+
 .contract-actions {
   display: flex;
   gap: 7px;
@@ -1440,6 +1470,18 @@ textarea:focus {
   border-radius: 6px;
   font-size: 8px;
   font-weight: 900;
+}
+
+.contract-actions button.is-primary {
+  color: white;
+  background: var(--ocean);
+  border-color: var(--ocean);
+}
+
+.contract-actions button.is-archive {
+  color: #526d79;
+  background: #f4f7f8;
+  border-color: #cbd7db;
 }
 
 .seller-toast {
@@ -1507,6 +1549,15 @@ textarea:focus {
     min-height: 32px;
     padding: 0 8px;
     font-size: 9px;
+  }
+
+  .seller-reservation-alert {
+    padding: 15px;
+    grid-template-columns: auto 1fr;
+  }
+
+  .seller-reservation-alert > span:last-child {
+    grid-column: 2;
   }
 
   .seller-brand small {
