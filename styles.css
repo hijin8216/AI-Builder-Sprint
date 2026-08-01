@@ -3716,20 +3716,35 @@ html[lang="ko"] .product-translation-status {
 }
 
 .detail-contract-prose {
+  display: grid;
   margin: 22px 0 0;
-  padding-left: 22px;
+  padding-left: 0;
+  gap: 16px;
   color: #60737d;
+  list-style: none;
 }
 
 .detail-contract-prose li {
-  margin-bottom: 12px;
-  padding-left: 4px;
+  display: grid;
+  padding: 0 0 16px;
+  gap: 6px;
+  border-bottom: 1px solid #dce7ea;
   font-size: 10px;
   line-height: 1.75;
 }
 
-.detail-contract-prose strong {
+.detail-contract-prose li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.detail-term-title {
   color: #355361;
+  font-weight: 900;
+}
+
+.detail-term-description {
+  display: block;
 }
 
 .product-detail-booking {

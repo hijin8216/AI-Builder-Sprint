@@ -1140,12 +1140,47 @@ textarea:focus {
 }
 
 .post-edit-hint {
-  display: block;
-  margin-top: 14px;
+  display: inline-flex;
+  min-height: 34px;
+  padding: 0 10px;
+  align-items: center;
+  gap: 4px;
   color: var(--ocean);
+  border: 1px solid transparent;
+  border-radius: 7px;
   font-size: 9px;
   font-weight: 900;
-  text-align: right;
+  text-decoration: none;
+}
+
+.seller-post-actions {
+  display: flex;
+  margin-top: 14px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.seller-delete-post-button {
+  min-height: 34px;
+  padding: 0 10px;
+  color: #a13d3d;
+  background: #fff8f7;
+  border: 1px solid #edc3be;
+  border-radius: 7px;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.post-edit-hint:hover,
+.seller-delete-post-button:hover {
+  border-color: #91cbd4;
+}
+
+.seller-delete-post-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 .seller-post-image {

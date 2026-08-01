@@ -374,11 +374,7 @@ function renderPosts() {
   postList.innerHTML = sellerState.posts
     .map(
       (post) => `
-        <a
-          class="seller-post-card seller-post-card-link"
-          href="/seller/edit/${encodeURIComponent(post.id)}"
-          aria-label="${escapeHtml(post.title)} ${sellerText("productEdit")}"
-        >
+        <article class="seller-post-card">
           ${
             post.thumbnailImage
               ? `<img class="seller-post-image" src="${escapeHtml(post.thumbnailImage)}" alt="${escapeHtml(post.title)} ${sellerText("productPhoto")}" />`
@@ -398,8 +394,23 @@ function renderPosts() {
             <span>${sellerText("difficulty", escapeHtml(post.difficulty || 2))}</span>
             <span>${sellerText("maxParticipants", escapeHtml(post.maxParticipants))}</span>
           </div>
-          <span class="post-edit-hint">${sellerText("productEdit")} →</span>
-        </a>
+          <div class="seller-post-actions">
+            <a
+              class="post-edit-hint"
+              href="/seller/edit/${encodeURIComponent(post.id)}"
+              aria-label="${escapeHtml(post.title)} ${sellerText("productEdit")}"
+            >
+              ${sellerText("productEdit")} <span>→</span>
+            </a>
+            <button
+              class="seller-delete-post-button"
+              type="button"
+              data-delete-seller-post="${escapeHtml(post.id)}"
+            >
+              ${sellerText("productDelete")}
+            </button>
+          </div>
+        </article>
       `,
     )
     .join("");
@@ -784,6 +795,37 @@ postForm.addEventListener("submit", async (event) => {
   } finally {
     submitButton.disabled = false;
     submitButton.innerHTML = "상품 등록하기 <span>→</span>";
+  }
+});
+
+postList.addEventListener("click", async (event) => {
+  const deleteButton = event.target.closest("[data-delete-seller-post]");
+  if (!deleteButton) return;
+
+  const post = sellerState.posts.find(
+    (item) => item.id === deleteButton.dataset.deleteSellerPost,
+  );
+  if (!post || !window.confirm(sellerText("productDeleteConfirm", post.title))) {
+    return;
+  }
+
+  deleteButton.disabled = true;
+  deleteButton.textContent = sellerText("productDeleting");
+  try {
+    await requestJson(`/api/seller/posts/${encodeURIComponent(post.id)}`, {
+      method: "DELETE",
+    });
+    await loadOverview();
+    showToast(sellerText("productDeleted"));
+  } catch (error) {
+    if (error.status === 401) {
+      showLogin();
+      return;
+    }
+    showToast(getSellerErrorMessage(error));
+    await loadOverview();
+  } finally {
+    deleteButton.disabled = false;
   }
 });
 

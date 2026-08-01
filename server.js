@@ -481,6 +481,24 @@ app.patch("/api/seller/posts/:postId", async (request, response) => {
   }
 });
 
+app.delete("/api/seller/posts/:postId", async (request, response) => {
+  const user = requireSellerUser(request, response);
+  if (!user) return;
+
+  const postId = cleanText(request.params.postId, 100);
+  const postIndex = sellerPosts.findIndex(
+    (item) => item.id === postId && item.userId === user.id,
+  );
+  if (postIndex < 0) {
+    response.status(404).json({ message: "삭제할 판매 상품을 찾지 못했습니다." });
+    return;
+  }
+
+  const [deletedPost] = sellerPosts.splice(postIndex, 1);
+  await saveSellerPosts();
+  response.json({ post: publicSellerPost(deletedPost) });
+});
+
 app.post("/api/seller/contracts", async (request, response) => {
   const user = requireSellerUser(request, response);
   if (!user) return;

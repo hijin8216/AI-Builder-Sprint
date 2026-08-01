@@ -832,7 +832,7 @@ function applyStaticLocale() {
   setLocaleContent(".detail-ai-summary > small", "AI 요약은 이해를 돕기 위한 참고 자료입니다. 아래 원문 약관과 최종 전자계약서를 함께 확인하세요.", "The AI summary is for reference. Review the full terms and final e-contract as well.");
   setLocaleContent("#detail-terms-title", "예약 전 세부 조건", "Pre-booking terms");
   setLocaleContent("#detail-itinerary-title", "체험은 이렇게 진행돼요", "Here's how the experience works");
-  setLocaleContent(".detail-terms-intro", "환불, 예약, 추가 약관과 안전 조건을 포함한 전체 원문입니다. 각 문장을 차례대로 읽어보세요.", "These are the full terms covering refunds, reservations, additional clauses, and safety. Read each item carefully.");
+  setLocaleContent(".detail-terms-intro", "취소·환불, 지각, 일정 변경, 참여 기준과 안전 수칙 등 예약 전 확인할 핵심 조건입니다.", "Review the key booking conditions, including cancellation, late arrival, schedule changes, participation requirements, and safety rules.");
   document.querySelector(".detail-terms-accessibility").setAttribute("aria-label", localizeText("예약 조건 접근성 도구", "Booking terms accessibility tools"));
   detailFontDecreaseButton.setAttribute("aria-label", localizeText("예약 조건 글자 작게", "Decrease booking terms text"));
   detailFontIncreaseButton.setAttribute("aria-label", localizeText("예약 조건 글자 크게", "Increase booking terms text"));
@@ -2115,13 +2115,151 @@ function renderList(elementId, items, itemTemplate) {
   document.querySelector(elementId).innerHTML = items.map(itemTemplate).join("");
 }
 
+function uniqueTerms(terms) {
+  const seen = new Set();
+  return terms.filter((term) => {
+    const key = `${term.type}:${term.text}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return Boolean(term.text);
+  });
+}
+
+function listText(items, fallback) {
+  return Array.isArray(items) && items.length ? items.join(", ") : fallback;
+}
+
+function weatherDependencyText(value) {
+  const labels = {
+    low: localizeText("낮음", "low"),
+    medium: localizeText("보통", "medium"),
+    high: localizeText("높음", "high"),
+  };
+  return labels[value] || labels.medium;
+}
+
+function categoryNoticeText(experience) {
+  const category = experience.category;
+  const name = experience.name;
+
+  if (["요트", "크루즈"].includes(category)) {
+    return localizeText(
+      `${name} 승선 중에는 선장과 승무원이 허용한 구역에서만 이동할 수 있으며, 출항 후 임의 하선이나 항로 변경 요청은 접수되지 않습니다.`,
+      `During ${name}, guests may move only within areas approved by the captain and crew. After departure, personal route changes or early disembarkation requests are not accepted.`,
+    );
+  }
+  if (["서핑", "SUP", "카약", "바디보드", "웨이크보드"].includes(category)) {
+    return localizeText(
+      `${name}은 파도, 조류, 바람 방향에 따라 실제 물 위 체험 시간이 줄거나 교육 비중이 늘어날 수 있습니다.`,
+      `For ${name}, actual time on the water may be shortened or replaced with more instruction depending on waves, current, and wind direction.`,
+    );
+  }
+  if (["다이빙", "프리다이빙", "스노클링"].includes(category)) {
+    return localizeText(
+      `${name} 참여 전 호흡기, 심혈관, 귀 질환, 임신, 최근 수술 이력을 확인하며 위험 항목이 있으면 현장에서 참여가 제한될 수 있습니다.`,
+      `Before ${name}, respiratory, cardiovascular, ear-related, pregnancy, and recent surgery risks are checked. Participation may be restricted on site if any risk applies.`,
+    );
+  }
+  if (category === "낚시") {
+    return localizeText(
+      `${name}은 조황과 특정 어종 포획을 보장하지 않으며, 물고기를 잡지 못해도 정상 진행된 체험은 환불 사유가 아닙니다.`,
+      `${name} does not guarantee catch results or specific fish species. No catch is not a refund reason when the activity is normally provided.`,
+    );
+  }
+  if (["바나나보트", "제트스키"].includes(category)) {
+    return localizeText(
+      `${name}은 급가속, 회전, 물 튐이 포함되는 고속 체험이며 목, 허리, 어깨 부상 이력이 있으면 참여 전 반드시 알려야 합니다.`,
+      `${name} is a high-speed activity with acceleration, turns, and water impact. Guests with neck, back, or shoulder injury history must disclose it before joining.`,
+    );
+  }
+
+  return localizeText(
+    `${name}은 현장 안전요원의 안내에 따라 진행되며, 개인 판단으로 코스나 장비 사용 방식을 바꿀 수 없습니다.`,
+    `${name} follows on-site safety staff instructions. Guests may not change the route or equipment use on their own.`,
+  );
+}
+
 function buildVisibleContractTerms(experience, detail, contract) {
-  return [
-    ...detail.refundRules.map((text) => ({ type: localizeText("환불", "Refund"), text })),
-    ...detail.bookingConditions.map((text) => ({ type: localizeText("예약", "Booking"), text })),
-    ...contract.additionalClauses.map((text) => ({ type: localizeText("추가", "Additional"), text })),
-    ...experience.safetyNotes.map((text) => ({ type: localizeText("안전", "Safety"), text })),
-  ];
+  const refundPolicy = detail.refundRules.length
+    ? detail.refundRules.join(" / ")
+    : experience.refundPolicy;
+  const primaryBookingCondition = detail.bookingConditions[0];
+  const primaryAdditionalClause = contract.additionalClauses[0];
+  const primarySafetyNote = experience.safetyNotes[0];
+
+  return uniqueTerms([
+    {
+      type: localizeText("이용 안내", "Activity details"),
+      text: localizeText(
+        `${experience.name}은 ${experience.location}에서 진행되는 ${formatDuration(experience.durationMinutes)} 상품이며, 접수와 장비 확인, 안전교육, 이동, 정리 시간이 전체 이용 시간에 포함됩니다.`,
+        `${experience.name} is a ${formatDuration(experience.durationMinutes)} activity at ${experience.location}. Check-in, equipment checks, safety briefing, movement, and wrap-up are included in the total duration.`,
+      ),
+    },
+    {
+      type: localizeText("취소 및 환불", "Cancellation and refund"),
+      text: localizeText(
+        `${refundPolicy}. 환불 가능 여부는 예약 취소가 접수된 시각을 기준으로 판단하며, 환불은 결제 수단으로 처리됩니다.`,
+        `${refundPolicy}. Refund eligibility is based on when the cancellation request is received, and refunds are returned to the original payment method.`,
+      ),
+    },
+    {
+      type: localizeText("지각 및 노쇼", "Late arrival and no-show"),
+      text: localizeText(
+        `예약 시간 20분 전까지 ${experience.location}에 도착해야 하며, 안전교육을 놓치거나 출발 후 도착한 경우 노쇼로 처리되어 환불되지 않을 수 있습니다.`,
+        `Guests must arrive at ${experience.location} 20 minutes before the booked time. Missing the safety briefing or arriving after departure may be treated as a no-show without refund.`,
+      ),
+    },
+    {
+      type: localizeText("일정 변경", "Schedule changes"),
+      text: localizeText(
+        `운영 요일은 ${listText(experience.availableDays, "예약 가능일 확인 필요")}, 예약 가능 시간은 ${listText(experience.timeSlots, "업체 확인")}입니다. 기상 민감도는 ${weatherDependencyText(experience.weatherDependency)}이며, 업체가 안전상 필요하다고 판단하면 시간대나 코스가 변경될 수 있습니다.`,
+        `Operating days are ${listText(experience.availableDays, "available date confirmation required")} and available times are ${listText(experience.timeSlots, "operator confirmation required")}. Weather sensitivity is ${weatherDependencyText(experience.weatherDependency)}, and the operator may change the time or route for safety.`,
+      ),
+    },
+    {
+      type: localizeText("참여 기준", "Participation requirements"),
+      text: localizeText(
+        `최대 정원은 ${experience.maxParticipants}명, 최소 참여 연령은 만 ${experience.minAge}세입니다. ${primaryBookingCondition || "보호자 동의나 동반이 필요한 경우 현장에서 확인합니다."}`,
+        `Maximum capacity is ${experience.maxParticipants} guests and minimum age is ${experience.minAge}. ${primaryBookingCondition || "Guardian consent or accompaniment may be checked on site when required."}`,
+      ),
+    },
+    {
+      type: localizeText("준비물", "What to bring"),
+      text: localizeText(
+        experience.swimmingRequired
+          ? "기본 수영 능력이 필요하며, 수영복 또는 젖어도 되는 옷, 여벌 옷, 수건, 신분증을 준비해야 합니다."
+          : "수영 능력이 필수는 아니지만 젖어도 되는 옷, 여벌 옷, 수건, 신분증을 준비하는 것을 권장합니다.",
+        experience.swimmingRequired
+          ? "Basic swimming ability is required. Bring swimwear or clothes that can get wet, spare clothes, a towel, and ID."
+          : "Swimming ability is not mandatory, but guests are advised to bring clothes that can get wet, spare clothes, a towel, and ID.",
+      ),
+    },
+    {
+      type: localizeText("안전 수칙", "Safety rules"),
+      text: localizeText(
+        `${primarySafetyNote || "현장 안전요원과 강사의 지시에 따라야 합니다."} 안전장비 착용을 거부하거나 반복적으로 지시를 어기면 체험이 중단될 수 있습니다.`,
+        `${primarySafetyNote || "Guests must follow the on-site safety staff and instructor directions."} Refusing safety gear or repeatedly ignoring directions may end the activity.`,
+      ),
+    },
+    {
+      type: localizeText("현장 제한", "On-site restrictions"),
+      text: categoryNoticeText(experience),
+    },
+    {
+      type: localizeText("장비 및 파손", "Equipment and damage"),
+      text: localizeText(
+        "업체가 제공한 장비는 안내된 방식으로만 사용해야 하며, 고의 또는 중대한 부주의로 분실·파손이 발생하면 실제 수리비 또는 교체비가 청구될 수 있습니다.",
+        "Provided equipment must be used only as instructed. Loss or damage caused by intentional misuse or gross negligence may be charged at actual repair or replacement cost.",
+      ),
+    },
+    {
+      type: localizeText("포함/불포함", "Included and excluded"),
+      text: localizeText(
+        `포함 사항은 ${listText(experience.included, "상품 상세의 포함 사항")}입니다. ${primaryAdditionalClause || "명시되지 않은 개인 준비물, 교통비, 추가 촬영, 식음료, 옵션 비용은 포함되지 않을 수 있습니다."}`,
+        `Included items are ${listText(experience.included, "the inclusions shown in the product detail")}. ${primaryAdditionalClause || "Personal items, transport, extra photos, food and drinks, or optional costs not listed may not be included."}`,
+      ),
+    },
+  ]).slice(0, 10);
 }
 
 function renderContractSummary(result) {
@@ -2324,7 +2462,10 @@ function openProductDetail(experienceId, shouldOpenDialog = true) {
     "#detail-contract-terms",
     buildVisibleContractTerms(selectedExperience, detail, contract),
     (term) =>
-      `<li><strong>${escapeHtml(term.type)}.</strong> ${escapeHtml(term.text)}</li>`,
+      `<li>
+        <strong class="detail-term-title">&lt;${escapeHtml(term.type)}&gt;</strong>
+        <span class="detail-term-description">${escapeHtml(term.text)}</span>
+      </li>`,
   );
 
   const cachedSummary = state.contractSummaryCache.get(
