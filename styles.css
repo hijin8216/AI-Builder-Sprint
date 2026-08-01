@@ -121,8 +121,59 @@ body.is-scrolled .site-header {
   text-decoration: none;
 }
 
-.brand span {
+.brand > span:not(.brand-wave) {
   color: #6fd9e8;
+}
+
+.brand .brand-wave {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  color: white;
+}
+
+.brand .brand-wave span {
+  color: inherit;
+  transform: translateY(var(--wave-offset, 0));
+  animation: brand-letter-wave 2.8s ease-in-out infinite;
+  animation-delay: var(--wave-delay, 0s);
+}
+
+.brand .brand-wave span:nth-child(1) {
+  --wave-offset: 0;
+  --wave-delay: 0s;
+}
+
+.brand .brand-wave span:nth-child(2) {
+  --wave-offset: -3px;
+  --wave-delay: 0.12s;
+}
+
+.brand .brand-wave span:nth-child(3) {
+  --wave-offset: 2px;
+  --wave-delay: 0.24s;
+}
+
+.brand .brand-wave span:nth-child(4) {
+  --wave-offset: -2px;
+  --wave-delay: 0.36s;
+}
+
+@keyframes brand-letter-wave {
+  0%,
+  100% {
+    transform: translateY(var(--wave-offset, 0));
+  }
+
+  50% {
+    transform: translateY(calc(var(--wave-offset, 0) + 4px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand .brand-wave span {
+    animation: none;
+  }
 }
 
 .brand small {
