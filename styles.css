@@ -945,10 +945,16 @@ html[lang="ko"] .product-translation-status {
 }
 
 .card-image {
+  display: block;
   position: relative;
+  width: 100%;
+  padding: 0;
   height: 205px;
+  border: 0;
   overflow: hidden;
   background: #dfe9ed;
+  cursor: pointer;
+  appearance: none;
 }
 
 .card-image img {
@@ -956,6 +962,11 @@ html[lang="ko"] .product-translation-status {
   height: 100%;
   object-fit: cover;
   transition: transform 350ms ease;
+}
+
+.card-image:hover img,
+.card-image:focus-visible img {
+  transform: scale(1.035);
 }
 
 .experience-card:hover .card-image img {

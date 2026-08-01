@@ -1044,21 +1044,26 @@ function renderExperiences() {
 
       return `
         <article class="experience-card">
-          <div class="card-image">
+          <button
+            class="card-image"
+            type="button"
+            data-booking="${experience.id}"
+            aria-label="${escapeHtml(localizeText(`${displayExperience.name} 상세 보기`, `Open details for ${displayExperience.name}`))}"
+          >
             <img
               src="${getProductImage(experience)}"
               alt="${escapeHtml(getProductImageAlt(experience))}"
               loading="lazy"
             />
             <span class="card-badge">${experience.rating >= 4.9 ? "BEST" : "AVAILABLE"}</span>
-            <button
-              class="favorite-button ${state.favorites.has(experience.id) ? "is-active" : ""}"
-              type="button"
-              data-favorite="${experience.id}"
-              aria-label="${escapeHtml(localizeText(`${displayExperience.name} 찜하기`, `Save ${displayExperience.name}`))}"
-              aria-pressed="${state.favorites.has(experience.id)}"
-            >${state.favorites.has(experience.id) ? "♥" : "♡"}</button>
-          </div>
+          </button>
+          <button
+            class="favorite-button ${state.favorites.has(experience.id) ? "is-active" : ""}"
+            type="button"
+            data-favorite="${experience.id}"
+            aria-label="${escapeHtml(localizeText(`${displayExperience.name} 찜하기`, `Save ${displayExperience.name}`))}"
+            aria-pressed="${state.favorites.has(experience.id)}"
+          >${state.favorites.has(experience.id) ? "♥" : "♡"}</button>
           <button class="card-button" type="button" data-booking="${experience.id}">
             <span class="card-meta">
               <span>${escapeHtml(localizeRegion(experience.region))} · ${escapeHtml(localizeCategory(experience.category))}</span>
@@ -2780,6 +2785,7 @@ experienceGrid.addEventListener("click", (event) => {
 
     renderExperiences();
     if (mypageDialog.open && mypageView === "favorites") renderMyPageContent();
+    return;
   }
 
   if (detailButton) {
