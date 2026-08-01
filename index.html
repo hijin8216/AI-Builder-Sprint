@@ -28,13 +28,6 @@
           <small>BUSAN</small>
         </a>
 
-        <div class="language-switcher" role="group" aria-label="언어 선택">
-          <button type="button" data-locale="ko" aria-pressed="true">KR</button>
-          <button type="button" data-locale="en" aria-pressed="false">EN</button>
-          <button type="button" data-locale="ja" aria-pressed="false">JP</button>
-          <button type="button" data-locale="zh" aria-pressed="false">中</button>
-        </div>
-
         <div class="header-actions">
           <button id="login-button" class="login-button" type="button" aria-haspopup="dialog">
             로그인
@@ -400,23 +393,73 @@
         <header class="mypage-head">
           <div>
             <p class="dialog-kicker">MY WAVEON</p>
-            <h2>마이페이지</h2>
+            <h2 id="mypage-title">마이페이지</h2>
           </div>
           <button id="mypage-close" class="mypage-close" type="button" aria-label="마이페이지 닫기">×</button>
         </header>
-        <section class="mypage-account" aria-label="내 계정">
+        <section id="mypage-main-account" class="mypage-account" aria-label="내 계정">
           <div>
             <span>로그인 계정</span>
             <strong id="mypage-user-id"></strong>
             <p id="mypage-email"></p>
           </div>
-          <button id="logout-button" type="button">로그아웃</button>
+          <div class="mypage-head-actions">
+            <button id="mypage-settings-button" class="mypage-settings-button" type="button" aria-expanded="false" aria-controls="mypage-settings-panel" aria-label="계정 설정">⚙</button>
+            <button id="logout-button" type="button">로그아웃</button>
+          </div>
         </section>
-        <div class="mypage-tabs" role="tablist" aria-label="마이페이지 메뉴">
+        <section id="mypage-settings-panel" class="mypage-settings" aria-label="계정 설정" hidden>
+          <div class="mypage-settings-head">
+            <div>
+              <p class="dialog-kicker">ACCOUNT SETTINGS</p>
+              <h3>계정 설정</h3>
+            </div>
+            <button id="mypage-settings-close" class="mypage-settings-close" type="button" aria-label="마이페이지로 돌아가기">←</button>
+          </div>
+
+          <div id="mypage-settings-menu">
+            <div class="mypage-settings-group">
+              <span>언어</span>
+              <div class="mypage-language-switcher" role="group" aria-label="언어 선택">
+                <button type="button" data-locale="ko" aria-pressed="true">한국어</button>
+                <button type="button" data-locale="en" aria-pressed="false">English</button>
+                <button type="button" data-locale="ja" aria-pressed="false">日本語</button>
+                <button type="button" data-locale="zh" aria-pressed="false">中文</button>
+              </div>
+            </div>
+            <button id="mypage-open-password" class="mypage-settings-menu-button" type="button"><span><strong>비밀번호 변경</strong><small>새 비밀번호를 설정합니다.</small></span><b>›</b></button>
+            <button id="mypage-open-delete" class="mypage-settings-menu-button is-danger" type="button"><span><strong>회원 탈퇴</strong><small>계정과 관련 데이터를 삭제합니다.</small></span><b>›</b></button>
+          </div>
+
+          <form id="mypage-password-verify-form" class="mypage-settings-card" hidden>
+            <div class="mypage-settings-card-head"><div><strong>비밀번호 확인</strong><p>현재 비밀번호를 입력해 주세요.</p></div></div>
+            <div class="mypage-settings-fields is-single"><label>현재 비밀번호<input id="mypage-password-current" type="password" autocomplete="current-password" required /></label></div>
+            <div class="mypage-settings-actions"><button type="button" data-settings-back>취소</button><button id="mypage-password-verify-submit" type="submit">다음</button></div>
+          </form>
+
+          <form id="mypage-password-form" class="mypage-settings-card" hidden>
+            <div class="mypage-settings-card-head"><div><strong>새 비밀번호 설정</strong><p>영문과 숫자를 포함해 8자 이상으로 설정해 주세요.</p></div></div>
+            <div class="mypage-settings-fields is-single"><label>새 비밀번호<input id="mypage-password-new" type="password" autocomplete="new-password" minlength="8" required /></label><label>새 비밀번호 확인<input id="mypage-password-confirm" type="password" autocomplete="new-password" minlength="8" required /></label></div>
+            <div class="mypage-settings-actions"><button type="button" data-settings-back>취소</button><button id="mypage-password-submit" type="submit">비밀번호 변경</button></div>
+          </form>
+
+          <form id="mypage-delete-verify-form" class="mypage-settings-card is-danger" hidden>
+            <div class="mypage-settings-card-head"><div><strong>회원 탈퇴 확인</strong><p>계정 보호를 위해 현재 비밀번호를 입력해 주세요.</p></div></div>
+            <div class="mypage-settings-fields is-single"><label>현재 비밀번호<input id="mypage-delete-password" type="password" autocomplete="current-password" required /></label></div>
+            <div class="mypage-settings-actions"><button type="button" data-settings-back>취소</button><button id="mypage-delete-verify-submit" class="is-danger" type="submit">다음</button></div>
+          </form>
+
+          <section id="mypage-delete-confirm" class="mypage-settings-card is-danger" hidden>
+            <div class="mypage-settings-card-head"><div><strong>정말 탈퇴할까요?</strong><p>예약, 판매자 게시물, 계약 데이터가 삭제되며 복구할 수 없습니다.</p></div></div>
+            <div class="mypage-settings-actions"><button type="button" data-settings-back>취소</button><button id="mypage-delete-submit" class="is-danger" type="button">회원 탈퇴</button></div>
+          </section>
+          <p id="mypage-settings-status" class="mypage-settings-status" role="status" hidden></p>
+        </section>
+        <div id="mypage-main-tabs" class="mypage-tabs" role="tablist" aria-label="마이페이지 메뉴">
           <button class="mypage-tab is-active" type="button" role="tab" aria-selected="true" data-mypage-view="reservations">내 예약</button>
           <button class="mypage-tab" type="button" role="tab" aria-selected="false" data-mypage-view="favorites">찜 목록</button>
         </div>
-        <section class="mypage-reservations" aria-labelledby="mypage-reservations-title">
+        <section id="mypage-main-reservations" class="mypage-reservations" aria-labelledby="mypage-reservations-title">
           <div class="mypage-section-title">
             <div>
               <p id="mypage-section-kicker">RESERVATIONS</p>

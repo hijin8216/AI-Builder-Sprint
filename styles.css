@@ -1681,6 +1681,234 @@ html[lang="ko"] .product-translation-status {
   font-weight: 700;
 }
 
+.mypage-head-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.mypage-settings-button {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  padding: 0 !important;
+  place-items: center;
+  font-size: 19px !important;
+  line-height: 1;
+}
+
+.mypage-settings {
+  min-height: 460px;
+  padding: 30px 34px 38px;
+  background: white;
+}
+
+.mypage-settings-head,
+.mypage-settings-card-head {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.mypage-settings-head h3 {
+  margin: 0;
+  color: var(--navy);
+  font-size: 19px;
+}
+
+.mypage-settings-close {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  place-items: center;
+  color: var(--muted);
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  font-size: 20px;
+}
+
+.mypage-settings-group {
+  margin-top: 20px;
+}
+
+.mypage-settings-menu-button {
+  display: flex;
+  width: 100%;
+  margin-top: 18px;
+  padding: 18px;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--navy);
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mypage-settings-menu-button span {
+  display: grid;
+  gap: 5px;
+}
+
+.mypage-settings-menu-button strong {
+  font-size: 14px;
+}
+
+.mypage-settings-menu-button small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.mypage-settings-menu-button b {
+  color: var(--ocean);
+  font-size: 25px;
+  font-weight: 400;
+}
+
+.mypage-settings-menu-button.is-danger strong,
+.mypage-settings-menu-button.is-danger b {
+  color: #c43f3f;
+}
+
+.mypage-settings-group > span {
+  display: block;
+  margin-bottom: 9px;
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.mypage-language-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.mypage-language-switcher button {
+  min-width: 70px;
+  padding: 9px 12px;
+  color: var(--muted);
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mypage-language-switcher button[aria-pressed="true"] {
+  color: white;
+  background: var(--ocean);
+  border-color: var(--ocean);
+}
+
+.mypage-settings-card {
+  margin-top: 18px;
+  padding: 18px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.mypage-settings-card strong {
+  color: var(--navy);
+  font-size: 14px;
+}
+
+.mypage-settings-card p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.mypage-settings-card button {
+  padding: 9px 12px;
+  color: white;
+  background: var(--ocean);
+  border: 0;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.mypage-settings-fields {
+  display: grid;
+  gap: 11px;
+  margin-top: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.mypage-settings-fields.is-single {
+  grid-template-columns: minmax(0, 360px);
+}
+
+.mypage-settings-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+  justify-content: flex-end;
+}
+
+.mypage-settings-actions button:first-child {
+  color: var(--muted);
+  background: #eef4f6;
+}
+
+.mypage-settings-fields label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.mypage-settings-fields input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  color: var(--navy);
+  background: #fbfdfd;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  font: inherit;
+}
+
+.mypage-settings-card.is-danger {
+  border-color: #f1c3c3;
+}
+
+.mypage-settings-card button.is-danger {
+  background: #c43f3f;
+}
+
+.mypage-settings-status {
+  margin: 14px 0 0;
+  color: #14786f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.mypage-settings-status.is-error {
+  color: #c43f3f;
+}
+
+.mypage-settings-status.is-shaking {
+  animation: mypage-status-shake 360ms ease-in-out;
+}
+
+@keyframes mypage-status-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
 .mypage-tabs {
   display: grid;
   margin: 22px 34px 0;
@@ -2545,6 +2773,15 @@ html[lang="ko"] .product-translation-status {
     padding: 19px;
     align-items: flex-start;
     gap: 16px;
+  }
+
+  .mypage-settings {
+    min-height: 430px;
+    padding: 24px 20px 28px;
+  }
+
+  .mypage-settings-fields {
+    grid-template-columns: 1fr;
   }
 
   .mypage-tabs {

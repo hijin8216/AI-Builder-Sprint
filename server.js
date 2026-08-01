@@ -271,6 +271,109 @@ app.post("/api/auth/login", (request, response) => {
   }
 });
 
+app.post("/api/auth/password", async (request, response) => {
+  const user = requireAuthenticatedUser(request, response);
+  if (!user) return;
+
+  try {
+    const currentPassword =
+      typeof request.body?.currentPassword === "string"
+        ? request.body.currentPassword
+        : "";
+    const newPassword =
+      typeof request.body?.newPassword === "string" ? request.body.newPassword : "";
+
+    if (!verifyPassword(currentPassword, user.password)) {
+      response.status(401).json({ message: "현재 비밀번호가 일치하지 않습니다." });
+      return;
+    }
+    if (
+      newPassword.length < 8 ||
+      newPassword.length > 128 ||
+      !/[A-Za-z]/.test(newPassword) ||
+      !/\d/.test(newPassword)
+    ) {
+      response.status(400).json({
+        message: "새 비밀번호는 영문과 숫자를 포함해 8자 이상이어야 합니다.",
+      });
+      return;
+    }
+
+    user.password = hashPassword(newPassword);
+    await saveUsers();
+    response.json({ user: publicUser(user) });
+  } catch (error) {
+    response.status(400).json({
+      message: error.message || "비밀번호를 변경하지 못했습니다.",
+    });
+  }
+});
+
+app.post("/api/auth/password/verify", (request, response) => {
+  const user = requireAuthenticatedUser(request, response);
+  if (!user) return;
+
+  const currentPassword =
+    typeof request.body?.currentPassword === "string"
+      ? request.body.currentPassword
+      : "";
+  if (!verifyPassword(currentPassword, user.password)) {
+    response.status(401).json({ message: "현재 비밀번호가 일치하지 않습니다." });
+    return;
+  }
+  response.status(204).end();
+});
+
+app.delete("/api/auth/account", async (request, response) => {
+  const user = requireAuthenticatedUser(request, response);
+  if (!user) return;
+
+  try {
+    const currentPassword =
+      typeof request.body?.currentPassword === "string"
+        ? request.body.currentPassword
+        : "";
+    if (!verifyPassword(currentPassword, user.password)) {
+      response.status(401).json({ message: "현재 비밀번호가 일치하지 않습니다." });
+      return;
+    }
+
+    const userIndex = users.findIndex((candidate) => candidate.id === user.id);
+    if (userIndex >= 0) users.splice(userIndex, 1);
+
+    for (let index = reservations.length - 1; index >= 0; index -= 1) {
+      if (
+        reservations[index].userId === user.id ||
+        reservations[index].sellerUserId === user.id
+      ) {
+        reservations.splice(index, 1);
+      }
+    }
+    for (let index = sellerPosts.length - 1; index >= 0; index -= 1) {
+      if (sellerPosts[index].userId === user.id) sellerPosts.splice(index, 1);
+    }
+    for (let index = sellerContracts.length - 1; index >= 0; index -= 1) {
+      if (sellerContracts[index].userId === user.id) sellerContracts.splice(index, 1);
+    }
+    for (const [token, session] of activeSessions) {
+      if (session.userId === user.id) activeSessions.delete(token);
+    }
+
+    await Promise.all([
+      saveUsers(),
+      saveReservations(),
+      saveSellerPosts(),
+      saveSellerContracts(),
+    ]);
+    clearSessionCookie(response);
+    response.status(204).end();
+  } catch (error) {
+    response.status(400).json({
+      message: error.message || "회원 탈퇴를 처리하지 못했습니다.",
+    });
+  }
+});
+
 app.post("/api/seller/register", async (request, response) => {
   try {
     const registration = normalizeSellerRegistration(request.body);

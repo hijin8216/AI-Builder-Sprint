@@ -115,6 +115,10 @@ const authError = document.querySelector("#auth-error");
 const authSubmit = document.querySelector("#auth-submit");
 const authModeButtons = [...document.querySelectorAll("[data-auth-mode]")];
 const mypageDialog = document.querySelector("#mypage-dialog");
+const mypageTitle = document.querySelector("#mypage-title");
+const mypageMainAccount = document.querySelector("#mypage-main-account");
+const mypageMainTabs = document.querySelector("#mypage-main-tabs");
+const mypageMainReservations = document.querySelector("#mypage-main-reservations");
 const mypageUserId = document.querySelector("#mypage-user-id");
 const mypageEmail = document.querySelector("#mypage-email");
 const mypageReservationCount = document.querySelector("#mypage-reservation-count");
@@ -122,6 +126,26 @@ const mypageReservationList = document.querySelector("#mypage-reservation-list")
 const mypageSectionKicker = document.querySelector("#mypage-section-kicker");
 const mypageReservationsTitle = document.querySelector("#mypage-reservations-title");
 const mypageTabButtons = [...document.querySelectorAll("[data-mypage-view]")];
+const mypageSettingsButton = document.querySelector("#mypage-settings-button");
+const mypageSettingsPanel = document.querySelector("#mypage-settings-panel");
+const mypageSettingsClose = document.querySelector("#mypage-settings-close");
+const mypageSettingsMenu = document.querySelector("#mypage-settings-menu");
+const mypageOpenPassword = document.querySelector("#mypage-open-password");
+const mypageOpenDelete = document.querySelector("#mypage-open-delete");
+const mypagePasswordVerifyForm = document.querySelector("#mypage-password-verify-form");
+const mypagePasswordVerifySubmit = document.querySelector("#mypage-password-verify-submit");
+const mypagePasswordForm = document.querySelector("#mypage-password-form");
+const mypagePasswordCurrent = document.querySelector("#mypage-password-current");
+const mypagePasswordNew = document.querySelector("#mypage-password-new");
+const mypagePasswordConfirm = document.querySelector("#mypage-password-confirm");
+const mypagePasswordSubmit = document.querySelector("#mypage-password-submit");
+const mypageDeleteVerifyForm = document.querySelector("#mypage-delete-verify-form");
+const mypageDeleteVerifySubmit = document.querySelector("#mypage-delete-verify-submit");
+const mypageDeletePassword = document.querySelector("#mypage-delete-password");
+const mypageDeleteSubmit = document.querySelector("#mypage-delete-submit");
+const mypageDeleteConfirm = document.querySelector("#mypage-delete-confirm");
+const mypageSettingsBackButtons = [...document.querySelectorAll("[data-settings-back]")];
+const mypageSettingsStatus = document.querySelector("#mypage-settings-status");
 const reservationDetailDialog = document.querySelector("#reservation-detail-dialog");
 const reservationDetailContent = document.querySelector("#reservation-detail-content");
 const reservationCancelDialog = document.querySelector("#reservation-cancel-dialog");
@@ -174,6 +198,8 @@ let pendingExperienceId = null;
 let pendingBooking = null;
 let myReservations = [];
 let mypageView = "reservations";
+let mypageSettingsOpen = false;
+let verifiedMypagePassword = "";
 let reservationsLoading = false;
 let expandedReservationId = null;
 let reservationToCancel = null;
@@ -692,7 +718,7 @@ async function requestInterfaceTranslations() {
 function applyStaticLocale() {
   document.documentElement.lang = activeLocale === "zh" ? "zh-CN" : activeLocale;
   document.title = localizeText("WAVEON BUSAN | 부산 해양레저", "WAVEON BUSAN | Marine Leisure");
-  document.querySelector(".language-switcher").setAttribute(
+  document.querySelector(".mypage-language-switcher").setAttribute(
     "aria-label",
     localizeText("언어 선택", "Language selection"),
   );
@@ -1393,6 +1419,7 @@ async function logout() {
   try {
     await fetch("/api/auth/logout", { method: "POST" });
   } finally {
+    setMypageSettingsOpen(false);
     currentUser = null;
     myReservations = [];
     expandedReservationId = null;
@@ -2100,9 +2127,52 @@ async function acknowledgeCancelledReservation(reservation) {
   }
 }
 
+function resetMypageSettings() {
+  mypagePasswordVerifyForm.reset();
+  mypagePasswordForm.reset();
+  mypageDeleteVerifyForm.reset();
+  verifiedMypagePassword = "";
+  mypageSettingsStatus.hidden = true;
+  mypageSettingsStatus.textContent = "";
+  mypageSettingsStatus.classList.remove("is-error");
+}
+
+function setMypageSettingsScreen(screen = "menu") {
+  mypageSettingsMenu.hidden = screen !== "menu";
+  mypagePasswordVerifyForm.hidden = screen !== "password-verify";
+  mypagePasswordForm.hidden = screen !== "password-new";
+  mypageDeleteVerifyForm.hidden = screen !== "delete-verify";
+  mypageDeleteConfirm.hidden = screen !== "delete-confirm";
+  mypageSettingsStatus.hidden = true;
+}
+
+function setMypageSettingsOpen(isOpen) {
+  mypageSettingsOpen = isOpen;
+  mypageSettingsPanel.hidden = !isOpen;
+  mypageSettingsButton.setAttribute("aria-expanded", String(isOpen));
+  mypageMainAccount.hidden = isOpen;
+  mypageMainTabs.hidden = isOpen;
+  mypageMainReservations.hidden = isOpen;
+  mypageTitle.textContent = isOpen ? "설정" : "마이페이지";
+  if (isOpen) setMypageSettingsScreen("menu");
+  else resetMypageSettings();
+}
+
+function showMypageSettingsStatus(message, isError = false) {
+  mypageSettingsStatus.textContent = message;
+  mypageSettingsStatus.hidden = false;
+  mypageSettingsStatus.classList.toggle("is-error", isError);
+  mypageSettingsStatus.classList.remove("is-shaking");
+  if (isError) {
+    void mypageSettingsStatus.offsetWidth;
+    mypageSettingsStatus.classList.add("is-shaking");
+  }
+}
+
 function openMyPage() {
   mypageView = "reservations";
   expandedReservationId = null;
+  setMypageSettingsOpen(false);
   mypageUserId.textContent = currentUser.userId;
   mypageEmail.textContent = currentUser.email;
   renderMyPageContent();
@@ -3018,6 +3088,122 @@ authForm.addEventListener("submit", async (event) => {
 document.querySelector("#mypage-close").addEventListener("click", () => mypageDialog.close());
 document.querySelector("#logout-button").addEventListener("click", logout);
 
+mypageSettingsButton.addEventListener("click", () => {
+  setMypageSettingsOpen(true);
+});
+
+mypageSettingsClose.addEventListener("click", () => setMypageSettingsOpen(false));
+
+mypageOpenPassword.addEventListener("click", () => setMypageSettingsScreen("password-verify"));
+mypageOpenDelete.addEventListener("click", () => setMypageSettingsScreen("delete-verify"));
+mypageSettingsBackButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    verifiedMypagePassword = "";
+    setMypageSettingsScreen("menu");
+  });
+});
+
+async function verifyCurrentMypagePassword(password) {
+  const response = await fetch("/api/auth/password/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ currentPassword: password }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (response.status === 404) {
+    throw new Error("서버 업데이트가 아직 적용되지 않았어요. 서버를 재시작한 뒤 다시 시도해 주세요.");
+  }
+  if (!response.ok) throw new Error(result.message || "현재 비밀번호가 일치하지 않습니다.");
+}
+
+mypagePasswordVerifyForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  mypagePasswordVerifySubmit.disabled = true;
+  try {
+    await verifyCurrentMypagePassword(mypagePasswordCurrent.value);
+    verifiedMypagePassword = mypagePasswordCurrent.value;
+    mypagePasswordVerifyForm.reset();
+    setMypageSettingsScreen("password-new");
+  } catch (error) {
+    showMypageSettingsStatus(error.message, true);
+  } finally {
+    mypagePasswordVerifySubmit.disabled = false;
+  }
+});
+
+mypagePasswordForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (mypagePasswordNew.value !== mypagePasswordConfirm.value) {
+    showMypageSettingsStatus("새 비밀번호 확인이 일치하지 않습니다.", true);
+    return;
+  }
+
+  mypagePasswordSubmit.disabled = true;
+  try {
+    const response = await fetch("/api/auth/password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        currentPassword: verifiedMypagePassword,
+        newPassword: mypagePasswordNew.value,
+      }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.message || "비밀번호를 변경하지 못했습니다.");
+    currentUser = result.user || currentUser;
+    updateAuthInterface();
+    resetMypageSettings();
+    setMypageSettingsScreen("menu");
+    showToast("비밀번호가 변경되었습니다.");
+  } catch (error) {
+    showMypageSettingsStatus(error.message, true);
+  } finally {
+    mypagePasswordSubmit.disabled = false;
+  }
+});
+
+mypageDeleteVerifyForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  mypageDeleteVerifySubmit.disabled = true;
+  try {
+    await verifyCurrentMypagePassword(mypageDeletePassword.value);
+    verifiedMypagePassword = mypageDeletePassword.value;
+    mypageDeleteVerifyForm.reset();
+    setMypageSettingsScreen("delete-confirm");
+  } catch (error) {
+    showMypageSettingsStatus(error.message, true);
+  } finally {
+    mypageDeleteVerifySubmit.disabled = false;
+  }
+});
+
+mypageDeleteSubmit.addEventListener("click", async () => {
+  mypageDeleteSubmit.disabled = true;
+  try {
+    const response = await fetch("/api/auth/account", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentPassword: verifiedMypagePassword }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.message || "회원 탈퇴를 처리하지 못했습니다.");
+
+    currentUser = null;
+    myReservations = [];
+    pendingBooking = null;
+    notificationBadge.hidden = true;
+    contractNotification.hidden = true;
+    setMypageSettingsOpen(false);
+    mypageDialog.close();
+    updateAuthInterface();
+    showToast("회원 탈퇴가 완료되었습니다.");
+  } catch (error) {
+    showMypageSettingsStatus(error.message, true);
+  } finally {
+    mypageDeleteSubmit.disabled = false;
+  }
+});
+
 mypageTabButtons.forEach((button) => {
   button.addEventListener("click", () => {
     mypageView = button.dataset.mypageView;
@@ -3028,6 +3214,7 @@ mypageTabButtons.forEach((button) => {
 
 mypageDialog.addEventListener("close", () => {
   document.body.classList.remove("dialog-open");
+  setMypageSettingsOpen(false);
 });
 
 mypageDialog.addEventListener("click", (event) => {
