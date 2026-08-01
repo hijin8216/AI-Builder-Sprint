@@ -15,9 +15,9 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;600;700&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/seller.css?v=20260801-3" />
+    <link rel="stylesheet" href="/seller.css?v=20260801-7" />
     <script src="/seller-locale.js?v=20260801-1" defer></script>
-    <script src="/seller.js?v=20260801-4" defer></script>
+    <script src="/seller.js?v=20260801-8" defer></script>
   </head>
   <body>
     <header class="seller-header">
@@ -520,6 +520,111 @@
         </section>
       </div>
     </main>
+
+    <dialog id="contract-draft-dialog" class="contract-draft-dialog">
+      <form id="contract-draft-form" class="contract-draft-form">
+        <div class="draft-dialog-head">
+          <div>
+            <p class="eyebrow">CONTRACT DRAFT</p>
+            <h2>계약 초안 검토·수정</h2>
+            <p>템플릿 선택 후 실제 모두싸인 계약서를 예약별 초안으로 열어 수정할 수 있습니다.</p>
+          </div>
+          <button id="contract-draft-close" class="draft-close-button" type="button" aria-label="닫기">×</button>
+        </div>
+
+        <ol class="draft-progress" aria-label="계약서 처리 단계">
+          <li class="is-active" data-draft-step-indicator="select"><span>1</span><strong>템플릿 선택</strong></li>
+          <li data-draft-step-indicator="review"><span>2</span><strong>검토·수정</strong></li>
+          <li data-draft-step-indicator="send"><span>3</span><strong>서명 요청</strong></li>
+        </ol>
+
+        <div id="contract-draft-reservation" class="draft-reservation-summary"></div>
+
+        <section id="contract-draft-select-step" class="draft-template-picker" data-draft-step-panel="select" aria-labelledby="draft-template-title">
+          <div>
+            <p class="eyebrow">MODUSIGN TEMPLATE</p>
+            <h3 id="draft-template-title">모두싸인 템플릿 선택</h3>
+            <p>데이터 파일에 등록된 템플릿을 선택하면 실제 계약서 편집 화면이 열립니다. 초안 편집 화면을 열 때 모두싸인 API를 한 번 호출합니다.</p>
+          </div>
+          <div class="draft-ai-recommendation">
+            <div>
+              <strong>활동에 맞는 계약서를 모르겠다면</strong>
+              <span>AI는 등록된 템플릿만 추천하며, 필수 계약서는 해제하지 않습니다.</span>
+            </div>
+            <button id="contract-ai-recommend" type="button">AI 계약서 추천받기</button>
+          </div>
+          <div id="contract-ai-result" class="contract-ai-result" hidden>
+            <div class="contract-ai-result-head">
+              <strong>AI 추천 계약서</strong>
+              <span id="contract-ai-mode"></span>
+            </div>
+            <p id="contract-ai-message"></p>
+            <div id="contract-ai-list" class="contract-ai-list"></div>
+          </div>
+          <label>
+            <span>사용할 계약서</span>
+            <select id="contract-template-select"></select>
+          </label>
+          <button id="contract-review-next" class="draft-template-edit-button" type="button">
+            다음: 선택 내용 검토하기 <span>→</span>
+          </button>
+          <p id="contract-template-status" class="draft-template-status" aria-live="polite"></p>
+        </section>
+
+        <section id="contract-draft-review-step" class="draft-review-step" data-draft-step-panel="review" hidden>
+          <div class="draft-review-head">
+            <div>
+              <p class="eyebrow">REVIEW & EDIT</p>
+              <h3>선택한 계약서 검토·수정</h3>
+              <p>예약 정보와 선택한 계약서를 확인한 뒤 모두싸인에서 실제 문서를 수정하세요.</p>
+            </div>
+            <button id="contract-review-back" type="button">← 템플릿 다시 선택</button>
+          </div>
+          <div id="contract-review-summary" class="contract-review-summary"></div>
+          <button id="contract-template-edit" class="draft-template-edit-button" type="button">
+            모두싸인에서 실제 계약서 검토·수정 <span>↗</span>
+          </button>
+
+          <details class="draft-manual-details">
+          <summary>직접 입력하거나 자동 입력값을 수정해야 하는 경우</summary>
+          <div class="draft-manual-fields">
+            <label class="draft-field">
+              <span>계약서 제목</span>
+              <input name="title" type="text" maxlength="100" required />
+            </label>
+            <label class="draft-field">
+              <span>이용약관·계약 조건</span>
+              <textarea name="termsAndConditions" maxlength="1000" rows="5"></textarea>
+            </label>
+            <label class="draft-field">
+              <span>환불·취소 규정</span>
+              <textarea name="refundPolicy" maxlength="1000" rows="4"></textarea>
+            </label>
+            <label class="draft-field">
+              <span>안전 주의사항</span>
+              <textarea name="safetyNotes" maxlength="1000" rows="4"></textarea>
+            </label>
+            <label class="draft-field">
+              <span>추가 특약</span>
+              <textarea name="additionalClauses" maxlength="1000" rows="4" placeholder="예약별로 추가할 특약을 입력해 주세요."></textarea>
+            </label>
+            <label class="draft-field">
+              <span>구매자 전달사항</span>
+              <textarea name="sellerMessage" maxlength="1000" rows="3" placeholder="준비물이나 집결 안내 등 구매자에게 전달할 내용을 입력해 주세요."></textarea>
+            </label>
+            <p class="draft-mapping-note">
+              직접 입력한 값은 모두싸인 템플릿에 같은 이름의 요청자 입력란이 있을 때 실제 서명 문서에 자동 반영됩니다.
+            </p>
+          </div>
+          </details>
+          <p id="contract-draft-error" class="form-error" role="alert" hidden></p>
+          <div class="draft-dialog-actions">
+            <button id="contract-draft-save" class="draft-secondary-button" type="button">검토 내용 저장</button>
+            <button id="contract-draft-send" class="draft-secondary-button" type="submit">수정 없이 최종 서명 요청</button>
+          </div>
+        </section>
+      </form>
+    </dialog>
 
     <div id="seller-toast" class="seller-toast" role="status" aria-live="polite"></div>
   </body>

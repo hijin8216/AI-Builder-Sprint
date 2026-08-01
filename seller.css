@@ -1535,6 +1535,519 @@ textarea:focus {
   border-color: #cbd7db;
 }
 
+.contract-draft-dialog {
+  width: min(760px, calc(100% - 32px));
+  max-height: calc(100vh - 40px);
+  padding: 0;
+  border: 0;
+  border-radius: 18px;
+  box-shadow: 0 28px 80px rgba(4, 35, 50, 0.28);
+}
+
+.contract-draft-dialog::backdrop {
+  background: rgba(4, 31, 45, 0.62);
+  backdrop-filter: blur(4px);
+}
+
+.contract-draft-form {
+  display: grid;
+  gap: 18px;
+  padding: 30px;
+  background: #f8fbfc;
+}
+
+.draft-dialog-head {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.draft-dialog-head h2 {
+  margin: 4px 0 7px;
+  color: var(--navy);
+  font-size: clamp(24px, 4vw, 36px);
+  letter-spacing: -1.5px;
+}
+
+.draft-dialog-head > div > p:last-child {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.draft-progress {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #edf3f5;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  list-style: none;
+}
+
+.draft-progress li {
+  display: flex;
+  min-height: 52px;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  color: #78909a;
+  border-right: 1px solid var(--line);
+  font-size: 9px;
+}
+
+.draft-progress li:last-child {
+  border-right: 0;
+}
+
+.draft-progress li span {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  background: #d7e2e5;
+  border-radius: 50%;
+  font-size: 8px;
+  font-weight: 900;
+}
+
+.draft-progress li.is-active,
+.draft-progress li.is-completed {
+  color: var(--navy);
+  background: white;
+}
+
+.draft-progress li.is-active span,
+.draft-progress li.is-completed span {
+  color: white;
+  background: var(--ocean);
+}
+
+.draft-close-button {
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  color: var(--navy);
+  background: #e8f0f3;
+  border: 0;
+  border-radius: 50%;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.draft-reservation-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 16px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.draft-reservation-summary div {
+  display: grid;
+  gap: 3px;
+}
+
+.draft-reservation-summary span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.draft-reservation-summary strong {
+  overflow: hidden;
+  color: var(--navy);
+  font-size: 11px;
+  text-overflow: ellipsis;
+}
+
+.draft-template-picker {
+  display: grid;
+  gap: 14px;
+  padding: 19px;
+  background: #eaf6f8;
+  border: 1px solid #b8dce3;
+  border-radius: 13px;
+}
+
+.draft-template-picker h3 {
+  margin: 3px 0 5px;
+  color: var(--navy);
+  font-size: 17px;
+}
+
+.draft-template-picker p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.6;
+}
+
+.draft-ai-recommendation {
+  display: flex;
+  gap: 14px;
+  padding: 13px;
+  align-items: center;
+  justify-content: space-between;
+  background: white;
+  border: 1px solid #c8e1e6;
+  border-radius: 10px;
+}
+
+.draft-ai-recommendation > div {
+  display: grid;
+  gap: 3px;
+}
+
+.draft-ai-recommendation strong {
+  color: var(--navy);
+  font-size: 10px;
+}
+
+.draft-ai-recommendation span {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.draft-ai-recommendation button {
+  min-width: 132px;
+  min-height: 36px;
+  padding: 0 12px;
+  color: #285f6d;
+  background: #e5f4f6;
+  border: 1px solid #acd2da;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.draft-ai-recommendation button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.contract-ai-result {
+  display: grid;
+  gap: 11px;
+  padding: 14px;
+  background: #f9fcfd;
+  border: 1px solid #c8e1e6;
+  border-radius: 10px;
+}
+
+.contract-ai-result[hidden] {
+  display: none;
+}
+
+.contract-ai-result-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.contract-ai-result-head strong {
+  color: var(--navy);
+  font-size: 11px;
+}
+
+.contract-ai-result-head span {
+  padding: 4px 7px;
+  color: var(--ocean);
+  background: #e3f3f6;
+  border-radius: 20px;
+  font-size: 8px;
+  font-weight: 900;
+}
+
+.contract-ai-list {
+  display: grid;
+  gap: 7px;
+}
+
+.contract-ai-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  padding: 10px;
+  align-items: start;
+  background: white;
+  border: 1px solid #d8e7ea;
+  border-radius: 8px;
+}
+
+.contract-ai-item input {
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  accent-color: var(--ocean);
+}
+
+.contract-ai-item-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.contract-ai-item-copy strong {
+  color: var(--navy);
+  font-size: 9px;
+}
+
+.contract-ai-item-copy span {
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.contract-ai-priority {
+  padding: 4px 6px;
+  color: #49636e;
+  background: #eef4f5;
+  border-radius: 5px;
+  font-size: 7px;
+  font-weight: 900;
+}
+
+.contract-ai-priority.is-required {
+  color: #8c421c;
+  background: #fff0e4;
+}
+
+.draft-template-picker label {
+  display: grid;
+  gap: 7px;
+}
+
+.draft-template-picker label span {
+  color: var(--navy);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.draft-template-picker select {
+  width: 100%;
+  min-height: 45px;
+  padding: 0 13px;
+  color: var(--navy);
+  background: white;
+  border: 1px solid #a9d0d9;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.draft-template-edit-button {
+  display: flex;
+  width: 100%;
+  min-height: 46px;
+  padding: 0 15px;
+  align-items: center;
+  justify-content: space-between;
+  color: white;
+  background: var(--ocean);
+  border: 0;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.draft-template-edit-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.draft-template-status:not(:empty) {
+  padding: 10px 12px;
+  color: #315c67;
+  background: rgba(255, 255, 255, 0.72);
+  border-radius: 8px;
+}
+
+.draft-review-step {
+  display: grid;
+  gap: 16px;
+  padding: 19px;
+  background: #f6fafb;
+  border: 1px solid #c7dce1;
+  border-radius: 13px;
+}
+
+.draft-review-step[hidden] {
+  display: none;
+}
+
+.draft-review-head {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.draft-review-head h3 {
+  margin: 3px 0 5px;
+  color: var(--navy);
+  font-size: 17px;
+}
+
+.draft-review-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.6;
+}
+
+.draft-review-head button {
+  min-height: 34px;
+  padding: 0 10px;
+  color: #496873;
+  white-space: nowrap;
+  background: white;
+  border: 1px solid #c5d8dd;
+  border-radius: 7px;
+  font-size: 8px;
+  font-weight: 900;
+}
+
+.contract-review-summary {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  background: white;
+  border: 1px solid #d4e3e7;
+  border-radius: 10px;
+}
+
+.contract-review-summary > strong {
+  color: var(--navy);
+  font-size: 10px;
+}
+
+.contract-review-template-list {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.contract-review-template-list span {
+  padding: 6px 8px;
+  color: #315e69;
+  background: #eaf5f7;
+  border-radius: 6px;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.contract-review-summary p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.6;
+}
+
+.draft-manual-details {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+}
+
+.draft-manual-details summary {
+  padding: 15px 16px;
+  color: var(--navy);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.draft-manual-fields {
+  display: grid;
+  gap: 18px;
+  padding: 4px 16px 18px;
+}
+
+.draft-field {
+  display: grid;
+  gap: 7px;
+}
+
+.draft-field > span {
+  color: var(--navy);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.draft-field input,
+.draft-field textarea {
+  width: 100%;
+  padding: 13px 14px;
+  color: var(--navy);
+  background: white;
+  border: 1px solid #cedde2;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.7;
+  resize: vertical;
+}
+
+.draft-field input:focus,
+.draft-field textarea:focus {
+  border-color: var(--ocean);
+  box-shadow: 0 0 0 3px rgba(14, 134, 170, 0.12);
+  outline: 0;
+}
+
+.draft-mapping-note {
+  margin: 0;
+  padding: 13px 14px;
+  color: #66572e;
+  background: #fff8df;
+  border: 1px solid #eadba9;
+  border-radius: 9px;
+  font-size: 9px;
+  line-height: 1.65;
+}
+
+.draft-dialog-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.draft-secondary-button,
+.draft-send-button {
+  min-height: 44px;
+  padding: 0 17px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.draft-secondary-button {
+  color: var(--ocean);
+  background: white;
+  border: 1px solid #acd0d9;
+}
+
+.draft-send-button {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  color: white;
+  background: var(--ocean);
+  border: 1px solid var(--ocean);
+}
+
+.draft-secondary-button:disabled,
+.draft-send-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
 .seller-toast {
   position: fixed;
   right: 24px;
@@ -1736,6 +2249,41 @@ textarea:focus {
     align-items: flex-start;
     flex-direction: column;
     gap: 8px;
+  }
+
+  .contract-draft-form {
+    padding: 21px;
+  }
+
+  .draft-reservation-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .draft-dialog-actions {
+    flex-direction: column;
+  }
+
+  .draft-dialog-actions button {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .draft-ai-recommendation {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .draft-ai-recommendation button {
+    width: 100%;
+  }
+
+  .draft-progress li strong {
+    display: none;
+  }
+
+  .draft-review-head {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 

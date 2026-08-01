@@ -60,6 +60,18 @@ const products = productData.products;
 const productDetails = productDetailData.details;
 const productContracts = productContractData.contracts;
 const contractTemplates = contractTemplateData.templates;
+const contractTemplateLabels = {
+  reservationTerms: "예약 및 이용약관",
+  privacyConsent: "개인정보 수집·이용 동의서",
+  marineSafety: "해양레저 안전수칙 동의서",
+  refundPolicy: "취소·환불 규정 동의서",
+  equipmentLiability: "장비 파손·배상 책임 동의서",
+  photoVideoConsent: "사진·영상 활용 동의서",
+  vesselSafety: "선박 탑승 안전 동의서",
+  scubaHealth: "스쿠버 건강 상태 확인서",
+  minorGuardian: "미성년자 법정대리인 동의서",
+  weatherSchedule: "기상 악화·일정 변경 동의서",
+};
 const users = await loadUsers();
 const reservations = await loadReservations();
 const sellerPosts = await loadLocalCollection(sellerPostFilePath, "posts");
@@ -89,8 +101,10 @@ const modusignTemplateCache = new Map();
 const modusignTemplateRequests = new Map();
 const modusignMergedTemplateCache = new Map();
 const modusignMergedTemplateRequests = new Map();
+const contractRecommendationCache = new Map();
 const modusignDocumentCacheDurationMs = 15_000;
 const modusignTemplateCacheDurationMs = 60 * 60 * 1000;
+const contractRecommendationCacheDurationMs = 24 * 60 * 60 * 1000;
 let userWriteQueue = Promise.resolve();
 let reservationWriteQueue = Promise.resolve();
 let sellerPostWriteQueue = Promise.resolve();
@@ -612,6 +626,368 @@ app.delete("/api/seller/posts/:postId", async (request, response) => {
   response.json({ post: publicSellerPost(deletedPost) });
 });
 
+app.get("/api/seller/contract-templates", (request, response) => {
+  const user = requireSellerUser(request, response);
+  if (!user) return;
+
+  const postId = cleanText(request.query?.postId, 100);
+  const post = postId
+    ? sellerPosts.find((item) => item.id === postId && item.userId === user.id)
+    : null;
+  const recommendedKeys = post
+    ? getSellerContractTemplateKeys(post.category)
+    : [];
+  const templates = Object.entries(contractTemplates).map(([key, id]) => ({
+    key,
+    id,
+    title: contractTemplateLabels[key] || key,
+    recommended: recommendedKeys.includes(key),
+  }));
+
+  response.json({
+    templates,
+    defaultOption: {
+      key: "product-default",
+      title: "상품 기본 계약서 묶음",
+      description: "상품 카테고리에 연결된 계약서를 한 번에 사용합니다.",
+    },
+  });
+});
+
+app.post("/api/seller/contract-recommendations", async (request, response) => {
+  const user = requireSellerUser(request, response);
+  if (!user) return;
+
+  const postId = cleanText(request.body?.postId, 100);
+  const post = sellerPosts.find(
+    (item) => item.id === postId && item.userId === user.id,
+  );
+  if (!post) {
+    response.status(404).json({ message: "계약서를 추천할 판매 상품을 찾지 못했습니다." });
+    return;
+  }
+
+  const cacheKey = `${post.id}:${post.updatedAt || post.createdAt || ""}`;
+  const cached = contractRecommendationCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    response.json({ ...cached.result, cached: true });
+    return;
+  }
+
+  const localRecommendations = createLocalContractRecommendations(post);
+  const solarRecommendations = await requestSolarContractRecommendations(
+    post,
+    localRecommendations,
+  );
+  const recommendations = mergeContractRecommendations(
+    localRecommendations,
+    solarRecommendations,
+  );
+  const result = {
+    mode: solarRecommendations ? "solar" : "local",
+    message: solarRecommendations
+      ? "Solar가 상품의 활동 방식과 위험 요소를 분석했습니다. 필수 계약서는 규칙으로 보호됩니다."
+      : "기본 안전 규칙으로 계약서를 추천했습니다. Solar 연결 상태를 확인해 주세요.",
+    recommendations,
+    recommendedTemplateKeys: recommendations
+      .filter((item) => item.selected)
+      .map((item) => item.key),
+  };
+  contractRecommendationCache.set(cacheKey, {
+    result,
+    expiresAt: Date.now() + contractRecommendationCacheDurationMs,
+  });
+  response.json({ ...result, cached: false });
+});
+
+app.post("/api/seller/contracts/draft", async (request, response) => {
+  const user = requireSellerUser(request, response);
+  if (!user) return;
+
+  try {
+    const reservationId = cleanText(request.body?.reservationId, 100);
+    const reservation = reservations.find(
+      (item) =>
+        item.id === reservationId && sellerOwnsReservation(item, user.id),
+    );
+    if (!reservation) {
+      response.status(404).json({ message: "계약 초안을 만들 예약을 찾지 못했습니다." });
+      return;
+    }
+    if (["CANCELLED", "SELLER_CANCELLED"].includes(reservation.status)) {
+      response.status(409).json({ message: "취소된 예약에는 계약 초안을 만들 수 없습니다." });
+      return;
+    }
+
+    const existingContract = sellerContracts.find(
+      (item) =>
+        item.userId === user.id && item.reservationId === reservation.id,
+    );
+    if (existingContract) {
+      if (existingContract.status === "DRAFT") {
+        response.json({ contract: publicSellerContract(existingContract) });
+        return;
+      }
+      response.status(409).json({
+        message: "이 예약에는 이미 계약서를 발송했거나 발송을 시도했습니다.",
+        contract: publicSellerContract(existingContract),
+      });
+      return;
+    }
+
+    const post = findSellerPostForReservation(reservation, user.id);
+    if (!post) {
+      response.status(404).json({
+        message: "예약에 연결된 판매 상품을 찾지 못했습니다.",
+      });
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const contract = createSellerContractRecord({
+      user,
+      reservation,
+      post,
+      status: "DRAFT",
+      now,
+    });
+    contract.draft = createSellerContractDraft(reservation, post);
+    sellerContracts.push(contract);
+    await saveSellerContracts();
+    response.status(201).json({ contract: publicSellerContract(contract) });
+  } catch (error) {
+    response.status(400).json({
+      message: error.message || "계약 초안을 만들지 못했습니다.",
+    });
+  }
+});
+
+app.patch("/api/seller/contracts/:contractId/draft", async (request, response) => {
+  const user = requireSellerUser(request, response);
+  if (!user) return;
+
+  const contractId = cleanText(request.params.contractId, 100);
+  const contract = sellerContracts.find(
+    (item) => item.id === contractId && item.userId === user.id,
+  );
+  if (!contract) {
+    response.status(404).json({ message: "저장할 계약 초안을 찾지 못했습니다." });
+    return;
+  }
+  if (contract.status !== "DRAFT") {
+    response.status(409).json({ message: "발송을 시작한 계약서는 초안으로 수정할 수 없습니다." });
+    return;
+  }
+
+  try {
+    contract.draft = normalizeSellerContractDraft(request.body?.draft, contract.draft);
+    const templateKey = cleanText(request.body?.templateKey, 80);
+    if (templateKey && templateKey !== "product-default" && !contractTemplates[templateKey]) {
+      throw new Error("선택한 계약 템플릿을 데이터 파일에서 찾지 못했습니다.");
+    }
+    if (templateKey) contract.selectedTemplateKey = templateKey;
+    if (Array.isArray(request.body?.templateKeys)) {
+      contract.selectedTemplateKeys = normalizeSelectedTemplateKeys(
+        request.body.templateKeys,
+      );
+    }
+    contract.updatedAt = new Date().toISOString();
+    await saveSellerContracts();
+    response.json({ contract: publicSellerContract(contract) });
+  } catch (error) {
+    response.status(400).json({
+      message: error.message || "계약 초안을 저장하지 못했습니다.",
+    });
+  }
+});
+
+app.post(
+  "/api/seller/contracts/:contractId/embedded-draft",
+  async (request, response) => {
+    const user = requireSellerUser(request, response);
+    if (!user) return;
+
+    const contractId = cleanText(request.params.contractId, 100);
+    const contract = sellerContracts.find(
+      (item) => item.id === contractId && item.userId === user.id,
+    );
+    if (!contract) {
+      response.status(404).json({ message: "편집할 계약 초안을 찾지 못했습니다." });
+      return;
+    }
+    if (contract.status !== "DRAFT") {
+      response.status(409).json({ message: "발송을 시작한 계약서는 다시 편집할 수 없습니다." });
+      return;
+    }
+
+    const post = sellerPosts.find(
+      (item) => item.id === contract.postId && item.userId === user.id,
+    );
+    if (!post) {
+      response.status(404).json({ message: "계약에 연결된 상품을 찾지 못했습니다." });
+      return;
+    }
+
+    try {
+      contract.draft = normalizeSellerContractDraft(request.body?.draft, contract.draft);
+      const templateKey = cleanText(request.body?.templateKey, 80) || "product-default";
+      const templateKeys = normalizeSelectedTemplateKeys(request.body?.templateKeys);
+      const selectedTemplate = await getSellerSelectedTemplate(
+        templateKey,
+        post,
+        templateKeys,
+      );
+      const role = findModusignSignerRole(selectedTemplate.template, {
+        useConfiguredRole: false,
+      });
+      const requesterInputMappings = buildSellerRequesterInputMappings(
+        selectedTemplate.template,
+        contract,
+      );
+      const redirectUrl = `${request.protocol}://${request.get("host")}/seller?embeddedContract=${encodeURIComponent(contract.id)}`;
+      const embeddedDraft = await requestModusign(
+        "/embedded-drafts/create-with-template",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json; charset=utf-8" },
+          body: JSON.stringify({
+            redirectUrl,
+            templateId: selectedTemplate.templateId,
+            document: {
+              title: contract.draft.title,
+              ...(requesterInputMappings.length ? { requesterInputMappings } : {}),
+              participantMappings: [
+                {
+                  role,
+                  name: contract.customerName,
+                  signingMethod: {
+                    type: "SECURE_LINK",
+                    value: contract.customerEmail,
+                  },
+                },
+              ],
+              carbonCopies: [
+                { contact: contract.customerEmail, locale: "ko" },
+              ],
+            },
+          }),
+        },
+      );
+      const embeddedUrl = cleanText(embeddedDraft?.embeddedUrl, 2000);
+      if (!embeddedUrl) {
+        throw new Error("모두싸인 초안 편집 URL을 받지 못했습니다.");
+      }
+
+      contract.selectedTemplateKey = templateKey;
+      contract.selectedTemplateKeys = templateKeys;
+      contract.selectedTemplateId = selectedTemplate.templateId;
+      contract.selectedTemplateTitle = selectedTemplate.title;
+      contract.embeddedDraftId = cleanText(embeddedDraft?.id, 100);
+      contract.embeddedDraftExpiry = cleanText(embeddedDraft?.expiry, 80);
+      contract.updatedAt = new Date().toISOString();
+      await saveSellerContracts();
+      response.json({
+        contract: publicSellerContract(contract),
+        embeddedUrl,
+        expiry: contract.embeddedDraftExpiry,
+      });
+    } catch (error) {
+      response.status(502).json({
+        message: error.message || "모두싸인 계약 초안 편집 화면을 열지 못했습니다.",
+      });
+    }
+  },
+);
+
+app.post(
+  "/api/seller/contracts/:contractId/embedded-complete",
+  async (request, response) => {
+    const user = requireSellerUser(request, response);
+    if (!user) return;
+
+    const contractId = cleanText(request.params.contractId, 100);
+    const contract = sellerContracts.find(
+      (item) => item.id === contractId && item.userId === user.id,
+    );
+    if (!contract?.embeddedDraftId) {
+      response.status(404).json({ message: "연결할 모두싸인 초안을 찾지 못했습니다." });
+      return;
+    }
+
+    try {
+      const document = await getModusignDocument(contract.embeddedDraftId, {
+        force: true,
+      });
+      contract.documentId = document.id || contract.embeddedDraftId;
+      contract.deliveryMode = "WEB_AND_EMAIL";
+      contract.status = document.status || "ON_PROCESSING";
+      contract.error = "";
+      contract.updatedAt = new Date().toISOString();
+      await saveSellerContracts();
+      await applySellerContractToReservation(contract);
+      response.json({ contract: publicSellerContract(contract) });
+    } catch (error) {
+      response.status(409).json({
+        message:
+          "모두싸인 편집 화면에서 서명 요청을 완료한 뒤 다시 확인해 주세요.",
+      });
+    }
+  },
+);
+
+app.post("/api/seller/contracts/:contractId/send", async (request, response) => {
+  const user = requireSellerUser(request, response);
+  if (!user) return;
+
+  const contractId = cleanText(request.params.contractId, 100);
+  const contract = sellerContracts.find(
+    (item) => item.id === contractId && item.userId === user.id,
+  );
+  if (!contract) {
+    response.status(404).json({ message: "발송할 계약 초안을 찾지 못했습니다." });
+    return;
+  }
+  if (contract.status !== "DRAFT") {
+    response.status(409).json({ message: "이미 발송을 시작한 계약서입니다." });
+    return;
+  }
+
+  const post = sellerPosts.find(
+    (item) => item.id === contract.postId && item.userId === user.id,
+  );
+  if (!post) {
+    response.status(404).json({ message: "계약에 연결된 상품을 찾지 못했습니다." });
+    return;
+  }
+
+  try {
+    contract.draft = normalizeSellerContractDraft(request.body?.draft, contract.draft);
+    contract.selectedTemplateKey =
+      cleanText(request.body?.templateKey, 80) ||
+      contract.selectedTemplateKey ||
+      "product-default";
+    contract.selectedTemplateKeys = Array.isArray(request.body?.templateKeys)
+      ? normalizeSelectedTemplateKeys(request.body.templateKeys)
+      : contract.selectedTemplateKeys || [];
+    contract.status = "SENDING";
+    contract.error = "";
+    contract.updatedAt = new Date().toISOString();
+    await saveSellerContracts();
+    await deliverSellerContract(contract, post);
+    await applySellerContractToReservation(contract);
+    response.json({ contract: publicSellerContract(contract) });
+  } catch (error) {
+    contract.status = "SEND_FAILED";
+    contract.error = cleanText(error.message, 240);
+    contract.updatedAt = new Date().toISOString();
+    await saveSellerContracts();
+    response.status(502).json({
+      message: contract.error || "모두싸인 계약서를 발송하지 못했습니다.",
+      contract: publicSellerContract(contract),
+    });
+  }
+});
+
 app.post("/api/seller/contracts", async (request, response) => {
   const user = requireSellerUser(request, response);
   if (!user) return;
@@ -651,22 +1027,14 @@ app.post("/api/seller/contracts", async (request, response) => {
     }
 
     const now = new Date().toISOString();
-    const contract = {
-      id: randomBytes(16).toString("hex"),
-      userId: user.id,
-      reservationId: reservation.id,
-      postId: post.id,
-      postTitle: post.title,
-      customerName: reservation.name,
-      customerEmail: reservation.email,
-      reservationDate: reservation.date,
-      people: Number(reservation.people),
-      documentId: "",
+    const contract = createSellerContractRecord({
+      user,
+      reservation,
+      post,
       status: "SENDING",
-      error: "",
-      createdAt: now,
-      updatedAt: now,
-    };
+      now,
+    });
+    contract.draft = createSellerContractDraft(reservation, post);
     sellerContracts.push(contract);
     await saveSellerContracts();
 
@@ -873,6 +1241,14 @@ app.post(
       response.status(409).json({
         message: "발송 중인 계약은 발송이 끝난 뒤 목록에서 정리할 수 있습니다.",
       });
+      return;
+    }
+
+    if (contract.status === "DRAFT") {
+      const contractIndex = sellerContracts.indexOf(contract);
+      sellerContracts.splice(contractIndex, 1);
+      await saveSellerContracts();
+      response.json({ contract: publicSellerContract(contract) });
       return;
     }
 
@@ -2023,6 +2399,71 @@ function publicSellerPost(post) {
   };
 }
 
+function createSellerContractRecord({ user, reservation, post, status, now }) {
+  return {
+    id: randomBytes(16).toString("hex"),
+    userId: user.id,
+    reservationId: reservation.id,
+    postId: post.id,
+    postTitle: post.title,
+    customerName: reservation.name,
+    customerEmail: reservation.email,
+    reservationDate: reservation.date,
+    reservationTime: reservation.time || "",
+    people: Number(reservation.people),
+    documentId: "",
+    deliveryMode: "",
+    status,
+    error: "",
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function createSellerContractDraft(reservation, post) {
+  const productContent = getProductContent(post.id);
+  const productContract = productContent.contract || {};
+  const generatedAdditionalClauses = [
+    ...(Array.isArray(productContract.additionalClauses)
+      ? productContract.additionalClauses
+      : []),
+    ...(post.participantRequirements || []),
+  ].filter(Boolean);
+
+  return normalizeSellerContractDraft({
+    title: `${reservation.date}_${post.title}_${reservation.name}`,
+    termsAndConditions:
+      post.termsAndConditions ||
+      productContract.story?.join("\n") ||
+      post.description ||
+      "",
+    refundPolicy: post.refundPolicy || "",
+    safetyNotes: (post.safetyNotes || []).join("\n"),
+    additionalClauses: generatedAdditionalClauses.join("\n"),
+    sellerMessage: "",
+  });
+}
+
+function normalizeSellerContractDraft(input = {}, fallback = {}) {
+  const source = input && typeof input === "object" ? input : {};
+  const previous = fallback && typeof fallback === "object" ? fallback : {};
+  const readDraftText = (key, maxLength) =>
+    cleanText(source[key] ?? previous[key] ?? "", maxLength);
+
+  const draft = {
+    title: readDraftText("title", 100),
+    termsAndConditions: readDraftText("termsAndConditions", 1000),
+    refundPolicy: readDraftText("refundPolicy", 1000),
+    safetyNotes: readDraftText("safetyNotes", 1000),
+    additionalClauses: readDraftText("additionalClauses", 1000),
+    sellerMessage: readDraftText("sellerMessage", 1000),
+  };
+  if (!draft.title) {
+    throw new Error("계약서 제목을 입력해 주세요.");
+  }
+  return draft;
+}
+
 function publicSellerContract(contract) {
   return {
     id: contract.id,
@@ -2032,11 +2473,23 @@ function publicSellerContract(contract) {
     customerName: contract.customerName,
     customerEmail: contract.customerEmail,
     reservationDate: contract.reservationDate,
+    reservationTime: contract.reservationTime || "",
     people: contract.people,
     documentId: contract.documentId,
     deliveryMode: contract.deliveryMode || "",
+    selectedTemplateKey: contract.selectedTemplateKey || "product-default",
+    selectedTemplateKeys: Array.isArray(contract.selectedTemplateKeys)
+      ? contract.selectedTemplateKeys
+      : [],
+    selectedTemplateId: contract.selectedTemplateId || "",
+    selectedTemplateTitle: contract.selectedTemplateTitle || "상품 기본 계약서 묶음",
+    embeddedDraftId: contract.embeddedDraftId || "",
+    embeddedDraftExpiry: contract.embeddedDraftExpiry || "",
     status: contract.status,
     error: contract.error,
+    draft: contract.draft
+      ? normalizeSellerContractDraft(contract.draft, contract.draft)
+      : null,
     createdAt: contract.createdAt,
     updatedAt: contract.updatedAt,
   };
@@ -2144,6 +2597,230 @@ function getSellerContractTemplateKeys(category) {
         "refundPolicy",
         "weatherSchedule",
       ];
+}
+
+function createLocalContractRecommendations(post) {
+  const activityText = [
+    post.title,
+    post.category,
+    post.description,
+    post.termsAndConditions,
+    post.refundPolicy,
+    ...(post.included || []),
+    ...(post.safetyNotes || []),
+    ...(post.participantRequirements || []),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  const recommendations = new Map();
+  const add = (key, priority, reason, selected = true) => {
+    if (!contractTemplates[key]) return;
+    recommendations.set(key, {
+      key,
+      title: contractTemplateLabels[key] || key,
+      priority,
+      reason,
+      selected,
+      ruleRequired: priority === "required",
+    });
+  };
+
+  add("reservationTerms", "required", "모든 예약의 이용 조건과 당사자 확인에 필요합니다.");
+  add("privacyConsent", "required", "예약자 이름과 이메일 등 개인정보를 처리합니다.");
+  add("marineSafety", "required", "해양레저 활동의 기본 안전수칙 확인이 필요합니다.");
+  add("refundPolicy", "required", "취소와 환불 조건을 예약 전에 명확히 확인해야 합니다.");
+
+  const weatherPriority = post.weatherDependency === "high" ? "required" : "recommended";
+  add(
+    "weatherSchedule",
+    weatherPriority,
+    post.weatherDependency === "high"
+      ? "기상 상태가 운영 여부와 일정에 직접 영향을 주는 상품입니다."
+      : "해양 활동은 기상 상황에 따라 일정이 달라질 수 있습니다.",
+    post.weatherDependency !== "low",
+  );
+
+  const usesEquipment =
+    /(장비|보드|카약|패들|서핑|잠수|다이빙|스쿠버|제트스키|수상스키|낚시)/.test(
+      activityText,
+    ) || (post.included || []).length > 0;
+  add(
+    "equipmentLiability",
+    "recommended",
+    "대여 장비의 사용·파손·분실 책임을 확인하는 데 도움이 됩니다.",
+    usesEquipment,
+  );
+
+  const usesVessel = /(요트|보트|선박|크루즈|낚시|제트스키|바나나보트)/.test(
+    activityText,
+  );
+  add(
+    "vesselSafety",
+    usesVessel ? "required" : "optional",
+    usesVessel
+      ? "선박 또는 동력수상레저기구 탑승 안전 확인이 필요합니다."
+      : "선박을 이용하는 일정이 포함될 때 선택하세요.",
+    usesVessel,
+  );
+
+  const isScuba = /(스쿠버|다이빙|잠수|프리다이빙)/.test(activityText);
+  add(
+    "scubaHealth",
+    isScuba ? "required" : "optional",
+    isScuba
+      ? "수중 활동 전 건강 상태와 참여 제한 사항을 확인해야 합니다."
+      : "수중 잠수 활동이 포함될 때 선택하세요.",
+    isScuba,
+  );
+
+  const allowsMinors = Number(post.minAge || 0) > 0 && Number(post.minAge) < 18;
+  add(
+    "minorGuardian",
+    allowsMinors ? "required" : "optional",
+    allowsMinors
+      ? `최소 참여 연령이 ${post.minAge}세이므로 미성년자 예약 가능성이 있습니다.`
+      : "미성년자가 참여하는 예약에만 선택하세요.",
+    allowsMinors,
+  );
+
+  const includesPhotography = /(사진|영상|촬영|카메라|스냅)/.test(activityText);
+  add(
+    "photoVideoConsent",
+    "optional",
+    includesPhotography
+      ? "상품 설명에 사진 또는 영상 촬영이 포함되어 있습니다. 활용 동의가 필요할 수 있습니다."
+      : "홍보용 사진·영상을 촬영하거나 활용할 때만 선택하세요.",
+    includesPhotography,
+  );
+
+  return [...recommendations.values()];
+}
+
+async function requestSolarContractRecommendations(post, localRecommendations) {
+  const apiKey = process.env.UPSTAGE_API_KEY?.trim();
+  if (!apiKey) return null;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const apiResponse = await fetch("https://api.upstage.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "solar-pro3",
+        temperature: 0,
+        max_tokens: 1800,
+        messages: [
+          {
+            role: "system",
+            content:
+              "당신은 해양레저 전자계약 템플릿 분류 도우미입니다. 제공된 템플릿 key만 사용할 수 있습니다. 법률 자문이나 새 계약 조항을 작성하지 말고, 상품 정보에 근거해 템플릿의 필요도와 짧은 이유만 JSON으로 반환하세요. 기본 규칙에서 required인 항목은 반드시 selected=true, priority=required로 유지하세요.",
+          },
+          {
+            role: "user",
+            content: buildSolarContractRecommendationPrompt(post, localRecommendations),
+          },
+        ],
+      }),
+      signal: controller.signal,
+    });
+    if (!apiResponse.ok) {
+      throw new Error(`Solar API 응답 오류 (${apiResponse.status})`);
+    }
+    const apiResult = await apiResponse.json();
+    const content = apiResult.choices?.[0]?.message?.content;
+    if (!content) throw new Error("Solar 응답에 계약서 추천 내용이 없습니다.");
+    return parseSolarContractRecommendations(content);
+  } catch (error) {
+    console.error("Solar 계약서 추천 연결 오류:", error.message);
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function buildSolarContractRecommendationPrompt(post, localRecommendations) {
+  const product = {
+    title: post.title,
+    category: post.category,
+    description: post.description,
+    difficulty: post.difficulty,
+    thrillLevel: post.thrillLevel,
+    physicalIntensity: post.physicalIntensity,
+    swimmingRequired: post.swimmingRequired,
+    minAge: post.minAge,
+    maxParticipants: post.maxParticipants,
+    weatherDependency: post.weatherDependency,
+    included: post.included || [],
+    refundPolicy: post.refundPolicy || "",
+    termsAndConditions: post.termsAndConditions || "",
+    participantRequirements: post.participantRequirements || [],
+    safetyNotes: post.safetyNotes || [],
+  };
+  return `
+상품 정보:
+${JSON.stringify(product, null, 2)}
+
+선택 가능한 템플릿과 기본 규칙:
+${JSON.stringify(localRecommendations, null, 2)}
+
+아래 JSON 형식만 반환하세요. recommendations에는 제공된 모든 template key를 한 번씩 포함하세요.
+{
+  "recommendations": [
+    {
+      "key": "제공된 template key",
+      "priority": "required 또는 recommended 또는 optional",
+      "selected": true,
+      "reason": "상품 데이터에 근거한 쉬운 한국어 한 문장"
+    }
+  ]
+}`;
+}
+
+function parseSolarContractRecommendations(content) {
+  const parsed = parseSolarJson(content);
+  const validPriorities = new Set(["required", "recommended", "optional"]);
+  const usedKeys = new Set();
+  return (Array.isArray(parsed?.recommendations) ? parsed.recommendations : [])
+    .filter((item) => contractTemplates[item?.key] && !usedKeys.has(item.key))
+    .map((item) => {
+      usedKeys.add(item.key);
+      return {
+        key: item.key,
+        priority: validPriorities.has(item.priority)
+          ? item.priority
+          : "optional",
+        selected: item.selected === true,
+        reason: cleanText(item.reason, 180),
+      };
+    });
+}
+
+function mergeContractRecommendations(localRecommendations, solarRecommendations) {
+  const solarMap = new Map(
+    (solarRecommendations || []).map((item) => [item.key, item]),
+  );
+  const priorityOrder = { required: 0, recommended: 1, optional: 2 };
+  return localRecommendations
+    .map((local) => {
+      const solar = solarMap.get(local.key);
+      if (!solar || local.ruleRequired) return local;
+      return {
+        ...local,
+        priority: solar.priority,
+        selected: solar.selected,
+        reason: solar.reason || local.reason,
+      };
+    })
+    .sort(
+      (left, right) =>
+        priorityOrder[left.priority] - priorityOrder[right.priority] ||
+        Number(right.selected) - Number(left.selected),
+    );
 }
 
 function getAllProducts() {
@@ -2849,6 +3526,48 @@ async function getContractTemplateForProduct(product) {
   return mergedTemplateRequest;
 }
 
+function normalizeSelectedTemplateKeys(value) {
+  if (!Array.isArray(value)) return [];
+  const uniqueKeys = [...new Set(value.map((key) => cleanText(key, 80)))].filter(
+    (key) => contractTemplates[key],
+  );
+  if (uniqueKeys.length > 12) {
+    throw new Error("한 번에 선택할 수 있는 계약 템플릿은 최대 12개입니다.");
+  }
+  return uniqueKeys;
+}
+
+async function getSellerSelectedTemplate(templateKey, post, templateKeys = []) {
+  const selectedTemplateKeys = normalizeSelectedTemplateKeys(templateKeys);
+  if (selectedTemplateKeys.length) {
+    const selected = await getContractTemplateForProduct({
+      contractTemplateKeys: selectedTemplateKeys,
+    });
+    return {
+      ...selected,
+      title: `AI 추천 계약서 ${selectedTemplateKeys.length}종`,
+    };
+  }
+  if (templateKey === "product-default") {
+    const selected = await getContractTemplateForProduct(sellerPostAsProduct(post));
+    return {
+      ...selected,
+      title: "상품 기본 계약서 묶음",
+    };
+  }
+
+  const templateId = contractTemplates[templateKey];
+  if (!templateId) {
+    throw new Error("선택한 계약 템플릿을 데이터 파일에서 찾지 못했습니다.");
+  }
+  const template = await getModusignTemplate(templateId);
+  return {
+    templateId,
+    template,
+    title: contractTemplateLabels[templateKey] || templateKey,
+  };
+}
+
 function findProductForBooking(booking) {
   const allProducts = getAllProducts();
   return (
@@ -2872,11 +3591,60 @@ function hasSignerRole(template) {
   );
 }
 
+function getTemplateRequesterInputs(template) {
+  return [
+    ...(Array.isArray(template?.requesterInputs) ? template.requesterInputs : []),
+    ...(Array.isArray(template?.template?.requesterInputs)
+      ? template.template.requesterInputs
+      : []),
+  ];
+}
+
+function sellerDraftValueForDataLabel(dataLabel, contract) {
+  const label = String(dataLabel || "").replaceAll(/\s/g, "").toLowerCase();
+  const draft = contract.draft || {};
+  const additionalText = [draft.additionalClauses, draft.sellerMessage]
+    .filter(Boolean)
+    .join("\n");
+
+  if (/상품명|체험명|서비스명|활동명/.test(label)) return contract.postTitle;
+  if (/예약자|고객명|고객성명|신청자/.test(label)) return contract.customerName;
+  if (/이메일|전자우편/.test(label)) return contract.customerEmail;
+  if (/예약일|이용일|체험일|계약일/.test(label)) return contract.reservationDate;
+  if (/예약시간|이용시간|체험시간/.test(label)) return contract.reservationTime || "";
+  if (/인원|참가자수|이용자수/.test(label)) return String(contract.people);
+  if (/환불|취소규정|취소정책/.test(label)) return draft.refundPolicy;
+  if (/안전|주의사항|유의사항/.test(label)) return draft.safetyNotes;
+  if (/이용약관|계약조건|계약내용|약관/.test(label)) return draft.termsAndConditions;
+  if (/특약|추가조항|추가사항|특이사항|판매자메모|전달사항/.test(label)) {
+    return additionalText;
+  }
+  return "";
+}
+
+function buildSellerRequesterInputMappings(template, contract) {
+  const mappedLabels = new Set();
+  return getTemplateRequesterInputs(template).flatMap((input) => {
+    const dataLabel = cleanText(input?.dataLabel, 100);
+    if (!dataLabel || mappedLabels.has(dataLabel) || input?.type !== "TEXT") return [];
+    const value = cleanText(sellerDraftValueForDataLabel(dataLabel, contract), 1000);
+    if (!value) return [];
+    mappedLabels.add(dataLabel);
+    return [{ dataLabel, value }];
+  });
+}
+
 async function deliverSellerContract(contract, post) {
-  const { templateId, template } = await getContractTemplateForProduct(
-    sellerPostAsProduct(post),
+  const { templateId, template, title } = await getSellerSelectedTemplate(
+    contract.selectedTemplateKey || "product-default",
+    post,
+    contract.selectedTemplateKeys,
   );
   const role = findModusignSignerRole(template, { useConfiguredRole: false });
+  const requesterInputMappings = buildSellerRequesterInputMappings(
+    template,
+    contract,
+  );
   const document = rememberModusignDocument(
     await requestModusign("/documents/request-with-template", {
       method: "POST",
@@ -2884,7 +3652,10 @@ async function deliverSellerContract(contract, post) {
       body: JSON.stringify({
         templateId,
         document: {
-          title: `${contract.reservationDate}_${post.title}_${contract.customerName}`,
+          title:
+            contract.draft?.title ||
+            `${contract.reservationDate}_${post.title}_${contract.customerName}`,
+          ...(requesterInputMappings.length ? { requesterInputMappings } : {}),
           participantMappings: [
             {
               role,
@@ -2907,6 +3678,8 @@ async function deliverSellerContract(contract, post) {
   );
 
   contract.documentId = document.id || "";
+  contract.selectedTemplateId = templateId;
+  contract.selectedTemplateTitle = title;
   contract.deliveryMode = "WEB_AND_EMAIL";
   contract.status = document.status || "SENT";
   contract.error = "";

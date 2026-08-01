@@ -30,6 +30,28 @@ const reservationAlertTitle = document.querySelector(
   "#seller-reservation-alert-title",
 );
 const contractList = document.querySelector("#seller-contract-list");
+const contractDraftDialog = document.querySelector("#contract-draft-dialog");
+const contractDraftForm = document.querySelector("#contract-draft-form");
+const contractDraftReservation = document.querySelector("#contract-draft-reservation");
+const contractDraftError = document.querySelector("#contract-draft-error");
+const contractDraftClose = document.querySelector("#contract-draft-close");
+const contractDraftSave = document.querySelector("#contract-draft-save");
+const contractDraftSend = document.querySelector("#contract-draft-send");
+const contractTemplateSelect = document.querySelector("#contract-template-select");
+const contractTemplateEdit = document.querySelector("#contract-template-edit");
+const contractTemplateStatus = document.querySelector("#contract-template-status");
+const contractAiRecommend = document.querySelector("#contract-ai-recommend");
+const contractAiResult = document.querySelector("#contract-ai-result");
+const contractAiMode = document.querySelector("#contract-ai-mode");
+const contractAiMessage = document.querySelector("#contract-ai-message");
+const contractAiList = document.querySelector("#contract-ai-list");
+const contractReviewNext = document.querySelector("#contract-review-next");
+const contractReviewBack = document.querySelector("#contract-review-back");
+const contractReviewSummary = document.querySelector("#contract-review-summary");
+const contractDraftStepPanels = document.querySelectorAll("[data-draft-step-panel]");
+const contractDraftStepIndicators = document.querySelectorAll(
+  "[data-draft-step-indicator]",
+);
 
 const postStat = document.querySelector("#post-count");
 const contractStat = document.querySelector("#contract-count");
@@ -43,6 +65,11 @@ const sellerState = {
   contracts: [],
   modusignConfigured: false,
   overviewLoaded: false,
+  activeDraftContractId: "",
+  activeDraftReservationId: "",
+  templateOptionsByPost: new Map(),
+  templateTitleByKey: new Map(),
+  activeRecommendedTemplateKeys: [],
 };
 
 function sellerText(key, ...args) {
@@ -201,6 +228,224 @@ function showToast(message) {
   showToast.timer = window.setTimeout(() => {
     toast.classList.remove("is-visible");
   }, 3200);
+}
+
+function contractDraftPayload() {
+  const formData = new FormData(contractDraftForm);
+  return {
+    title: String(formData.get("title") || "").trim(),
+    termsAndConditions: String(formData.get("termsAndConditions") || "").trim(),
+    refundPolicy: String(formData.get("refundPolicy") || "").trim(),
+    safetyNotes: String(formData.get("safetyNotes") || "").trim(),
+    additionalClauses: String(formData.get("additionalClauses") || "").trim(),
+    sellerMessage: String(formData.get("sellerMessage") || "").trim(),
+  };
+}
+
+function setContractDraftBusy(isBusy, message = "") {
+  contractDraftSave.disabled = isBusy;
+  contractDraftSend.disabled = isBusy;
+  contractDraftClose.disabled = isBusy;
+  contractTemplateEdit.disabled = isBusy;
+  contractAiRecommend.disabled = isBusy;
+  contractReviewNext.disabled = isBusy;
+  contractReviewBack.disabled = isBusy;
+  contractDraftSend.textContent =
+    message || "수정 없이 최종 서명 요청";
+}
+
+function setContractDraftStep(step) {
+  contractDraftStepPanels.forEach((panel) => {
+    const panelStep = panel.dataset.draftStepPanel;
+    panel.hidden = step === "send" ? panelStep !== "review" : panelStep !== step;
+  });
+  const stepOrder = ["select", "review", "send"];
+  const activeIndex = stepOrder.indexOf(step);
+  contractDraftStepIndicators.forEach((indicator) => {
+    const indicatorIndex = stepOrder.indexOf(indicator.dataset.draftStepIndicator);
+    indicator.classList.toggle("is-active", indicatorIndex === activeIndex);
+    indicator.classList.toggle("is-completed", indicatorIndex < activeIndex);
+  });
+}
+
+function renderContractReviewSummary() {
+  const recommendedKeys = selectedRecommendedTemplateKeys();
+  const templateKeys = recommendedKeys.length
+    ? recommendedKeys
+    : [contractTemplateSelect.value];
+  const templateTitles = templateKeys.map((key) =>
+    key === "product-default"
+      ? contractTemplateSelect.options[contractTemplateSelect.selectedIndex]?.text ||
+        "상품 기본 계약서 묶음"
+      : sellerState.templateTitleByKey.get(key) || key,
+  );
+  contractReviewSummary.innerHTML = `
+    <strong>${recommendedKeys.length ? `AI 추천 계약서 ${recommendedKeys.length}종` : "직접 선택한 계약서"}</strong>
+    <div class="contract-review-template-list">
+      ${templateTitles.map((title) => `<span>${escapeHtml(title)}</span>`).join("")}
+    </div>
+    <p>다음 버튼을 누르면 모두싸인에 예약별 복사본을 만들고 실제 계약서 내용을 검토·수정할 수 있습니다. 수정이 필요 없다면 아래 최종 서명 요청을 사용할 수 있습니다.</p>
+  `;
+}
+
+function selectedRecommendedTemplateKeys() {
+  if (!sellerState.activeRecommendedTemplateKeys.length) return [];
+  if (contractAiResult.hidden) return sellerState.activeRecommendedTemplateKeys;
+  return [...contractAiList.querySelectorAll("[data-contract-template-key]:checked")]
+    .map((input) => input.dataset.contractTemplateKey)
+    .filter(Boolean);
+}
+
+function renderContractRecommendations(result) {
+  const priorityLabels = {
+    required: "필수",
+    recommended: "추천",
+    optional: "선택",
+  };
+  sellerState.activeRecommendedTemplateKeys = result.recommendedTemplateKeys || [];
+  contractAiMode.textContent = result.mode === "solar" ? "SOLAR AI" : "기본 안전 규칙";
+  contractAiMessage.textContent = result.message || "";
+  contractAiList.innerHTML = (result.recommendations || [])
+    .map(
+      (item) => `
+        <label class="contract-ai-item">
+          <input
+            type="checkbox"
+            data-contract-template-key="${escapeHtml(item.key)}"
+            ${item.selected ? "checked" : ""}
+            ${item.ruleRequired ? "disabled" : ""}
+          />
+          <span class="contract-ai-item-copy">
+            <strong>${escapeHtml(item.title)}</strong>
+            <span>${escapeHtml(item.reason)}</span>
+          </span>
+          <span class="contract-ai-priority ${item.priority === "required" ? "is-required" : ""}">${priorityLabels[item.priority] || "선택"}</span>
+        </label>
+      `,
+    )
+    .join("");
+  contractAiResult.hidden = false;
+  contractTemplateStatus.textContent = `AI 추천 계약서 ${sellerState.activeRecommendedTemplateKeys.length}종을 선택했습니다. 아래 항목을 확인한 뒤 초안을 열어 주세요.`;
+}
+
+async function loadContractTemplateOptions(postId, selectedKey = "product-default") {
+  let templateData = sellerState.templateOptionsByPost.get(postId);
+  if (!templateData) {
+    templateData = await requestJson(
+      `/api/seller/contract-templates?postId=${encodeURIComponent(postId)}`,
+    );
+    sellerState.templateOptionsByPost.set(postId, templateData);
+  }
+
+  const recommended = templateData.templates.filter((item) => item.recommended);
+  const others = templateData.templates.filter((item) => !item.recommended);
+  templateData.templates.forEach((item) => {
+    sellerState.templateTitleByKey.set(item.key, item.title);
+  });
+  const renderOptions = (items) =>
+    items
+      .map(
+        (item) =>
+          `<option value="${escapeHtml(item.key)}">${escapeHtml(item.title)}</option>`,
+      )
+      .join("");
+  contractTemplateSelect.innerHTML = `
+    <option value="product-default">${escapeHtml(templateData.defaultOption.title)}</option>
+    ${recommended.length ? `<optgroup label="이 상품에 추천">${renderOptions(recommended)}</optgroup>` : ""}
+    ${others.length ? `<optgroup label="전체 템플릿">${renderOptions(others)}</optgroup>` : ""}
+  `;
+  contractTemplateSelect.value =
+    [...contractTemplateSelect.options].some((option) => option.value === selectedKey)
+      ? selectedKey
+      : "product-default";
+}
+
+function fillContractDraftForm(contract, reservation) {
+  const draft = contract.draft || {};
+  for (const fieldName of [
+    "title",
+    "termsAndConditions",
+    "refundPolicy",
+    "safetyNotes",
+    "additionalClauses",
+    "sellerMessage",
+  ]) {
+    contractDraftForm.elements[fieldName].value = draft[fieldName] || "";
+  }
+
+  contractDraftReservation.innerHTML = `
+    <div><span>상품</span><strong>${escapeHtml(contract.postTitle || reservation?.activity)}</strong></div>
+    <div><span>구매자</span><strong>${escapeHtml(contract.customerName)} · ${escapeHtml(contract.customerEmail)}</strong></div>
+    <div><span>예약 일시</span><strong>${formatReservationDate(contract.reservationDate)}${contract.reservationTime ? ` · ${escapeHtml(contract.reservationTime)}` : ""}</strong></div>
+    <div><span>인원</span><strong>${escapeHtml(contract.people)}명</strong></div>
+  `;
+  sellerState.activeDraftContractId = contract.id;
+  sellerState.activeDraftReservationId = contract.reservationId;
+  sellerState.activeRecommendedTemplateKeys = Array.isArray(
+    contract.selectedTemplateKeys,
+  )
+    ? [...contract.selectedTemplateKeys]
+    : [];
+  setFormError(contractDraftError);
+  setContractDraftBusy(false);
+}
+
+async function openContractDraft(reservationId, contractId = "") {
+  try {
+    contractAiResult.hidden = true;
+    contractAiList.innerHTML = "";
+    let contract = contractId
+      ? sellerState.contracts.find((item) => item.id === contractId)
+      : null;
+    if (!contract) {
+      const result = await requestJson("/api/seller/contracts/draft", {
+        method: "POST",
+        body: JSON.stringify({ reservationId }),
+      });
+      contract = result.contract;
+      await loadOverview();
+    }
+    const reservation = sellerState.reservations.find(
+      (item) => item.id === (contract.reservationId || reservationId),
+    );
+    await loadContractTemplateOptions(
+      contract.postId,
+      contract.selectedTemplateKey || "product-default",
+    );
+    fillContractDraftForm(contract, reservation);
+    contractTemplateStatus.textContent = contract.selectedTemplateKeys?.length
+      ? `저장된 AI 추천 계약서 ${contract.selectedTemplateKeys.length}종을 사용합니다. 추천받기 버튼을 누르면 근거를 다시 확인할 수 있습니다.`
+      : contract.embeddedDraftId
+        ? `${contract.selectedTemplateTitle} 초안이 생성되어 있습니다. 다시 열면 새 편집 초안을 만듭니다.`
+        : "템플릿을 선택하거나 AI 추천을 받은 뒤 모두싸인 편집 화면을 열어 주세요.";
+    setContractDraftStep("select");
+    contractDraftDialog.showModal();
+  } catch (error) {
+    if (error.status === 401) {
+      showLogin();
+      return;
+    }
+    showToast(getSellerErrorMessage(error));
+    await loadOverview();
+  }
+}
+
+async function saveContractDraft({ silent = false } = {}) {
+  const contractId = sellerState.activeDraftContractId;
+  if (!contractId) return null;
+  const result = await requestJson(
+    `/api/seller/contracts/${encodeURIComponent(contractId)}/draft`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        draft: contractDraftPayload(),
+        templateKey: contractTemplateSelect.value,
+        templateKeys: selectedRecommendedTemplateKeys(),
+      }),
+    },
+  );
+  if (!silent) showToast("계약 초안을 저장했습니다. 아직 발송되지 않았습니다.");
+  return result.contract;
 }
 
 function setFormError(element, message = "", errorCode = "") {
@@ -480,12 +725,24 @@ function renderReservations() {
         actionItems.push(
           `<span class="reservation-contract-state ${status.className}">${escapeHtml(status.label)}</span>`,
         );
+        if (contract.status === "DRAFT") {
+          actionItems.push(`
+            <button
+              class="send-contract-button"
+              type="button"
+              data-review-contract-draft="${escapeHtml(contract.id)}"
+              data-draft-reservation="${escapeHtml(reservation.id)}"
+            >
+              초안 검토·수정 <span>→</span>
+            </button>
+          `);
+        }
       } else {
         actionItems.push(`
               <p class="template-delivery-note">
                 ${
                   sellerState.modusignConfigured
-                    ? `${escapeHtml(reservation.email)} · ${sellerText("sendContract")}`
+                    ? `${escapeHtml(reservation.email)} · 발송 전 초안을 먼저 검토합니다.`
                     : sellerText("eContractSetupRequired")
                 }
               </p>
@@ -497,7 +754,7 @@ function renderReservations() {
               >
                 ${
                   sellerState.modusignConfigured
-                    ? sellerText("sendContract")
+                    ? "계약 초안 만들기"
                     : sellerText("eContractSetupRequired")
                 }
                 <span>→</span>
@@ -581,7 +838,11 @@ function renderContracts() {
         !["COMPLETED", "SIGNED"].includes(contract.status);
       const canArchiveContract = contract.status !== "SENDING";
       const actions = [];
-      if (contract.status === "SEND_FAILED" || needsUnifiedResend) {
+      if (contract.status === "DRAFT") {
+        actions.push(
+          `<button class="seller-small-button is-primary" type="button" data-review-contract-draft="${escapeHtml(contract.id)}">초안 검토·수정</button>`,
+        );
+      } else if (contract.status === "SEND_FAILED" || needsUnifiedResend) {
         actions.push(
           `<button class="seller-small-button" type="button" data-resend-contract="${escapeHtml(contract.id)}">${sellerText("resend")}</button>`,
         );
@@ -592,7 +853,7 @@ function renderContracts() {
       }
       if (canArchiveContract) {
         actions.push(
-          `<button class="seller-small-button is-archive" type="button" data-archive-contract="${escapeHtml(contract.id)}">확인 후 목록에서 삭제</button>`,
+          `<button class="seller-small-button is-archive" type="button" data-archive-contract="${escapeHtml(contract.id)}">${contract.status === "DRAFT" ? "초안 삭제" : "확인 후 목록에서 삭제"}</button>`,
         );
       }
       const action = actions.join("");
@@ -608,6 +869,7 @@ function renderContracts() {
           <div class="contract-meta">
             <span>${sellerText("reservationDate")} ${formatReservationDate(contract.reservationDate)}</span>
             <span>${sellerText("people", escapeHtml(contract.people))}</span>
+            ${contract.selectedTemplateTitle ? `<span>${escapeHtml(contract.selectedTemplateTitle)}</span>` : ""}
           </div>
           ${
             contract.error
@@ -976,6 +1238,15 @@ reservationList.addEventListener("click", async (event) => {
     return;
   }
 
+  const draftReviewButton = event.target.closest("[data-review-contract-draft]");
+  if (draftReviewButton) {
+    await openContractDraft(
+      draftReviewButton.dataset.draftReservation || "",
+      draftReviewButton.dataset.reviewContractDraft,
+    );
+    return;
+  }
+
   const actionButton = event.target.closest("[data-send-contract]");
   if (!actionButton) {
     return;
@@ -984,27 +1255,13 @@ reservationList.addEventListener("click", async (event) => {
   const reservation = sellerState.reservations.find(
     (item) => item.id === actionButton.dataset.sendContract,
   );
-  if (
-    !reservation ||
-    !window.confirm(
-      `${reservation.name}님에게 상품에 맞는 계약서를 보내시겠습니까?\n수신 이메일: ${reservation.email}`,
-    )
-  ) {
-    return;
-  }
+  if (!reservation) return;
 
   actionButton.disabled = true;
-  actionButton.textContent = "발송 중…";
+  actionButton.textContent = "초안 생성 중…";
 
   try {
-    await requestJson("/api/seller/contracts", {
-      method: "POST",
-      body: JSON.stringify({
-        reservationId: actionButton.dataset.sendContract,
-      }),
-    });
-    await loadOverview();
-    showToast("구매자 이메일로 모두싸인 계약서를 발송했습니다.");
+    await openContractDraft(actionButton.dataset.sendContract);
   } catch (error) {
     if (error.status === 401) {
       showLogin();
@@ -1020,10 +1277,21 @@ reservationList.addEventListener("click", async (event) => {
 
 contractList.addEventListener("click", async (event) => {
   const actionButton = event.target.closest(
-    "[data-resend-contract], [data-refresh-contract], [data-archive-contract]",
+    "[data-resend-contract], [data-refresh-contract], [data-archive-contract], [data-review-contract-draft]",
   );
 
   if (!actionButton) {
+    return;
+  }
+
+  if (actionButton.dataset.reviewContractDraft) {
+    const contract = sellerState.contracts.find(
+      (item) => item.id === actionButton.dataset.reviewContractDraft,
+    );
+    await openContractDraft(
+      contract?.reservationId || "",
+      actionButton.dataset.reviewContractDraft,
+    );
     return;
   }
 
@@ -1036,10 +1304,15 @@ contractList.addEventListener("click", async (event) => {
     : actionButton.dataset.resendContract
       ? "resend"
       : "refresh";
+  const selectedContract = sellerState.contracts.find(
+    (item) => item.id === contractId,
+  );
   if (
     action === "archive" &&
     !window.confirm(
-      "이 계약 발송 내역을 목록에서 정리하시겠습니까?\n모두싸인 계약과 전자서명 문서는 삭제되지 않습니다.",
+      selectedContract?.status === "DRAFT"
+        ? "저장한 계약 초안을 삭제하시겠습니까?\n예약은 삭제되지 않으며 새 초안을 다시 만들 수 있습니다."
+        : "이 계약 발송 내역을 목록에서 정리하시겠습니까?\n모두싸인 계약과 전자서명 문서는 삭제되지 않습니다.",
     )
   ) {
     return;
@@ -1054,7 +1327,9 @@ contractList.addEventListener("click", async (event) => {
     await loadOverview();
     showToast(
       action === "archive"
-        ? "확인한 계약 발송 내역을 목록에서 정리했습니다."
+        ? selectedContract?.status === "DRAFT"
+          ? "계약 초안을 삭제했습니다. 예약에서 다시 만들 수 있습니다."
+          : "확인한 계약 발송 내역을 목록에서 정리했습니다."
         : action === "resend"
         ? "구매자 웹 알림과 이메일로 계약서를 다시 발송했습니다."
         : "모두싸인 계약 상태를 갱신했습니다.",
@@ -1072,9 +1347,208 @@ contractList.addEventListener("click", async (event) => {
   }
 });
 
-loadOverview().then(() => {
+contractDraftClose.addEventListener("click", () => {
+  contractDraftDialog.close();
+});
+
+contractDraftDialog.addEventListener("click", (event) => {
+  if (event.target === contractDraftDialog) contractDraftDialog.close();
+});
+
+contractReviewNext.addEventListener("click", () => {
+  renderContractReviewSummary();
+  setContractDraftStep("review");
+});
+
+contractReviewBack.addEventListener("click", () => {
+  setContractDraftStep("select");
+});
+
+contractAiRecommend.addEventListener("click", async () => {
+  const contract = sellerState.contracts.find(
+    (item) => item.id === sellerState.activeDraftContractId,
+  );
+  if (!contract?.postId) return;
+
+  contractAiRecommend.disabled = true;
+  contractAiRecommend.textContent = "AI 분석 중…";
+  contractTemplateStatus.textContent = "상품의 활동 방식과 위험 요소를 분석하고 있습니다…";
+  setFormError(contractDraftError);
+  try {
+    const result = await requestJson("/api/seller/contract-recommendations", {
+      method: "POST",
+      body: JSON.stringify({ postId: contract.postId }),
+    });
+    renderContractRecommendations(result);
+  } catch (error) {
+    if (error.status === 401) {
+      contractDraftDialog.close();
+      showLogin();
+      return;
+    }
+    setRequestError(contractDraftError, error);
+    contractTemplateStatus.textContent = "계약서 추천을 준비하지 못했습니다.";
+  } finally {
+    contractAiRecommend.disabled = false;
+    contractAiRecommend.textContent = "AI 계약서 추천받기";
+  }
+});
+
+contractAiList.addEventListener("change", () => {
+  sellerState.activeRecommendedTemplateKeys = selectedRecommendedTemplateKeys();
+  contractTemplateStatus.textContent = `추천 계약서 ${sellerState.activeRecommendedTemplateKeys.length}종을 사용합니다.`;
+});
+
+contractTemplateSelect.addEventListener("change", () => {
+  sellerState.activeRecommendedTemplateKeys = [];
+  contractAiResult.hidden = true;
+  const selectedTitle =
+    contractTemplateSelect.options[contractTemplateSelect.selectedIndex]?.text ||
+    "선택한 템플릿";
+  contractTemplateStatus.textContent = `${selectedTitle}을(를) 예약별 초안으로 복사해 엽니다.`;
+});
+
+contractTemplateEdit.addEventListener("click", async () => {
+  setFormError(contractDraftError);
+  if (!contractDraftForm.reportValidity()) {
+    document.querySelector(".draft-manual-details")?.setAttribute("open", "");
+    return;
+  }
+
+  const editorWindow = window.open(
+    "",
+    "waveon-modusign-draft",
+    "width=1440,height=900,scrollbars=yes,resizable=yes",
+  );
+  if (!editorWindow) {
+    setFormError(
+      contractDraftError,
+      "팝업이 차단되었습니다. 브라우저에서 이 사이트의 팝업을 허용해 주세요.",
+    );
+    return;
+  }
+  editorWindow.document.title = "모두싸인 계약 초안 준비 중";
+  editorWindow.document.body.textContent = "모두싸인 계약 초안 편집 화면을 준비하고 있습니다…";
+
+  setContractDraftBusy(true);
+  contractTemplateStatus.textContent = "선택한 템플릿으로 편집 초안을 만드는 중입니다…";
+  try {
+    const contractId = sellerState.activeDraftContractId;
+    const result = await requestJson(
+      `/api/seller/contracts/${encodeURIComponent(contractId)}/embedded-draft`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          draft: contractDraftPayload(),
+          templateKey: contractTemplateSelect.value,
+          templateKeys: selectedRecommendedTemplateKeys(),
+        }),
+      },
+    );
+    contractTemplateStatus.textContent =
+      "모두싸인 편집 화면이 열렸습니다. 내용을 수정한 뒤 그 화면에서 서명 요청을 완료해 주세요.";
+    setContractDraftStep("send");
+    editorWindow.location.replace(result.embeddedUrl);
+    await loadOverview();
+  } catch (error) {
+    editorWindow.close();
+    if (error.status === 401) {
+      contractDraftDialog.close();
+      showLogin();
+      return;
+    }
+    setRequestError(contractDraftError, error);
+    contractTemplateStatus.textContent = "모두싸인 편집 화면을 열지 못했습니다.";
+    setContractDraftStep("review");
+  } finally {
+    setContractDraftBusy(false);
+  }
+});
+
+contractDraftSave.addEventListener("click", async () => {
+  setFormError(contractDraftError);
+  setContractDraftBusy(true, "저장 중… ");
+  try {
+    const contract = await saveContractDraft();
+    const reservation = sellerState.reservations.find(
+      (item) => item.id === contract?.reservationId,
+    );
+    if (contract) fillContractDraftForm(contract, reservation);
+    await loadOverview();
+  } catch (error) {
+    if (error.status === 401) {
+      contractDraftDialog.close();
+      showLogin();
+      return;
+    }
+    setRequestError(contractDraftError, error);
+  } finally {
+    setContractDraftBusy(false);
+  }
+});
+
+contractDraftForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  setFormError(contractDraftError);
+  if (!contractDraftForm.reportValidity()) return;
+  if (
+    !window.confirm(
+      "모두싸인 편집 화면을 열지 않고 선택한 템플릿을 바로 발송하시겠습니까?\n구매자 웹 알림과 이메일로 전송되며 발송 후에는 수정할 수 없습니다.",
+    )
+  ) {
+    return;
+  }
+
+  const contractId = sellerState.activeDraftContractId;
+  setContractDraftStep("send");
+  setContractDraftBusy(true, "계약서 발송 중… ");
+  try {
+    await requestJson(
+      `/api/seller/contracts/${encodeURIComponent(contractId)}/send`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          draft: contractDraftPayload(),
+          templateKey: contractTemplateSelect.value,
+          templateKeys: selectedRecommendedTemplateKeys(),
+        }),
+      },
+    );
+    contractDraftDialog.close();
+    sellerState.activeDraftContractId = "";
+    sellerState.activeDraftReservationId = "";
+    await loadOverview();
+    showToast("구매자 웹 알림과 이메일로 검토한 계약서를 발송했습니다.");
+  } catch (error) {
+    if (error.status === 401) {
+      contractDraftDialog.close();
+      showLogin();
+      return;
+    }
+    setRequestError(contractDraftError, error);
+    setContractDraftStep("review");
+    await loadOverview();
+  } finally {
+    setContractDraftBusy(false);
+  }
+});
+
+loadOverview().then(async () => {
   const pageState = new URLSearchParams(window.location.search);
-  if (pageState.get("created") === "1") {
+  const embeddedContractId = pageState.get("embeddedContract");
+  if (embeddedContractId) {
+    try {
+      await requestJson(
+        `/api/seller/contracts/${encodeURIComponent(embeddedContractId)}/embedded-complete`,
+        { method: "POST" },
+      );
+      await loadOverview();
+      showToast("모두싸인 서명 요청을 구매자 예약과 연결했습니다.");
+      window.history.replaceState({}, "", "/seller");
+    } catch (error) {
+      showToast(getSellerErrorMessage(error));
+    }
+  } else if (pageState.get("created") === "1") {
     showToast("새 상품이 등록되어 구매자 페이지에 공개됐습니다.");
     window.history.replaceState({}, "", "/seller");
   } else if (pageState.get("updated") === "1") {
