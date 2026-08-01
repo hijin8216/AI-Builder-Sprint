@@ -823,6 +823,7 @@ app.post("/api/reservations", async (request, response) => {
       documentId: "",
       forwarded: false,
       forwardError: "",
+      contractNotificationReadAt: "",
       buyerCancellationAcknowledgedAt: "",
       sellerCancellationAcknowledgedAt: "",
       sellerAcknowledgedCancellationAt: "",
@@ -991,6 +992,35 @@ app.post(
           "모두싸인 서명 요청과 예약을 취소하지 못했습니다.",
       });
     }
+  },
+);
+
+app.post(
+  "/api/reservations/:reservationId/contract/read",
+  async (request, response) => {
+    const user = requireAuthenticatedUser(request, response);
+    if (!user) return;
+
+    const reservationId = cleanText(request.params.reservationId, 100);
+    const reservation = reservations.find(
+      (item) => item.id === reservationId && item.userId === user.id,
+    );
+    if (
+      !reservation ||
+      !["CONTRACT_PENDING", "SIGNING", "PROCESSING_FAILED"].includes(
+        reservation.status,
+      )
+    ) {
+      response.status(404).json({ message: "확인할 계약서 알림이 없습니다." });
+      return;
+    }
+
+    if (!reservation.contractNotificationReadAt) {
+      reservation.contractNotificationReadAt = new Date().toISOString();
+      reservation.updatedAt = reservation.contractNotificationReadAt;
+      await saveReservations();
+    }
+    response.json({ reservation: publicReservation(reservation) });
   },
 );
 
@@ -1839,6 +1869,10 @@ function publicReservation(reservation) {
     sellerCancellationNoticePending:
       reservation.status === "SELLER_CANCELLED" &&
       !reservation.sellerCancellationAcknowledgedAt,
+    contractNotificationPending:
+      ["CONTRACT_PENDING", "SIGNING", "PROCESSING_FAILED"].includes(
+        reservation.status,
+      ) && !reservation.contractNotificationReadAt,
     documentAvailable:
       Boolean(reservation.documentId) &&
       (["COMPLETED", "CANCELLATION_REQUESTED"].includes(
@@ -2820,6 +2854,7 @@ async function applySellerContractToReservation(contract) {
 
   reservation.documentId = contract.documentId;
   reservation.signatureStatus = contract.status;
+  reservation.contractNotificationReadAt = "";
   reservation.status = ["ABORTED", "PROCESSING_FAILED"].includes(contract.status)
     ? contract.status
     : "SIGNING";
@@ -2840,6 +2875,7 @@ async function clearSellerContractFromReservation(contract) {
   reservation.status = "SELLER_REVIEW";
   reservation.forwarded = false;
   reservation.forwardError = "";
+  reservation.contractNotificationReadAt = "";
   reservation.updatedAt = new Date().toISOString();
   await saveReservations();
 }

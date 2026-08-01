@@ -1019,6 +1019,16 @@ function renderPagination(totalPages) {
 
 function renderExperiences() {
   const visibleExperiences = getVisibleExperiences();
+  const reviewRankedExperiences = [...experiences].sort(
+    (first, second) =>
+      second.reviewCount - first.reviewCount || first.id.localeCompare(second.id),
+  );
+  const bestExperienceIds = new Set(
+    reviewRankedExperiences.slice(0, 3).map((experience) => experience.id),
+  );
+  const hotExperienceIds = new Set(
+    reviewRankedExperiences.slice(-3).map((experience) => experience.id),
+  );
   const totalPages = Math.max(1, Math.ceil(visibleExperiences.length / EXPERIENCES_PER_PAGE));
   state.page = Math.min(state.page, totalPages - 1);
   const pageStart = state.page * EXPERIENCES_PER_PAGE;
@@ -1027,6 +1037,11 @@ function renderExperiences() {
   experienceGrid.innerHTML = pageExperiences
     .map((experience) => {
       const displayExperience = getDisplayExperience(experience);
+      const cardBadge = bestExperienceIds.has(experience.id)
+        ? "BEST"
+        : hotExperienceIds.has(experience.id)
+          ? "HOT"
+          : "AVAILABLE";
       const recommendation = state.recommendationMap.get(experience.id);
       const recommendationNote = recommendation
         ? `
@@ -1056,7 +1071,7 @@ function renderExperiences() {
               alt="${escapeHtml(getProductImageAlt(experience))}"
               loading="lazy"
             />
-            <span class="card-badge">${experience.rating >= 4.9 ? "BEST" : "AVAILABLE"}</span>
+            <span class="card-badge">${cardBadge}</span>
           </button>
           <button
             class="favorite-button ${state.favorites.has(experience.id) ? "is-active" : ""}"
@@ -1704,9 +1719,10 @@ function renderMyReservations() {
 function getPendingContractReservations() {
   return myReservations.filter(
     (reservation) =>
-      ["CONTRACT_PENDING", "SIGNING", "PROCESSING_FAILED"].includes(
-        reservation.status,
-      ) ||
+      (reservation.contractNotificationPending &&
+        ["CONTRACT_PENDING", "SIGNING", "PROCESSING_FAILED"].includes(
+          reservation.status,
+        )) ||
       (reservation.status === "SELLER_CANCELLED" &&
         reservation.sellerCancellationNoticePending),
   );
@@ -3465,7 +3481,31 @@ notificationTrigger.addEventListener("focusout", (event) => {
     scheduleNotificationPanelClose();
   }
 });
-contractNotificationList.addEventListener("click", (event) => {
+async function markBuyerNotificationRead(reservation, notificationType) {
+  const endpoint =
+    notificationType === "cancellation"
+      ? `/api/reservations/${encodeURIComponent(reservation.id)}/cancellation/read`
+      : `/api/reservations/${encodeURIComponent(reservation.id)}/contract/read`;
+  const response = await fetch(endpoint, { method: "POST" });
+  const result = await response.json();
+
+  if (response.status === 401) {
+    currentUser = null;
+    updateAuthInterface();
+    openAuthDialog("login");
+  }
+  if (!response.ok) {
+    throw new Error(result.message || "알림 확인 상태를 저장하지 못했습니다.");
+  }
+
+  myReservations = myReservations.map((item) =>
+    item.id === reservation.id ? result.reservation : item,
+  );
+  renderContractNotifications();
+  return result.reservation;
+}
+
+contractNotificationList.addEventListener("click", async (event) => {
   const sellerCancellation = event.target.closest(
     "[data-open-seller-cancellation]",
   );
@@ -3473,7 +3513,18 @@ contractNotificationList.addEventListener("click", (event) => {
     const reservation = myReservations.find(
       (item) => item.id === sellerCancellation.dataset.openSellerCancellation,
     );
-    if (reservation) openReservationDetail(reservation);
+    if (reservation) {
+      let confirmedReservation = reservation;
+      try {
+        confirmedReservation = await markBuyerNotificationRead(
+          reservation,
+          "cancellation",
+        );
+      } catch (error) {
+        showToast(error.message);
+      }
+      openReservationDetail(confirmedReservation);
+    }
     return;
   }
 
@@ -3484,11 +3535,20 @@ contractNotificationList.addEventListener("click", (event) => {
     (item) => item.id === notification.dataset.openContract,
   );
   if (!reservation) return;
-  if (reservation.status === "SIGNING") {
-    void resumeSignature(reservation);
+  let confirmedReservation = reservation;
+  try {
+    confirmedReservation = await markBuyerNotificationRead(
+      reservation,
+      "contract",
+    );
+  } catch (error) {
+    showToast(error.message);
+  }
+  if (confirmedReservation.status === "SIGNING") {
+    void resumeSignature(confirmedReservation);
     return;
   }
-  openContractReview(reservation);
+  openContractReview(confirmedReservation);
 });
 document.querySelector("#contract-close").addEventListener("click", () => contractDialog.close());
 
