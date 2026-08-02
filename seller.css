@@ -533,6 +533,16 @@ a {
   font-weight: 700;
 }
 
+/* 검토수정은 템플릿 검토·발송 단계로만 사용합니다. */
+#contract-start-authoring,
+#draft-manual-workflow,
+.contract-safeguard-check,
+#contract-manual-toolbar,
+#draft-authoring-layout,
+#contract-review-description {
+  display: none !important;
+}
+
 .seller-reservation-card h4,
 .seller-contract-card h4 {
   margin: 16px 18px 5px !important;

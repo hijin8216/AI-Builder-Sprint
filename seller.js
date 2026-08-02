@@ -35,6 +35,7 @@ const reservationAlertTitle = document.querySelector(
 );
 const contractList = document.querySelector("#seller-contract-list");
 const contractDraftDialog = document.querySelector("#contract-draft-dialog");
+const contractDraftDialogTitle = contractDraftDialog.querySelector(".draft-dialog-head h2");
 const contractDraftForm = document.querySelector("#contract-draft-form");
 const contractDraftReservation = document.querySelector("#contract-draft-reservation");
 const contractDraftError = document.querySelector("#contract-draft-error");
@@ -117,10 +118,10 @@ function sellerText(key, ...args) {
 function sellerContractActionText(action) {
   const copy = {
     reviewDraft: {
-      ko: "초안 검토",
-      en: "Review draft",
-      ja: "下書きを確認",
-      zh: "查看草稿",
+      ko: "검토수정",
+      en: "Review & edit",
+      ja: "確認・修正",
+      zh: "查看并修改",
     },
     deleteDraft: {
       ko: "초안 삭제",
@@ -542,7 +543,7 @@ function setContractReviewMode(mode = sellerState.activeDraftMode) {
   sellerState.activeDraftMode = manualMode ? "manual" : "template";
   contractReviewTitle.textContent = manualMode
     ? "계약서 초안 직접 작성"
-    : "선택한 계약서 검토·수정";
+    : "검토수정";
   contractReviewDescription.textContent = manualMode
     ? "예약 기본정보는 자동으로 연결됩니다. 계약 내용을 조항별로 직접 작성해 주세요."
     : "예약 정보와 선택한 계약서를 확인한 뒤 모두싸인에서 실제 문서를 수정하세요.";
@@ -552,7 +553,7 @@ function setContractReviewMode(mode = sellerState.activeDraftMode) {
   contractManualDetails.open = manualMode;
   contractTemplateEdit.innerHTML = manualMode
     ? "모두싸인에서 서명 문서 최종 확인 <span>↗</span>"
-    : "모두싸인에서 실제 계약서 검토·수정 <span>↗</span>";
+    : "모두싸인에서 검토수정 <span>↗</span>";
   if (!contractDraftSend.disabled) {
     contractDraftSend.textContent = manualMode
       ? "직접 작성 초안 최종 서명 요청"
@@ -612,7 +613,6 @@ function renderContractReviewSummary() {
     <div class="contract-review-template-list">
       ${templateTitles.map((title) => `<span>${escapeHtml(title)}</span>`).join("")}
     </div>
-    <p>다음 버튼을 누르면 모두싸인에 예약별 복사본을 만들고 실제 계약서 내용을 검토·수정할 수 있습니다. 수정이 필요 없다면 아래 최종 서명 요청을 사용할 수 있습니다.</p>
   `;
 }
 
@@ -768,6 +768,9 @@ function fillContractDraftForm(contract, reservation) {
 
 async function openContractDraft(reservationId, contractId = "", initialView = "select") {
   try {
+    contractDraftDialogTitle.textContent = initialView === "review"
+      ? "검토수정"
+      : "초안 작성";
     contractAiResult.hidden = true;
     contractAiList.innerHTML = "";
     let contract = contractId
@@ -1114,7 +1117,7 @@ function renderReservations() {
               : { label: sellerText("newReservation"), className: "is-new" };
       const actionItems = [
         `<button class="reservation-step-button" type="button" ${canOpenDraft ? `data-send-contract="${escapeHtml(reservation.id)}"` : "disabled"}>초안 작성</button>`,
-        `<button class="reservation-step-button" type="button" ${canReviewDraft ? `data-review-contract-draft="${escapeHtml(contract.id)}" data-draft-reservation="${escapeHtml(reservation.id)}"` : "disabled"}>계약서 검토·수정</button>`,
+        `<button class="reservation-step-button" type="button" ${canReviewDraft ? `data-review-contract-draft="${escapeHtml(contract.id)}" data-draft-reservation="${escapeHtml(reservation.id)}"` : "disabled"}>검토수정</button>`,
         `<button class="reservation-step-button is-primary" type="button" ${canFinalizeDraft ? `data-finalize-contract="${escapeHtml(contract.id)}"` : `disabled title="${sellerState.modusignConfigured ? "초안을 먼저 작성해 주세요." : "전자계약 연동 후 사용할 수 있습니다."}"`}>최종 서명 요청</button>`,
         `<button class="seller-cancel-reservation-button" type="button" ${canSellerCancel ? `data-cancel-seller-reservation="${escapeHtml(reservation.id)}"` : "disabled"}>${cancellationRequested ? sellerText("approveCancellation") : sellerText("cancelReservation")}</button>`,
       ];
