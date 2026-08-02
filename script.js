@@ -197,6 +197,40 @@ let authMode = "login";
 let pendingExperienceId = null;
 let pendingBooking = null;
 let myReservations = [];
+const favoriteStoragePrefix = "waveon-favorite-experiences";
+
+function getFavoriteStorageKey() {
+  return `${favoriteStoragePrefix}:${currentUser?.userId || "guest"}`;
+}
+
+function loadFavoritesForCurrentUser() {
+  try {
+    const savedFavorites = JSON.parse(
+      window.localStorage.getItem(getFavoriteStorageKey()) || "[]",
+    );
+    state.favorites = new Set(
+      Array.isArray(savedFavorites)
+        ? savedFavorites.filter((experienceId) => typeof experienceId === "string")
+        : [],
+    );
+  } catch {
+    state.favorites = new Set();
+  }
+
+  if (experiences.length > 0) renderExperiences();
+  if (mypageDialog.open && mypageView === "favorites") renderMyPageContent();
+}
+
+function saveFavoritesForCurrentUser() {
+  try {
+    window.localStorage.setItem(
+      getFavoriteStorageKey(),
+      JSON.stringify([...state.favorites]),
+    );
+  } catch {
+    // Browser storage may be unavailable, but the current-page favorite state still works.
+  }
+}
 let mypageView = "reservations";
 let mypageSettingsOpen = false;
 let verifiedMypagePassword = "";
@@ -220,7 +254,7 @@ updateHeaderScrollState();
 let detailFontScaleIndex = getSavedDetailFontScaleIndex();
 let isReadingDetailTerms = false;
 const supportedLocales = new Set(["ko", "en", "ja", "zh"]);
-let activeLocale = getSavedLocale();
+let activeLocale = "ko";
 const localeFormats = {
   ko: "ko-KR",
   en: "en-US",
@@ -584,15 +618,6 @@ function formatPrice(price) {
   const formattedPrice = price.toLocaleString(localeFormats[activeLocale]);
   if (activeLocale === "ko") return `${formattedPrice}원`;
   return activeLocale === "zh" ? `KRW ${formattedPrice}` : `KRW ${formattedPrice}`;
-}
-
-function getSavedLocale() {
-  try {
-    const savedLocale = window.localStorage.getItem("waveon-locale");
-    return supportedLocales.has(savedLocale) ? savedLocale : "ko";
-  } catch {
-    return "ko";
-  }
 }
 
 function localizeText(korean, english) {
@@ -1411,7 +1436,10 @@ async function loadCurrentUser() {
     currentUser = null;
   } finally {
     updateAuthInterface();
-    if (currentUser) loadMyReservations();
+    if (currentUser) {
+      loadFavoritesForCurrentUser();
+      loadMyReservations();
+    }
   }
 }
 
@@ -1424,6 +1452,7 @@ async function logout() {
     myReservations = [];
     expandedReservationId = null;
     pendingBooking = null;
+    loadFavoritesForCurrentUser();
     notificationBadge.hidden = true;
     contractNotification.hidden = true;
     if (mypageDialog.open) mypageDialog.close();
@@ -2583,9 +2612,18 @@ function openProductDetail(experienceId, shouldOpenDialog = true) {
 
   const photoSource = document.querySelector("#detail-photo-source");
   photoSource.href = media.sourceUrl;
-  photoSource.textContent = media.sourceUrl.includes("unsplash.com")
-    ? localizeText("대표 사진 출처 · Unsplash ↗", "Photo source · Unsplash ↗")
-    : localizeText("대표 사진 출처 확인 ↗", "View photo source ↗");
+  if (media.sourceUrl.includes("unsplash.com")) {
+    photoSource.textContent = localizeText("대표 사진 출처 · Unsplash ↗", "Photo source · Unsplash ↗");
+  } else if (media.sourceUrl.includes("pexels.com")) {
+    photoSource.textContent = localizeText("대표 사진 출처 · Pexels ↗", "Photo source · Pexels ↗");
+  } else if (media.sourceUrl.includes("gnews.gg.go.kr")) {
+    photoSource.textContent = localizeText(
+      "대표 사진 출처 · 경기도 (공공누리 제1유형) ↗",
+      "Photo source · Gyeonggi Province (KOGL Type 1) ↗",
+    );
+  } else {
+    photoSource.textContent = localizeText("대표 사진 출처 확인 ↗", "View photo source ↗");
+  }
   renderList(
     "#detail-included",
     selectedExperience.included,
@@ -2911,6 +2949,7 @@ experienceGrid.addEventListener("click", (event) => {
       showToast("찜 목록에 담았어요.");
     }
 
+    saveFavoritesForCurrentUser();
     renderExperiences();
     if (mypageDialog.open && mypageView === "favorites") renderMyPageContent();
     return;
@@ -3062,6 +3101,7 @@ authForm.addEventListener("submit", async (event) => {
     if (!response.ok) throw new Error(result.message || "계정 요청을 처리하지 못했습니다.");
 
     currentUser = result.user;
+    loadFavoritesForCurrentUser();
     updateAuthInterface();
     loadMyReservations();
     authDialog.close();
@@ -3225,6 +3265,7 @@ mypageReservationList.addEventListener("click", (event) => {
   const removeFavoriteButton = event.target.closest("[data-remove-favorite]");
   if (removeFavoriteButton) {
     state.favorites.delete(removeFavoriteButton.dataset.removeFavorite);
+    saveFavoritesForCurrentUser();
     renderExperiences();
     renderMyPageContent();
     showToast(localizeText("찜 목록에서 제외했어요.", "Removed from saved experiences."));
@@ -3957,11 +3998,6 @@ languageButtons.forEach((button) => {
 
     stopDetailTermsReading();
     activeLocale = nextLocale;
-    try {
-      window.localStorage.setItem("waveon-locale", activeLocale);
-    } catch {
-      // 브라우저 저장소를 사용할 수 없어도 현재 페이지의 언어는 전환합니다.
-    }
     applyLocale();
   });
 });
@@ -3991,6 +4027,7 @@ searchDate.min = localToday;
 bookingDate.min = localToday;
 
 async function initialize() {
+  loadFavoritesForCurrentUser();
   updateDetailFontScale();
   applyLocale();
   await Promise.all([loadCurrentUser(), loadProducts()]);

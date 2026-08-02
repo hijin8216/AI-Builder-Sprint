@@ -40,6 +40,7 @@ const sellerUploadDirectory = path.join(
   "data",
   "seller-uploads.local",
 );
+const curatedAssetDirectory = path.join(projectDirectory, "assets");
 const sellerContractFilePath = path.join(
   projectDirectory,
   "data",
@@ -139,6 +140,10 @@ app.get("/styles.css", (_request, response) => {
 
 app.get("/script.js", (_request, response) => {
   response.sendFile(path.join(projectDirectory, "script.js"));
+});
+
+app.get("/assets/sihwa-banana-boat.jpg", (_request, response) => {
+  response.sendFile(path.join(curatedAssetDirectory, "sihwa-banana-boat.jpg"));
 });
 
 app.get("/seller", (_request, response) => {

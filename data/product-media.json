@@ -38,13 +38,12 @@
         "https://images.unsplash.com/photo-1455729552865-3658a5d39692?auto=format&fit=crop&w=1000&q=82"
       ]
     },
-    "WB-005": {
-      "cover": "https://images.unsplash.com/photo-1631793783799-116599011597?auto=format&fit=crop&w=1400&q=84",
-      "coverAlt": "부산 다대포해수욕장의 붉은 노을과 바다",
-      "sourceUrl": "https://unsplash.com/photos/Bx3y0YqpqWQ",
-      "gallery": [
-        "https://images.unsplash.com/photo-1502680390469-be75c86b636f?auto=format&fit=crop&w=1000&q=82",
-        "https://images.unsplash.com/photo-1699789926701-ad7617a5cdde?auto=format&fit=crop&w=1000&q=82"
+      "WB-005": {
+        "cover": "https://images.pexels.com/photos/19756562/pexels-photo-19756562/free-photo-of-a-woman-with-a-surfboard-on-a-beach.jpeg?auto=compress&cs=tinysrgb&w=1400",
+        "coverAlt": "해변에서 서핑보드 위에 올라 서핑 자세를 연습하는 사람",
+        "sourceUrl": "https://www.pexels.com/photo/woman-learning-surfing-with-instructor-19756565/",
+        "gallery": [
+          "https://images.pexels.com/photos/19756562/pexels-photo-19756562/free-photo-of-a-woman-with-a-surfboard-on-a-beach.jpeg?auto=compress&cs=tinysrgb&w=1000"
       ]
     },
     "WB-006": {
@@ -83,22 +82,20 @@
         "https://images.unsplash.com/photo-1559825481-12a05cc00344?auto=format&fit=crop&w=1000&q=82"
       ]
     },
-    "WB-010": {
-      "cover": "https://images.unsplash.com/photo-1519315901367-f34ff9154487?auto=format&fit=crop&w=1400&q=84",
-      "coverAlt": "아침 바다에서 패들보드를 타는 사람",
-      "sourceUrl": "https://unsplash.com/photos/7KLa-xLbSXA",
-      "gallery": [
-        "https://images.unsplash.com/photo-1719306625383-2de2f24217a5?auto=format&fit=crop&w=1000&q=82",
-        "https://images.unsplash.com/photo-1609137929473-680b60780d64?auto=format&fit=crop&w=1000&q=82"
+      "WB-010": {
+        "cover": "https://images.pexels.com/photos/33500745/pexels-photo-33500745.jpeg?auto=compress&cs=tinysrgb&w=1400",
+        "coverAlt": "이른 아침 잔잔한 바다 위에서 패들보드를 타는 사람",
+        "sourceUrl": "https://www.pexels.com/photo/solitary-paddleboarder-at-sunrise-on-calm-sea-33500745/",
+        "gallery": [
+          "https://images.pexels.com/photos/33500745/pexels-photo-33500745.jpeg?auto=compress&cs=tinysrgb&w=1000"
       ]
     },
-    "WB-011": {
-      "cover": "https://images.unsplash.com/photo-1699789926701-ad7617a5cdde?auto=format&fit=crop&w=1400&q=84",
-      "coverAlt": "부산 다대포 바다 위로 지는 노을",
-      "sourceUrl": "https://unsplash.com/photos/T9VjXA4emo0",
-      "gallery": [
-        "https://images.unsplash.com/photo-1519315901367-f34ff9154487?auto=format&fit=crop&w=1000&q=82",
-        "https://images.unsplash.com/photo-1631793783799-116599011597?auto=format&fit=crop&w=1000&q=82"
+      "WB-011": {
+        "cover": "https://images.pexels.com/photos/8875257/pexels-photo-8875257.jpeg?auto=compress&cs=tinysrgb&w=1400",
+        "coverAlt": "해변 가까운 바다에서 함께 패들보드를 타는 사람들",
+        "sourceUrl": "https://www.pexels.com/photo/photo-of-a-woman-and-men-paddleboarding-8875257/",
+        "gallery": [
+          "https://images.pexels.com/photos/8875257/pexels-photo-8875257.jpeg?auto=compress&cs=tinysrgb&w=1000"
       ]
     },
     "WB-012": {
@@ -119,11 +116,11 @@
       ]
     },
     "WB-014": {
-      "cover": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Banana%20Boat%20Pantai%20Bidadari%20Danau%20Ranau.jpg?width=1400",
+      "cover": "/assets/sihwa-banana-boat.jpg",
       "coverAlt": "가족이 함께 즐기는 노란색 바나나보트 체험",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Banana_Boat_Pantai_Bidadari_Danau_Ranau.jpg",
+      "sourceUrl": "https://gnews.gg.go.kr/news/news_detail.do?number=202407121635458849C076&s_code=C076",
       "gallery": [
-        "https://commons.wikimedia.org/wiki/Special:Redirect/file/Banana%20Boat%20Pantai%20Bidadari%20Danau%20Ranau.jpg?width=1000"
+        "/assets/sihwa-banana-boat.jpg"
       ]
     },
     "WB-015": {
@@ -135,12 +132,12 @@
         "https://images.unsplash.com/photo-1672842408576-5076d505d8c1?auto=format&fit=crop&w=1000&q=82"
       ]
     },
-    "WB-016": {
-      "cover": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Fishing_from_boat_dock%2C_Jubilee_Lake_Umatila_National_Forest_(36294297896).jpg?width=1400",
-      "coverAlt": "바다에서 낚싯대를 드리운 가족 낚시 체험",
-      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Fishing_from_boat_dock,_Jubilee_Lake_Umatila_National_Forest_(36294297896).jpg",
-      "gallery": [
-        "https://commons.wikimedia.org/wiki/Special:Redirect/file/Fishing_from_boat_dock%2C_Jubilee_Lake_Umatila_National_Forest_(36294297896).jpg?width=1000"
+      "WB-016": {
+        "cover": "https://images.pexels.com/photos/16477585/pexels-photo-16477585.jpeg?auto=compress&cs=tinysrgb&w=1400",
+        "coverAlt": "바다 위 낚시 보트에서 낚싯대를 준비하는 사람들",
+        "sourceUrl": "https://www.pexels.com/photo/people-in-a-fishing-boat-on-the-sea-16477585/",
+        "gallery": [
+          "https://images.pexels.com/photos/16477585/pexels-photo-16477585.jpeg?auto=compress&cs=tinysrgb&w=1000"
       ]
     },
     "WB-017": {
@@ -196,13 +193,12 @@
         "https://commons.wikimedia.org/wiki/Special:Redirect/file/Freediver%20Moalboal.jpg?width=1000"
       ]
     },
-    "WB-023": {
-      "cover": "https://images.unsplash.com/photo-1699789926701-b897ad3063de?auto=format&fit=crop&w=1400&q=84",
-      "coverAlt": "갈대밭 너머로 보이는 부산 다대포 해변",
-      "sourceUrl": "https://unsplash.com/photos/MwQ3cv1CBRM",
-      "gallery": [
-        "https://images.unsplash.com/photo-1519315901367-f34ff9154487?auto=format&fit=crop&w=1000&q=82",
-        "https://images.unsplash.com/photo-1631793783799-116599011597?auto=format&fit=crop&w=1000&q=82"
+      "WB-023": {
+        "cover": "https://images.pexels.com/photos/35831128/pexels-photo-35831128.jpeg?auto=compress&cs=tinysrgb&w=1400",
+        "coverAlt": "해변 가까운 바다에서 함께 패들보드를 타는 참가자들",
+        "sourceUrl": "https://www.pexels.com/photo/people-paddleboarding-on-a-sunny-beach-day-35831128/",
+        "gallery": [
+          "https://images.pexels.com/photos/35831128/pexels-photo-35831128.jpeg?auto=compress&cs=tinysrgb&w=1000"
       ]
     },
     "WB-024": {
