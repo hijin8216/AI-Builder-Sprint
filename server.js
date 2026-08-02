@@ -642,15 +642,32 @@ app.get("/api/seller/contract-templates", (request, response) => {
   const post = postId
     ? sellerPosts.find((item) => item.id === postId && item.userId === user.id)
     : null;
+  const reservationId = cleanText(request.query?.reservationId, 100);
+  const reservation = reservationId
+    ? reservations.find(
+        (item) =>
+          item.id === reservationId && sellerOwnsReservation(item, user.id),
+      )
+    : null;
   const recommendedKeys = post
     ? getSellerContractTemplateKeys(post.category)
     : [];
-  const templates = Object.entries(contractTemplates).map(([key, id]) => ({
-    key,
-    id,
-    title: contractTemplateLabels[key] || key,
-    recommended: recommendedKeys.includes(key),
-  }));
+  const localRules = post
+    ? createLocalContractRecommendations(post, reservation)
+    : [];
+  const localRuleByKey = new Map(localRules.map((item) => [item.key, item]));
+  const templates = Object.entries(contractTemplates).map(([key, id]) => {
+    const rule = localRuleByKey.get(key);
+    return {
+      key,
+      id,
+      title: contractTemplateLabels[key] || key,
+      recommended: recommendedKeys.includes(key) || rule?.selected === true,
+      required: rule?.ruleRequired === true,
+      priority: rule?.priority || "optional",
+      reason: rule?.reason || "필요한 경우 판매자가 선택할 수 있습니다.",
+    };
+  });
 
   response.json({
     templates,
@@ -775,6 +792,12 @@ app.post("/api/seller/contracts/draft", async (request, response) => {
       now,
     });
     contract.draft = createSellerContractDraft(reservation, post);
+    contract.selectedTemplateKeys = ensureRequiredSellerContractTemplateKeys(
+      [],
+      post,
+      reservation,
+    );
+    contract.selectedTemplateTitle = `선택 계약서 ${contract.selectedTemplateKeys.length}종`;
     sellerContracts.push(contract);
     await saveSellerContracts();
     response.status(201).json({ contract: publicSellerContract(contract) });
@@ -801,6 +824,12 @@ app.patch("/api/seller/contracts/:contractId/draft", async (request, response) =
     response.status(409).json({ message: "발송을 시작한 계약서는 초안으로 수정할 수 없습니다." });
     return;
   }
+  const post = sellerPosts.find(
+    (item) => item.id === contract.postId && item.userId === user.id,
+  );
+  const reservation = reservations.find(
+    (item) => item.id === contract.reservationId,
+  );
 
   try {
     contract.draft = normalizeSellerContractDraft(request.body?.draft, contract.draft);
@@ -829,12 +858,17 @@ app.patch("/api/seller/contracts/:contractId/draft", async (request, response) =
         contract.selectedTemplateTitle = `AI 추천 계약서 ${contract.selectedTemplateKeys.length}종`;
       }
     }
+    contract.selectedTemplateKeys = ensureRequiredSellerContractTemplateKeys(
+      contract.selectedTemplateKeys,
+      post,
+      reservation,
+    );
     if (contract.draftMode === "manual") {
       contract.selectedTemplateKey = "product-default";
       contract.selectedTemplateKeys = [];
       contract.selectedTemplateTitle = "직접 작성 계약서";
     } else if (contract.selectedTemplateKeys?.length) {
-      contract.selectedTemplateTitle = `AI 추천 계약서 ${contract.selectedTemplateKeys.length}종`;
+      contract.selectedTemplateTitle = `선택 계약서 ${contract.selectedTemplateKeys.length}종`;
     } else if (templateKey) {
       contract.selectedTemplateTitle =
         templateKey === "product-default"
@@ -914,7 +948,16 @@ app.post(
         contract.draftMode,
       );
       const templateKey = cleanText(request.body?.templateKey, 80) || "product-default";
-      const templateKeys = normalizeSelectedTemplateKeys(request.body?.templateKeys);
+      const reservation = reservations.find(
+        (item) => item.id === contract.reservationId,
+      );
+      const templateKeys = contract.draftMode === "manual"
+        ? []
+        : ensureRequiredSellerContractTemplateKeys(
+            request.body?.templateKeys,
+            post,
+            reservation,
+          );
       const selectedTemplate = await getSellerSelectedTemplate(
         templateKey,
         post,
@@ -1059,6 +1102,19 @@ app.post("/api/seller/contracts/:contractId/send", async (request, response) => 
     contract.selectedTemplateKeys = Array.isArray(request.body?.templateKeys)
       ? normalizeSelectedTemplateKeys(request.body.templateKeys)
       : contract.selectedTemplateKeys || [];
+    const reservation = reservations.find(
+      (item) => item.id === contract.reservationId,
+    );
+    contract.selectedTemplateKeys = contract.draftMode === "manual"
+      ? []
+      : ensureRequiredSellerContractTemplateKeys(
+          contract.selectedTemplateKeys,
+          post,
+          reservation,
+        );
+    if (contract.selectedTemplateKeys.length) {
+      contract.selectedTemplateTitle = `선택 계약서 ${contract.selectedTemplateKeys.length}종`;
+    }
     contract.status = "SENDING";
     contract.error = "";
     contract.updatedAt = new Date().toISOString();
@@ -2743,6 +2799,7 @@ function publicSellerReservation(reservation, sellerUserId) {
       !reservation.sellerAcknowledgedCancellationAt,
     contract: contract ? publicSellerContract(contract) : null,
     createdAt: reservation.createdAt,
+    updatedAt: reservation.updatedAt || reservation.createdAt,
   };
 }
 
@@ -3818,6 +3875,24 @@ function normalizeSelectedTemplateKeys(value) {
     throw new Error("한 번에 선택할 수 있는 계약 템플릿은 최대 12개입니다.");
   }
   return uniqueKeys;
+}
+
+function getRequiredSellerContractTemplateKeys(post, reservation = null) {
+  if (!post) return [];
+  return createLocalContractRecommendations(post, reservation)
+    .filter((item) => item.ruleRequired)
+    .map((item) => item.key);
+}
+
+function ensureRequiredSellerContractTemplateKeys(
+  templateKeys,
+  post,
+  reservation = null,
+) {
+  return normalizeSelectedTemplateKeys([
+    ...getRequiredSellerContractTemplateKeys(post, reservation),
+    ...(Array.isArray(templateKeys) ? templateKeys : []),
+  ]);
 }
 
 async function getSellerSelectedTemplate(templateKey, post, templateKeys = []) {

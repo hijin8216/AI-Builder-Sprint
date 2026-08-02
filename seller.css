@@ -337,6 +337,153 @@ a {
   gap: 20px;
 }
 
+.contract-workspace.has-single-panel {
+  max-width: none;
+  grid-template-columns: 1fr;
+}
+
+.my-reservations-panel .seller-reservation-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.my-reservations-panel .empty-state {
+  grid-column: 1 / -1;
+}
+
+.my-reservations-panel .seller-reservation-card {
+  display: flex !important;
+  min-width: 0;
+  padding: 0 !important;
+  flex-direction: column;
+  position: relative;
+}
+
+.my-reservations-panel .seller-reservation-card .card-top {
+  min-height: 42px;
+  padding: 18px 190px 0 20px;
+}
+
+.my-reservations-panel .reservation-updated-at {
+  display: grid;
+  position: absolute;
+  z-index: 2;
+  top: 17px;
+  right: 20px;
+  gap: 1px;
+  justify-items: end;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.my-reservations-panel .reservation-updated-at span {
+  color: #8a9da5;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.my-reservations-panel .reservation-updated-at strong {
+  color: #5f7782;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+@media (max-width: 520px) {
+  .my-reservations-panel .seller-reservation-card .card-top {
+    padding-right: 145px;
+  }
+
+  .my-reservations-panel .reservation-updated-at {
+    right: 14px;
+  }
+}
+
+.my-reservations-panel .seller-reservation-card h4 {
+  margin: 16px 20px 5px !important;
+}
+
+.my-reservations-panel .seller-reservation-card .reservation-customer {
+  margin: 0 20px 15px !important;
+}
+
+.my-reservations-panel .seller-reservation-card .contract-meta {
+  margin: 0 20px 20px !important;
+}
+
+.my-reservations-panel .reservation-actions {
+  display: grid !important;
+  position: static;
+  width: 100% !important;
+  margin: auto 0 0 !important;
+  padding: 16px 20px 20px !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px !important;
+  background: #f7fbfc !important;
+  border: 0 !important;
+  border-top: 1px solid #e3edef !important;
+  border-radius: 0 !important;
+}
+
+.my-reservations-panel .reservation-actions .reservation-contract-state {
+  display: block;
+  padding: 0 0 3px;
+  grid-column: 1 / -1;
+}
+
+.my-reservations-panel .seller-confirm-cancellation-button {
+  grid-column: 1 / -1;
+}
+
+.my-reservations-panel .reservation-actions .reservation-step-button,
+.my-reservations-panel .reservation-actions .seller-cancel-reservation-button {
+  grid-column: auto !important;
+}
+
+.my-reservations-panel .reservation-actions .reservation-step-button,
+.my-reservations-panel .reservation-actions .seller-cancel-reservation-button,
+.my-reservations-panel .reservation-actions .seller-confirm-cancellation-button {
+  display: flex;
+  width: 100% !important;
+  min-height: 42px !important;
+  margin: 0 !important;
+  padding: 0 12px !important;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  font-size: 10px !important;
+  font-weight: 850;
+}
+
+.my-reservations-panel .reservation-step-button {
+  color: #0e7184;
+  background: #ffffff;
+  border: 1px solid #bcd8de;
+}
+
+.my-reservations-panel .seller-cancel-reservation-button {
+  color: #a84242;
+  background: #fffafa;
+  border: 1px solid #efcaca;
+}
+
+.my-reservations-panel .reservation-step-button.is-primary {
+  color: #ffffff;
+  background: var(--ocean);
+  border-color: var(--ocean);
+}
+
+.my-reservations-panel .reservation-step-button:disabled,
+.my-reservations-panel .seller-cancel-reservation-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+@media (max-width: 900px) {
+  .my-reservations-panel .seller-reservation-list {
+    grid-template-columns: 1fr;
+  }
+}
+
 .reservation-inbox,
 .contract-history {
   padding: 24px;
@@ -1693,6 +1840,23 @@ textarea:focus {
   font-weight: 800;
 }
 
+.reservation-panel-tools {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.reservation-panel-tools > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.reservation-panel-tools button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
 .seller-post-list,
 .seller-reservation-list,
 .seller-contract-list {
@@ -2609,7 +2773,7 @@ textarea:focus {
 
 .draft-start-options {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -2617,8 +2781,7 @@ textarea:focus {
   display: grid;
   min-height: 92px;
   padding: 15px;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   color: #4b6976;
   background: rgba(255, 255, 255, 0.72);
@@ -2637,24 +2800,6 @@ textarea:focus {
 
 .draft-start-option.is-active {
   background: white;
-}
-
-.draft-start-option-number {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  place-items: center;
-  color: #527784;
-  background: #e4f2f4;
-  border-radius: 9px;
-  font-family: "DM Sans", sans-serif;
-  font-size: 9px;
-  font-weight: 900;
-}
-
-.draft-start-option.is-active .draft-start-option-number {
-  color: white;
-  background: var(--ocean);
 }
 
 .draft-start-option > span:last-child {
@@ -2681,6 +2826,11 @@ textarea:focus {
 
 .draft-template-workflow[hidden],
 .draft-manual-workflow[hidden] {
+  display: none;
+}
+
+.contract-selection-mode-panel[hidden],
+.contract-template-manual-picker[hidden] {
   display: none;
 }
 
@@ -2822,6 +2972,104 @@ textarea:focus {
   height: 15px;
   margin-top: 2px;
   accent-color: var(--ocean);
+}
+
+.contract-template-manual-picker {
+  display: grid;
+  gap: 11px;
+  padding: 14px;
+  background: #ffffff;
+  border: 1px solid #c8e1e6;
+  border-radius: 10px;
+}
+
+.contract-template-manual-picker > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.contract-template-manual-picker > div:first-child strong {
+  color: var(--navy);
+  font-size: 11px;
+}
+
+.contract-template-manual-picker > div:first-child span {
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.contract-template-checklist {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.contract-template-check-item {
+  display: flex !important;
+  min-width: 0;
+  padding: 10px;
+  align-items: flex-start;
+  gap: 9px !important;
+  background: #f8fbfc;
+  border: 1px solid #d8e7ea;
+  border-radius: 8px;
+}
+
+.contract-template-check-item.is-required {
+  background: #fff8ef;
+  border-color: #efd3b7;
+}
+
+.contract-template-check-item input {
+  width: 16px;
+  height: 16px;
+  margin: 1px 0 0;
+  flex: 0 0 auto;
+  accent-color: var(--ocean);
+}
+
+.contract-template-check-item > span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.contract-template-check-item strong {
+  color: var(--navy);
+  font-size: 10px;
+}
+
+.contract-template-check-item small {
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.contract-template-check-item b {
+  margin-left: auto;
+  padding: 3px 5px;
+  color: #8c421c;
+  background: #fff0e4;
+  border-radius: 5px;
+  font-size: 7px;
+  white-space: nowrap;
+}
+
+.contract-template-selection-box select {
+  min-height: 112px;
+  padding: 8px 10px;
+  pointer-events: none;
+}
+
+.contract-template-selection-box option {
+  padding: 4px;
+}
+
+@media (max-width: 650px) {
+  .contract-template-checklist {
+    grid-template-columns: 1fr;
+  }
 }
 
 .contract-ai-item-copy {

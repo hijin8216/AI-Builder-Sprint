@@ -15,9 +15,9 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;600;700&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/seller.css?v=20260802-3" />
-    <script src="/seller-locale.js?v=20260802-2" defer></script>
-    <script src="/seller.js?v=20260802-4" defer></script>
+    <link rel="stylesheet" href="/seller.css?v=20260803-4" />
+    <script src="/seller-locale.js?v=20260803-4" defer></script>
+    <script src="/seller.js?v=20260803-4" defer></script>
   </head>
   <body>
     <header class="seller-header">
@@ -512,29 +512,22 @@
             <p>구매자가 예약하면 정보가 자동으로 도착합니다.</p>
           </div>
 
-          <div class="contract-workspace">
-            <section class="reservation-inbox" aria-labelledby="reservation-inbox-title">
+          <div class="contract-workspace has-single-panel">
+            <section class="reservation-inbox my-reservations-panel" aria-labelledby="reservation-inbox-title">
               <div class="panel-heading">
                 <div>
                   <span class="live-indicator" aria-hidden="true"></span>
-                  <h3 id="reservation-inbox-title">들어온 예약</h3>
+                  <h3 id="reservation-inbox-title">내 예약</h3>
                 </div>
-                <span id="seller-reservation-count">0건</span>
+                <div class="reservation-panel-tools">
+                  <span id="seller-reservation-count">0건</span>
+                  <button id="refresh-overview" type="button">새로고침</button>
+                </div>
               </div>
               <div id="seller-reservation-list" class="seller-reservation-list">
-                <p class="empty-state">아직 들어온 예약이 없습니다.</p>
+                <p class="empty-state">아직 예약된 상품이 없습니다.</p>
               </div>
             </section>
-
-            <div class="contract-history">
-              <div class="panel-heading">
-                <h3>계약 발송 현황</h3>
-                <button id="refresh-overview" type="button">목록 새로고침</button>
-              </div>
-              <div id="seller-contract-list" class="seller-contract-list">
-                <p class="empty-state">아직 발송한 계약서가 없습니다.</p>
-              </div>
-            </div>
           </div>
         </section>
       </div>
@@ -551,54 +544,55 @@
           <button id="contract-draft-close" class="draft-close-button" type="button" aria-label="닫기">×</button>
         </div>
 
-        <ol class="draft-progress" aria-label="계약서 처리 단계">
-          <li class="is-active" data-draft-step-indicator="select"><span>1</span><strong>작성 방식</strong></li>
-          <li data-draft-step-indicator="review"><span>2</span><strong>검토·수정</strong></li>
-          <li data-draft-step-indicator="send"><span>3</span><strong>서명 요청</strong></li>
-        </ol>
-
         <div id="contract-draft-reservation" class="draft-reservation-summary"></div>
 
         <section id="contract-draft-select-step" class="draft-template-picker" data-draft-step-panel="select" aria-labelledby="draft-template-title">
           <div>
             <p class="eyebrow">CHOOSE HOW TO START</p>
             <h3 id="draft-template-title">계약 초안 작성 방식</h3>
-            <p>등록된 템플릿을 활용하거나 계약서 제목과 조항을 처음부터 직접 작성할 수 있습니다.</p>
+            <p>AI 추천, 템플릿 직접 선택 또는 빈 계약서 직접 작성 중 하나를 선택하세요.</p>
           </div>
 
           <div class="draft-start-options" role="group" aria-label="계약 초안 작성 방식">
             <button id="contract-start-template" class="draft-start-option is-active" type="button" aria-pressed="true">
-              <span class="draft-start-option-number">01</span>
-              <span><strong>템플릿으로 시작</strong><small>모두싸인 템플릿 또는 AI 추천을 사용합니다.</small></span>
+              <span><strong>AI 추천 계약서</strong><small>AI 추천 목록에서 체크된 계약서를 사용합니다.</small></span>
             </button>
             <button id="contract-start-manual" class="draft-start-option" type="button" aria-pressed="false">
-              <span class="draft-start-option-number">02</span>
-              <span><strong>직접 작성</strong><small>제목과 계약 조항을 빈 초안에서 작성합니다.</small></span>
+              <span><strong>템플릿 직접 선택</strong><small>전체 10개 템플릿에서 필요한 항목을 선택합니다.</small></span>
+            </button>
+            <button id="contract-start-authoring" class="draft-start-option" type="button" aria-pressed="false">
+              <span><strong>계약서 직접 작성</strong><small>빈 계약서에 제목과 조항을 직접 작성합니다.</small></span>
             </button>
           </div>
 
           <div id="draft-template-workflow" class="draft-template-workflow">
-            <div class="draft-ai-recommendation">
+            <div id="contract-ai-picker" class="contract-selection-mode-panel">
+              <div class="draft-ai-recommendation">
+                <div>
+                  <strong>활동에 맞는 계약서를 추천받으세요</strong>
+                  <span>AI 추천 목록에서 체크된 항목이 최종 선택에 반영됩니다.</span>
+                </div>
+                <button id="contract-ai-recommend" type="button">AI 계약서 추천받기</button>
+              </div>
+              <div id="contract-ai-result" class="contract-ai-result" hidden>
+                <div class="contract-ai-result-head">
+                  <strong>AI 추천 계약서</strong>
+                  <span id="contract-ai-mode"></span>
+                </div>
+                <p id="contract-ai-message"></p>
+                <div id="contract-ai-list" class="contract-ai-list"></div>
+              </div>
+            </div>
+            <div id="contract-manual-picker" class="contract-template-manual-picker" hidden>
               <div>
-                <strong>활동에 맞는 계약서를 모르겠다면</strong>
-                <span>AI는 등록된 템플릿만 추천하며, 필수 계약서는 해제하지 않습니다.</span>
+                <strong>전체 템플릿에서 직접 선택</strong>
+                <span>필수 항목은 항상 선택되며 해제할 수 없습니다. 필요한 선택 항목을 추가해 주세요.</span>
               </div>
-              <button id="contract-ai-recommend" type="button">AI 계약서 추천받기</button>
+              <div id="contract-template-checklist" class="contract-template-checklist"></div>
             </div>
-            <div id="contract-ai-result" class="contract-ai-result" hidden>
-              <div class="contract-ai-result-head">
-                <strong>AI 추천 계약서</strong>
-                <span id="contract-ai-mode"></span>
-              </div>
-              <p id="contract-ai-message"></p>
-              <div id="contract-ai-list" class="contract-ai-list"></div>
-            </div>
-            <label>
-              <span>사용할 계약서</span>
-              <select id="contract-template-select"></select>
-            </label>
+            <select id="contract-template-select" multiple hidden aria-hidden="true"></select>
             <button id="contract-review-next" class="draft-template-edit-button" type="button">
-              다음: 선택 내용 검토하기 <span>→</span>
+              선택 내용 저장
             </button>
             <p id="contract-template-status" class="draft-template-status" aria-live="polite"></p>
           </div>
@@ -624,7 +618,7 @@
               <h3 id="contract-review-title">선택한 계약서 검토·수정</h3>
               <p id="contract-review-description">예약 정보와 선택한 계약서를 확인한 뒤 모두싸인에서 실제 문서를 수정하세요.</p>
             </div>
-            <button id="contract-review-back" type="button">← 작성 방식 다시 선택</button>
+            <button id="contract-review-back" type="button" hidden>계약서 선택으로 돌아가기</button>
           </div>
           <div id="contract-review-summary" class="contract-review-summary"></div>
           <section class="contract-safeguard-check" aria-labelledby="contract-safeguard-title">
@@ -689,7 +683,7 @@
           <p id="contract-draft-error" class="form-error" role="alert" hidden></p>
           <div class="draft-dialog-actions">
             <button id="contract-draft-save" class="draft-secondary-button" type="button">검토 내용 저장</button>
-            <button id="contract-draft-send" class="draft-secondary-button" type="submit">수정 없이 최종 서명 요청</button>
+            <button id="contract-draft-send" class="draft-secondary-button" type="submit" hidden>최종 서명 요청</button>
           </div>
         </section>
       </form>

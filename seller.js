@@ -42,6 +42,7 @@ const contractDraftClose = document.querySelector("#contract-draft-close");
 const contractDraftSave = document.querySelector("#contract-draft-save");
 const contractDraftSend = document.querySelector("#contract-draft-send");
 const contractTemplateSelect = document.querySelector("#contract-template-select");
+const contractTemplateChecklist = document.querySelector("#contract-template-checklist");
 const contractTemplateEdit = document.querySelector("#contract-template-edit");
 const contractTemplateStatus = document.querySelector("#contract-template-status");
 const contractAiRecommend = document.querySelector("#contract-ai-recommend");
@@ -49,11 +50,14 @@ const contractAiResult = document.querySelector("#contract-ai-result");
 const contractAiMode = document.querySelector("#contract-ai-mode");
 const contractAiMessage = document.querySelector("#contract-ai-message");
 const contractAiList = document.querySelector("#contract-ai-list");
+const contractAiPicker = document.querySelector("#contract-ai-picker");
+const contractManualPicker = document.querySelector("#contract-manual-picker");
 const contractReviewNext = document.querySelector("#contract-review-next");
 const contractReviewBack = document.querySelector("#contract-review-back");
 const contractReviewSummary = document.querySelector("#contract-review-summary");
 const contractStartTemplate = document.querySelector("#contract-start-template");
 const contractStartManual = document.querySelector("#contract-start-manual");
+const contractStartAuthoring = document.querySelector("#contract-start-authoring");
 const draftTemplateWorkflow = document.querySelector("#draft-template-workflow");
 const draftManualWorkflow = document.querySelector("#draft-manual-workflow");
 const contractManualStart = document.querySelector("#contract-manual-start");
@@ -72,9 +76,6 @@ const draftAuthoringLayout = document.querySelector("#draft-authoring-layout");
 const contractSafeguardCheck = document.querySelector("#contract-safeguard-check");
 const contractSafeguardResult = document.querySelector("#contract-safeguard-result");
 const contractDraftStepPanels = document.querySelectorAll("[data-draft-step-panel]");
-const contractDraftStepIndicators = document.querySelectorAll(
-  "[data-draft-step-indicator]",
-);
 
 const postStat = document.querySelector("#post-count");
 const contractStat = document.querySelector("#contract-count");
@@ -93,6 +94,8 @@ const sellerState = {
   templateOptionsByPost: new Map(),
   templateTitleByKey: new Map(),
   activeRecommendedTemplateKeys: [],
+  activeRequiredTemplateKeys: [],
+  activeTemplateSelectionMode: "ai",
   activeDraftMode: "template",
   activeDraftStoredMode: "template",
   activeDraftBase: null,
@@ -415,26 +418,51 @@ function contractDraftPayload() {
 }
 
 function selectedDraftTemplateKey() {
-  return sellerState.activeDraftMode === "manual"
-    ? "product-default"
-    : contractTemplateSelect.value;
+  if (sellerState.activeDraftMode === "manual") return "product-default";
+  return selectedDraftTemplateKeys()[0] || "product-default";
+}
+
+function formatCompactDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return escapeHtml(value);
+  return new Intl.DateTimeFormat(sellerIntlLocale(), {
+    year: "2-digit",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
 function selectedDraftTemplateKeys() {
   return sellerState.activeDraftMode === "manual"
     ? []
-    : selectedRecommendedTemplateKeys();
+    : selectedContractTemplateKeys();
 }
 
-function setDraftStartMode(mode) {
-  const manualMode = mode === "manual";
-  sellerState.activeDraftMode = manualMode ? "manual" : "template";
-  contractStartTemplate.classList.toggle("is-active", !manualMode);
-  contractStartManual.classList.toggle("is-active", manualMode);
-  contractStartTemplate.setAttribute("aria-pressed", String(!manualMode));
-  contractStartManual.setAttribute("aria-pressed", String(manualMode));
-  draftTemplateWorkflow.hidden = manualMode;
-  draftManualWorkflow.hidden = !manualMode;
+function setTemplateSelectionMode(mode) {
+  const directMode = mode === "direct";
+  const authoringMode = mode === "authoring";
+  sellerState.activeTemplateSelectionMode = authoringMode
+    ? "authoring"
+    : directMode
+      ? "direct"
+      : "ai";
+  sellerState.activeDraftMode = authoringMode ? "manual" : "template";
+  contractStartTemplate.classList.toggle("is-active", !directMode && !authoringMode);
+  contractStartManual.classList.toggle("is-active", directMode);
+  contractStartAuthoring.classList.toggle("is-active", authoringMode);
+  contractStartTemplate.setAttribute("aria-pressed", String(!directMode && !authoringMode));
+  contractStartManual.setAttribute("aria-pressed", String(directMode));
+  contractStartAuthoring.setAttribute("aria-pressed", String(authoringMode));
+  contractAiPicker.hidden = directMode;
+  contractManualPicker.hidden = !directMode;
+  draftTemplateWorkflow.hidden = authoringMode;
+  draftManualWorkflow.hidden = !authoringMode;
+  if (!authoringMode) {
+    renderFinalContractTemplateSelection(selectedContractTemplateKeys());
+  }
 }
 
 function getSuggestedContractDraft(contract) {
@@ -547,6 +575,7 @@ function setContractDraftBusy(isBusy, message = "") {
   contractReviewBack.disabled = isBusy;
   contractStartTemplate.disabled = isBusy;
   contractStartManual.disabled = isBusy;
+  contractStartAuthoring.disabled = isBusy;
   contractManualStart.disabled = isBusy;
   contractManualLoadBase.disabled = isBusy;
   contractDraftSend.textContent =
@@ -561,13 +590,6 @@ function setContractDraftStep(step) {
     const panelStep = panel.dataset.draftStepPanel;
     panel.hidden = step === "send" ? panelStep !== "review" : panelStep !== step;
   });
-  const stepOrder = ["select", "review", "send"];
-  const activeIndex = stepOrder.indexOf(step);
-  contractDraftStepIndicators.forEach((indicator) => {
-    const indicatorIndex = stepOrder.indexOf(indicator.dataset.draftStepIndicator);
-    indicator.classList.toggle("is-active", indicatorIndex === activeIndex);
-    indicator.classList.toggle("is-completed", indicatorIndex < activeIndex);
-  });
 }
 
 function renderContractReviewSummary() {
@@ -581,18 +603,12 @@ function renderContractReviewSummary() {
     `;
     return;
   }
-  const recommendedKeys = selectedRecommendedTemplateKeys();
-  const templateKeys = recommendedKeys.length
-    ? recommendedKeys
-    : [contractTemplateSelect.value];
+  const templateKeys = selectedContractTemplateKeys();
   const templateTitles = templateKeys.map((key) =>
-    key === "product-default"
-      ? contractTemplateSelect.options[contractTemplateSelect.selectedIndex]?.text ||
-        "상품 기본 계약서 묶음"
-      : sellerState.templateTitleByKey.get(key) || key,
+    sellerState.templateTitleByKey.get(key) || key,
   );
   contractReviewSummary.innerHTML = `
-    <strong>${recommendedKeys.length ? `AI 추천 계약서 ${recommendedKeys.length}종` : "직접 선택한 계약서"}</strong>
+    <strong>선택한 계약서 ${templateKeys.length}종</strong>
     <div class="contract-review-template-list">
       ${templateTitles.map((title) => `<span>${escapeHtml(title)}</span>`).join("")}
     </div>
@@ -600,9 +616,36 @@ function renderContractReviewSummary() {
   `;
 }
 
-function selectedRecommendedTemplateKeys() {
-  if (!sellerState.activeRecommendedTemplateKeys.length) return [];
-  if (contractAiResult.hidden) return sellerState.activeRecommendedTemplateKeys;
+function selectedManualTemplateKeys() {
+  const selectedKeys = [...contractTemplateChecklist.querySelectorAll("[data-template-choice]:checked")]
+    .map((input) => input.dataset.templateChoice)
+    .filter(Boolean);
+  return [...new Set([...sellerState.activeRequiredTemplateKeys, ...selectedKeys])];
+}
+
+function selectedContractTemplateKeys() {
+  if (sellerState.activeTemplateSelectionMode === "direct") {
+    return selectedManualTemplateKeys();
+  }
+  const aiKeys = selectedAiTemplateKeys();
+  return [...new Set([
+    ...sellerState.activeRequiredTemplateKeys,
+    ...(aiKeys.length ? aiKeys : sellerState.activeRecommendedTemplateKeys),
+  ])];
+}
+
+function renderFinalContractTemplateSelection(selectedKeys) {
+  const nextKeys = [
+    ...new Set([...sellerState.activeRequiredTemplateKeys, ...(selectedKeys || [])]),
+  ];
+  contractTemplateSelect.innerHTML = nextKeys
+    .map((key) => `<option selected>${escapeHtml(sellerState.templateTitleByKey.get(key) || key)}</option>`)
+    .join("");
+  contractTemplateSelect.size = Math.max(2, Math.min(nextKeys.length, 6));
+  contractTemplateStatus.textContent = `최종 선택된 계약서 ${nextKeys.length}종을 사용합니다.`;
+}
+
+function selectedAiTemplateKeys() {
   return [...contractAiList.querySelectorAll("[data-contract-template-key]:checked")]
     .map((input) => input.dataset.contractTemplateKey)
     .filter(Boolean);
@@ -614,7 +657,13 @@ function renderContractRecommendations(result) {
     recommended: "추천",
     optional: "선택",
   };
-  sellerState.activeRecommendedTemplateKeys = result.recommendedTemplateKeys || [];
+  const recommendedKeys = [
+    ...new Set([
+      ...sellerState.activeRequiredTemplateKeys,
+      ...(result.recommendedTemplateKeys || []),
+    ]),
+  ];
+  sellerState.activeRecommendedTemplateKeys = recommendedKeys;
   contractAiMode.textContent = result.mode === "solar" ? "SOLAR AI" : "기본 안전 규칙";
   contractAiMessage.textContent = result.message || "";
   contractAiList.innerHTML = (result.recommendations || [])
@@ -637,39 +686,56 @@ function renderContractRecommendations(result) {
     )
     .join("");
   contractAiResult.hidden = false;
-  contractTemplateStatus.textContent = `AI 추천 계약서 ${sellerState.activeRecommendedTemplateKeys.length}종을 선택했습니다. 아래 항목을 확인한 뒤 초안을 열어 주세요.`;
+  renderFinalContractTemplateSelection(recommendedKeys);
+  contractTemplateStatus.textContent = `AI 추천을 반영해 계약서 ${recommendedKeys.length}종을 선택했습니다. 직접 선택 목록에서 항목을 더하거나 뺄 수 있습니다.`;
 }
 
-async function loadContractTemplateOptions(postId, selectedKey = "product-default") {
-  let templateData = sellerState.templateOptionsByPost.get(postId);
+async function loadContractTemplateOptions(
+  postId,
+  reservationId = "",
+  selectedKeys = [],
+) {
+  const cacheKey = `${postId}:${reservationId}`;
+  let templateData = sellerState.templateOptionsByPost.get(cacheKey);
   if (!templateData) {
     templateData = await requestJson(
-      `/api/seller/contract-templates?postId=${encodeURIComponent(postId)}`,
+      `/api/seller/contract-templates?postId=${encodeURIComponent(postId)}&reservationId=${encodeURIComponent(reservationId)}`,
     );
-    sellerState.templateOptionsByPost.set(postId, templateData);
+    sellerState.templateOptionsByPost.set(cacheKey, templateData);
   }
 
-  const recommended = templateData.templates.filter((item) => item.recommended);
-  const others = templateData.templates.filter((item) => !item.recommended);
   templateData.templates.forEach((item) => {
     sellerState.templateTitleByKey.set(item.key, item.title);
   });
-  const renderOptions = (items) =>
-    items
-      .map(
-        (item) =>
-          `<option value="${escapeHtml(item.key)}">${escapeHtml(item.title)}</option>`,
-      )
-      .join("");
-  contractTemplateSelect.innerHTML = `
-    <option value="product-default">${escapeHtml(templateData.defaultOption.title)}</option>
-    ${recommended.length ? `<optgroup label="이 상품에 추천">${renderOptions(recommended)}</optgroup>` : ""}
-    ${others.length ? `<optgroup label="전체 템플릿">${renderOptions(others)}</optgroup>` : ""}
-  `;
-  contractTemplateSelect.value =
-    [...contractTemplateSelect.options].some((option) => option.value === selectedKey)
-      ? selectedKey
-      : "product-default";
+  sellerState.activeRequiredTemplateKeys = templateData.templates
+    .filter((item) => item.required)
+    .map((item) => item.key);
+  contractTemplateChecklist.innerHTML = templateData.templates
+    .map(
+      (item) => `
+        <label class="contract-template-check-item ${item.required ? "is-required" : ""}">
+          <input
+            type="checkbox"
+            data-template-choice="${escapeHtml(item.key)}"
+            ${item.required ? "checked disabled" : ""}
+          />
+          <span>
+            <strong>${escapeHtml(item.title)}</strong>
+            <small>${escapeHtml(item.reason || (item.recommended ? "이 상품에 추천되는 계약서입니다." : "필요한 경우 선택할 수 있습니다."))}</small>
+          </span>
+          ${item.required ? "<b>필수</b>" : item.recommended ? "<b>추천</b>" : ""}
+        </label>
+      `,
+    )
+    .join("");
+  const initialKeys = selectedKeys.length
+    ? selectedKeys
+    : sellerState.activeRequiredTemplateKeys;
+  sellerState.activeRecommendedTemplateKeys = [...initialKeys];
+  contractTemplateChecklist.querySelectorAll("[data-template-choice]").forEach((input) => {
+    input.checked = initialKeys.includes(input.dataset.templateChoice);
+  });
+  renderFinalContractTemplateSelection(initialKeys);
 }
 
 function fillContractDraftForm(contract, reservation) {
@@ -690,7 +756,9 @@ function fillContractDraftForm(contract, reservation) {
     ? [...contract.selectedTemplateKeys]
     : [];
   setContractDraftFields(draft);
-  setDraftStartMode(sellerState.activeDraftStoredMode);
+  setTemplateSelectionMode(
+    sellerState.activeDraftStoredMode === "manual" ? "authoring" : "ai",
+  );
   setContractReviewMode(sellerState.activeDraftStoredMode);
   setFormError(contractDraftError);
   contractSafeguardResult.hidden = true;
@@ -698,7 +766,7 @@ function fillContractDraftForm(contract, reservation) {
   setContractDraftBusy(false);
 }
 
-async function openContractDraft(reservationId, contractId = "") {
+async function openContractDraft(reservationId, contractId = "", initialView = "select") {
   try {
     contractAiResult.hidden = true;
     contractAiList.innerHTML = "";
@@ -718,15 +786,24 @@ async function openContractDraft(reservationId, contractId = "") {
     );
     await loadContractTemplateOptions(
       contract.postId,
-      contract.selectedTemplateKey || "product-default",
+      contract.reservationId || reservationId,
+      Array.isArray(contract.selectedTemplateKeys)
+        ? contract.selectedTemplateKeys
+        : [],
     );
     fillContractDraftForm(contract, reservation);
     contractTemplateStatus.textContent = contract.selectedTemplateKeys?.length
-      ? `저장된 AI 추천 계약서 ${contract.selectedTemplateKeys.length}종을 사용합니다. 추천받기 버튼을 누르면 근거를 다시 확인할 수 있습니다.`
+      ? `저장된 선택 계약서 ${contract.selectedTemplateKeys.length}종을 사용합니다. AI 추천 또는 직접 선택으로 변경할 수 있습니다.`
       : contract.embeddedDraftId
         ? `${contract.selectedTemplateTitle} 초안이 생성되어 있습니다. 다시 열면 새 편집 초안을 만듭니다.`
         : "템플릿을 선택하거나 AI 추천을 받은 뒤 모두싸인 편집 화면을 열어 주세요.";
-    setContractDraftStep("select");
+    if (initialView === "review") {
+      setContractReviewMode("template");
+      renderContractReviewSummary();
+      setContractDraftStep("review");
+    } else {
+      setContractDraftStep("select");
+    }
     contractDraftDialog.showModal();
   } catch (error) {
     if (error.status === 401) {
@@ -757,7 +834,6 @@ async function saveContractDraft({ silent = false } = {}) {
   sellerState.contracts = sellerState.contracts.map((contract) =>
     contract.id === result.contract.id ? result.contract : contract,
   );
-  renderContracts();
   return result.contract;
 }
 
@@ -998,14 +1074,9 @@ function renderPosts() {
 }
 
 function renderReservations() {
-  const waitingReservations = waitingSellerReservations();
-  const attentionCount =
-    waitingReservations.length +
-    cancellationRequestReservations().length +
-    cancelledReservationNotices().length;
   reservationCount.textContent = sellerText(
     "contractCount",
-    attentionCount,
+    sellerState.reservations.length,
   );
 
   if (!sellerState.reservations.length) {
@@ -1027,6 +1098,11 @@ function renderReservations() {
       const cancellationRequested =
         reservation.status === "CANCELLATION_REQUESTED";
       const canSellerCancel = !cancelled && !sellerCancelled;
+      const hasDraft = contract?.status === "DRAFT";
+      const canOpenDraft = (!contract || hasDraft) && canSellerCancel;
+      const canReviewDraft = hasDraft && canSellerCancel;
+      const canFinalizeDraft =
+        hasDraft && canSellerCancel && sellerState.modusignConfigured;
       const status = sellerCancelled
         ? { label: sellerText("sellerCancelled"), className: "is-failed" }
         : cancellationRequested
@@ -1036,72 +1112,12 @@ function renderReservations() {
             : contract
               ? contractStatusDetails(contract.status)
               : { label: sellerText("newReservation"), className: "is-new" };
-      const actionItems = [];
-
-      if (sellerCancelled) {
-        actionItems.push(
-          `<span class="reservation-contract-state is-failed">${escapeHtml(sellerText("sellerCancelledReservation"))}</span>`,
-        );
-      } else if (cancellationRequested) {
-        actionItems.push(
-          `<span class="reservation-contract-state is-cancellation">${escapeHtml(sellerText("buyerCancellationRequested"))}</span>`,
-        );
-      } else if (cancelled) {
-        actionItems.push(
-          `<span class="reservation-contract-state is-failed">${escapeHtml(sellerText("buyerCancelledReservation"))}</span>`,
-        );
-      } else if (contract) {
-        actionItems.push(
-          `<span class="reservation-contract-state ${status.className}">${escapeHtml(status.label)}</span>`,
-        );
-        if (contract.status === "DRAFT") {
-          actionItems.push(`
-            <button
-              class="send-contract-button"
-              type="button"
-              data-review-contract-draft="${escapeHtml(contract.id)}"
-              data-draft-reservation="${escapeHtml(reservation.id)}"
-            >
-              ${sellerContractActionText("reviewDraft")} <span>→</span>
-            </button>
-          `);
-        }
-      } else {
-        actionItems.push(`
-              <p class="template-delivery-note">
-                ${
-                  sellerState.modusignConfigured
-                    ? `${escapeHtml(reservation.email)} · 발송 전 초안을 먼저 검토합니다.`
-                    : sellerText("eContractSetupRequired")
-                }
-              </p>
-              <button
-                class="send-contract-button"
-                type="button"
-                data-send-contract="${escapeHtml(reservation.id)}"
-                ${sellerState.modusignConfigured ? "" : "disabled"}
-              >
-                ${
-                  sellerState.modusignConfigured
-                    ? sellerText("sendContract")
-                    : sellerText("eContractSetupRequired")
-                }
-                <span>→</span>
-              </button>
-            `);
-      }
-      if (canSellerCancel) {
-        actionItems.push(`
-          <button
-            class="seller-cancel-reservation-button"
-            type="button"
-            data-cancel-seller-reservation="${escapeHtml(reservation.id)}"
-          >
-            ${cancellationRequested ? sellerText("approveCancellation") : sellerText("cancelReservation")}
-            <span>×</span>
-          </button>
-        `);
-      }
+      const actionItems = [
+        `<button class="reservation-step-button" type="button" ${canOpenDraft ? `data-send-contract="${escapeHtml(reservation.id)}"` : "disabled"}>초안 작성</button>`,
+        `<button class="reservation-step-button" type="button" ${canReviewDraft ? `data-review-contract-draft="${escapeHtml(contract.id)}" data-draft-reservation="${escapeHtml(reservation.id)}"` : "disabled"}>계약서 검토·수정</button>`,
+        `<button class="reservation-step-button is-primary" type="button" ${canFinalizeDraft ? `data-finalize-contract="${escapeHtml(contract.id)}"` : `disabled title="${sellerState.modusignConfigured ? "초안을 먼저 작성해 주세요." : "전자계약 연동 후 사용할 수 있습니다."}"`}>최종 서명 요청</button>`,
+        `<button class="seller-cancel-reservation-button" type="button" ${canSellerCancel ? `data-cancel-seller-reservation="${escapeHtml(reservation.id)}"` : "disabled"}>${cancellationRequested ? sellerText("approveCancellation") : sellerText("cancelReservation")}</button>`,
+      ];
       if (
         ["CANCELLED", "SELLER_CANCELLED"].includes(reservation.status) &&
         reservation.cancellationNoticePending
@@ -1123,12 +1139,14 @@ function renderReservations() {
           : !contract && !cancelled
             ? "is-unread"
             : "";
+      const cardTimestamp =
+        contract?.updatedAt || reservation.updatedAt || reservation.createdAt;
 
       return `
         <article class="seller-reservation-card ${cardStateClass}">
+          <time class="reservation-updated-at" datetime="${escapeHtml(cardTimestamp)}"><span>최종 수정</span><strong>${formatCompactDateTime(cardTimestamp)}</strong></time>
           <div class="card-top">
             <span class="card-status ${status.className}">${escapeHtml(status.label)}</span>
-            <time>${formatDate(reservation.createdAt, true)}</time>
           </div>
           <h4>${escapeHtml(activity)}</h4>
           <div class="reservation-customer">
@@ -1235,7 +1253,6 @@ function renderDashboard() {
 
   renderPosts();
   renderReservations();
-  renderContracts();
   renderReservationNotifications();
 }
 
@@ -1415,7 +1432,7 @@ logoutButton.addEventListener("click", async () => {
   showToast("로그아웃했습니다.");
 });
 
-refreshButton.addEventListener("click", async () => {
+refreshButton?.addEventListener("click", async () => {
   refreshButton.disabled = true;
   try {
     await loadOverview();
@@ -1601,7 +1618,44 @@ reservationList.addEventListener("click", async (event) => {
     await openContractDraft(
       draftReviewButton.dataset.draftReservation || "",
       draftReviewButton.dataset.reviewContractDraft,
+      "review",
     );
+    return;
+  }
+
+  const finalizeButton = event.target.closest("[data-finalize-contract]");
+  if (finalizeButton) {
+    const contract = sellerState.contracts.find(
+      (item) => item.id === finalizeButton.dataset.finalizeContract,
+    );
+    if (
+      !contract ||
+      !window.confirm(
+        "저장된 계약 초안을 구매자에게 최종 서명 요청으로 발송하시겠습니까?\n구매자 웹 알림과 이메일로 전송되며 발송 후에는 수정할 수 없습니다.",
+      )
+    ) {
+      return;
+    }
+
+    finalizeButton.disabled = true;
+    finalizeButton.textContent = "서명 요청 중…";
+    try {
+      await requestJson(
+        `/api/seller/contracts/${encodeURIComponent(contract.id)}/send`,
+        { method: "POST", body: JSON.stringify({}) },
+      );
+      await loadOverview();
+      showToast("구매자 웹 알림과 이메일로 최종 서명 요청을 발송했습니다.");
+    } catch (error) {
+      if (error.status === 401) {
+        showLogin();
+        return;
+      }
+      showToast(getSellerErrorMessage(error));
+      await loadOverview();
+    } finally {
+      finalizeButton.disabled = false;
+    }
     return;
   }
 
@@ -1633,7 +1687,7 @@ reservationList.addEventListener("click", async (event) => {
   }
 });
 
-contractList.addEventListener("click", async (event) => {
+contractList?.addEventListener("click", async (event) => {
   const actionButton = event.target.closest(
     "[data-resend-contract], [data-refresh-contract], [data-archive-contract], [data-review-contract-draft]",
   );
@@ -1717,18 +1771,15 @@ contractDraftDialog.addEventListener("close", () => {
 });
 
 contractStartTemplate.addEventListener("click", () => {
-  if (
-    sellerState.activeDraftMode === "manual" &&
-    sellerState.activeDraftStoredMode !== "manual" &&
-    sellerState.activeDraftBase
-  ) {
-    setContractDraftFields(sellerState.activeDraftBase);
-  }
-  setDraftStartMode("template");
+  setTemplateSelectionMode("ai");
 });
 
 contractStartManual.addEventListener("click", () => {
-  setDraftStartMode("manual");
+  setTemplateSelectionMode("direct");
+});
+
+contractStartAuthoring.addEventListener("click", () => {
+  setTemplateSelectionMode("authoring");
 });
 
 contractManualStart.addEventListener("click", () => {
@@ -1736,7 +1787,7 @@ contractManualStart.addEventListener("click", () => {
     const title = sellerState.activeDraftBase?.title || contractDraftPayload().title;
     setContractDraftFields({ title });
   }
-  setDraftStartMode("manual");
+  sellerState.activeDraftMode = "manual";
   setContractReviewMode("manual");
   renderContractReviewSummary();
   setContractDraftStep("review");
@@ -1748,15 +1799,27 @@ contractManualLoadBase.addEventListener("click", () => {
   showToast("판매 상품의 기본 약관과 안전 정보를 불러왔습니다.");
 });
 
-contractReviewNext.addEventListener("click", () => {
-  setDraftStartMode("template");
-  setContractReviewMode("template");
-  renderContractReviewSummary();
-  setContractDraftStep("review");
+contractReviewNext.addEventListener("click", async () => {
+  setFormError(contractDraftError);
+  setContractDraftBusy(true, "저장 중…");
+  try {
+    await saveContractDraft();
+    await loadOverview();
+    contractDraftDialog.close();
+  } catch (error) {
+    if (error.status === 401) {
+      contractDraftDialog.close();
+      showLogin();
+      return;
+    }
+    setRequestError(contractDraftError, error);
+  } finally {
+    setContractDraftBusy(false);
+  }
 });
 
 contractReviewBack.addEventListener("click", () => {
-  setDraftStartMode(sellerState.activeDraftMode);
+  setTemplateSelectionMode(sellerState.activeTemplateSelectionMode);
   setContractDraftStep("select");
 });
 
@@ -1846,24 +1909,15 @@ contractAiRecommend.addEventListener("click", async () => {
 });
 
 contractAiList.addEventListener("change", () => {
-  sellerState.activeRecommendedTemplateKeys = selectedRecommendedTemplateKeys();
-  contractTemplateStatus.textContent = `추천 계약서 ${sellerState.activeRecommendedTemplateKeys.length}종을 사용합니다.`;
+  if (sellerState.activeTemplateSelectionMode === "ai") {
+    sellerState.activeRecommendedTemplateKeys = selectedAiTemplateKeys();
+    renderFinalContractTemplateSelection(sellerState.activeRecommendedTemplateKeys);
+  }
 });
 
-contractTemplateSelect.addEventListener("change", async () => {
-  sellerState.activeRecommendedTemplateKeys = [];
-  contractAiResult.hidden = true;
-  const selectedTitle =
-    contractTemplateSelect.options[contractTemplateSelect.selectedIndex]?.text ||
-    "선택한 템플릿";
-  contractTemplateStatus.textContent = `${selectedTitle}을(를) 예약별 초안으로 복사해 엽니다.`;
-});
-
-contractTemplateSelect.addEventListener("change", async () => {
-  try {
-    await saveContractDraft({ silent: true });
-  } catch (error) {
-    setRequestError(contractDraftError, error);
+contractTemplateChecklist.addEventListener("change", () => {
+  if (sellerState.activeTemplateSelectionMode === "direct") {
+    renderFinalContractTemplateSelection(selectedManualTemplateKeys());
   }
 });
 
