@@ -148,7 +148,52 @@ function cancelledReservationNotices(reservations = sellerState.reservations) {
   );
 }
 
+function reservationNotificationKey(reservation) {
+  return [
+    reservation.id,
+    reservation.status,
+    reservation.contract?.id || "",
+    reservation.contract?.status || "",
+    reservation.cancellationNoticePending ? "notice" : "",
+  ].join(":");
+}
+
+function getSeenReservationNotificationKeys() {
+  const userId = sellerState.user?.userId;
+  if (!userId) return new Set();
+  try {
+    const saved = JSON.parse(
+      window.localStorage.getItem(`waveon-seller-seen-notices:${userId}`) || "[]",
+    );
+    return new Set(Array.isArray(saved) ? saved : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function markReservationNotificationsSeen() {
+  const userId = sellerState.user?.userId;
+  if (!userId) return;
+  const notices = [
+    ...waitingSellerReservations(),
+    ...cancellationRequestReservations(),
+    ...cancelledReservationNotices(),
+  ];
+  const seenKeys = getSeenReservationNotificationKeys();
+  notices.forEach((reservation) => seenKeys.add(reservationNotificationKey(reservation)));
+  try {
+    window.localStorage.setItem(
+      `waveon-seller-seen-notices:${userId}`,
+      JSON.stringify([...seenKeys]),
+    );
+  } catch {
+    // 브라우저 저장소를 사용할 수 없으면 현재 화면에서만 알림을 정리합니다.
+  }
+  renderReservationNotifications();
+}
+
 function scrollToReservationInbox() {
+  markReservationNotificationsSeen();
   document.querySelector("#contracts")?.scrollIntoView({
     behavior: "smooth",
     block: "start",
@@ -156,14 +201,22 @@ function scrollToReservationInbox() {
 }
 
 function renderReservationNotifications() {
-  const waitingCount = waitingSellerReservations().length;
-  const cancellationCount = cancellationRequestReservations().length;
-  const cancelledNoticeCount = cancelledReservationNotices().length;
+  const seenKeys = getSeenReservationNotificationKeys();
+  const waitingCount = waitingSellerReservations().filter(
+    (reservation) => !seenKeys.has(reservationNotificationKey(reservation)),
+  ).length;
+  const cancellationCount = cancellationRequestReservations().filter(
+    (reservation) => !seenKeys.has(reservationNotificationKey(reservation)),
+  ).length;
+  const cancelledNoticeCount = cancelledReservationNotices().filter(
+    (reservation) => !seenKeys.has(reservationNotificationKey(reservation)),
+  ).length;
   const attentionCount = waitingCount + cancellationCount + cancelledNoticeCount;
   const hasNotification = attentionCount > 0;
 
-  reservationNotificationButton.hidden = !hasNotification;
+  reservationNotificationButton.hidden = false;
   reservationAlert.hidden = !hasNotification;
+  reservationBadge.hidden = !hasNotification;
   reservationBadge.textContent = String(attentionCount);
   reservationNotificationButton.setAttribute(
     "aria-label",
@@ -633,35 +686,37 @@ function renderPosts() {
               ? `<img class="seller-post-image" src="${escapeHtml(post.thumbnailImage)}" alt="${escapeHtml(post.title)} ${sellerText("productPhoto")}" />`
               : ""
           }
-          <div class="card-top">
-            <span class="card-status">${escapeHtml(post.category)}</span>
-            <time>${formatDate(post.createdAt)}</time>
-          </div>
-          <h4>${escapeHtml(post.title)}</h4>
-          <p>${escapeHtml(post.description)}</p>
-          <div class="post-meta">
-            <span>${escapeHtml(post.partnerName)}</span>
-            <span>${escapeHtml(post.region)}</span>
-            <span>${sellerText("priceWithCurrency", formatPrice(post.pricePerPerson))}</span>
-            <span>${sellerText("minutes", escapeHtml(post.durationMinutes))}</span>
-            <span>${sellerText("difficulty", escapeHtml(post.difficulty || 2))}</span>
-            <span>${sellerText("maxParticipants", escapeHtml(post.maxParticipants))}</span>
-          </div>
-          <div class="seller-post-actions">
-            <a
-              class="post-edit-hint"
-              href="/seller/edit/${encodeURIComponent(post.id)}"
-              aria-label="${escapeHtml(post.title)} ${sellerText("productEdit")}"
-            >
-              ${sellerText("productEdit")} <span>→</span>
-            </a>
-            <button
-              class="seller-delete-post-button"
-              type="button"
-              data-delete-seller-post="${escapeHtml(post.id)}"
-            >
-              ${sellerText("productDelete")}
-            </button>
+          <div class="seller-post-card-body">
+            <div class="card-top">
+              <span class="card-status">${escapeHtml(post.category)}</span>
+              <time>${formatDate(post.createdAt)}</time>
+            </div>
+            <h4>${escapeHtml(post.title)}</h4>
+            <p>${escapeHtml(post.description)}</p>
+            <div class="post-meta">
+              <span>${escapeHtml(post.partnerName)}</span>
+              <span>${escapeHtml(post.region)}</span>
+              <span>${sellerText("priceWithCurrency", formatPrice(post.pricePerPerson))}</span>
+              <span>${sellerText("minutes", escapeHtml(post.durationMinutes))}</span>
+              <span>${sellerText("difficulty", escapeHtml(post.difficulty || 2))}</span>
+              <span>${sellerText("maxParticipants", escapeHtml(post.maxParticipants))}</span>
+            </div>
+            <div class="seller-post-actions">
+              <a
+                class="post-edit-hint"
+                href="/seller/edit/${encodeURIComponent(post.id)}"
+                aria-label="${escapeHtml(post.title)} ${sellerText("productEdit")}"
+              >
+                ${sellerText("productEdit")} <span>→</span>
+              </a>
+              <button
+                class="seller-delete-post-button"
+                type="button"
+                data-delete-seller-post="${escapeHtml(post.id)}"
+              >
+                ${sellerText("productDelete")}
+              </button>
+            </div>
           </div>
         </article>
       `,
@@ -807,9 +862,11 @@ function renderReservations() {
             <span>${escapeHtml(reservation.email)}</span>
           </div>
           <div class="contract-meta">
-            <span>${sellerText("usageDate")} ${formatReservationDate(reservation.date)}</span>
-            ${reservation.time ? `<span>${escapeHtml(reservation.time)}</span>` : ""}
-            <span>${sellerText("people", escapeHtml(reservation.people))}</span>
+            <span class="reservation-date">${sellerText("usageDate")} ${formatReservationDate(reservation.date)}</span>
+            <span class="reservation-detail-row">
+              ${reservation.time ? `<span>${escapeHtml(reservation.time)}</span>` : ""}
+              <span>${sellerText("people", escapeHtml(reservation.people))}</span>
+            </span>
           </div>
           <div class="reservation-actions">${actionItems.join("")}</div>
         </article>

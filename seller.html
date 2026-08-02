@@ -21,8 +21,8 @@
   </head>
   <body>
     <header class="seller-header">
-      <a class="seller-brand" href="/seller" aria-label="WAVEON 판매자 센터 홈">
-        <span class="brand-wave" aria-hidden="true"><span>W</span><span>A</span><span>V</span><span>E</span></span><span class="visually-hidden">WAVE</span><span>ON</span><small>PARTNER</small>
+      <a class="seller-brand" href="/seller" aria-label="WAVEON BUSAN 홈">
+        <span class="brand-wave" aria-hidden="true"><span>W</span><span>A</span><span>V</span><span>E</span></span><span class="visually-hidden">WAVE</span><span>ON</span><small>BUSAN</small>
       </a>
       <div class="seller-language-switcher" role="group" aria-label="언어 선택">
         <button type="button" data-seller-locale="ko" aria-pressed="true">KR</button>
@@ -38,11 +38,10 @@
           aria-label="예약 알림"
           hidden
         >
-          <span id="seller-reservation-notification-label">예약 알림</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
+          <span id="seller-reservation-notification-label" class="visually-hidden">예약 알림</span>
           <span id="seller-reservation-badge">0</span>
         </button>
-        <a href="#products">상품 관리</a>
-        <a href="#contracts">전자계약</a>
         <a class="buyer-link" href="/">구매자 페이지</a>
       </nav>
     </header>
@@ -50,7 +49,6 @@
     <main>
       <section class="seller-hero">
         <div class="seller-hero-copy">
-          <p class="eyebrow">SELLER WORKSPACE</p>
           <h1>부산의 바다 경험을<br /><em>직접 운영하세요.</em></h1>
           <p>
             상품을 등록하고 예약 고객에게 모두싸인 계약서를 발송하는
@@ -263,7 +261,6 @@
         <section id="products" class="workspace-section">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">PRODUCT STUDIO</p>
               <h2>판매 상품 관리</h2>
             </div>
             <a class="new-product-link" href="/seller/new">
@@ -483,7 +480,6 @@
         <section id="contracts" class="workspace-section contract-section">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">E-CONTRACT DESK</p>
               <h2>새 예약과 계약서 발송</h2>
             </div>
             <p>구매자가 예약하면 정보가 자동으로 도착합니다.</p>
@@ -498,10 +494,6 @@
                 </div>
                 <span id="seller-reservation-count">0건</span>
               </div>
-              <p class="inbox-guide">
-                구매자가 예약한 이름, 이메일, 날짜와 인원을 자동으로 불러옵니다.
-                판매자가 확인한 뒤 모두싸인 템플릿을 직접 전송합니다.
-              </p>
               <div id="seller-reservation-list" class="seller-reservation-list">
                 <p class="empty-state">아직 들어온 예약이 없습니다.</p>
               </div>
