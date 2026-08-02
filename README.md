@@ -8,7 +8,7 @@ WAVEON BUSAN은 부산 해양레저 상품을 취향과 예산에 맞게 추천�
 
 - 구매자: 상품 탐색, AI 맞춤 추천, 다국어 상세·약관, 예약, 계약 알림, 웹 전자서명, 마이페이지
 - 판매자: 상품 등록·수정·삭제, 예약 확인, 계약 발송·재발송, 서명 상태와 취소 관리
-- AI: Upstage Solar Pro 3 추천·번역·약관 요약, Upstage Document Parse 실제 계약서 PDF 분석
+- AI: Upstage Solar Pro 3 추천·번역, Upstage Document Parse 계약서 구조화, Upstage Information Extract 요금·기간·취소·환불·안전·보상/책임 조항 추출
 - 전자서명: 모두싸인 Secure Link 및 웹사이트 내 임베디드 서명
 
 ### 심사위원 빠른 실행

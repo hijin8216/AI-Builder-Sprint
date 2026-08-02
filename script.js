@@ -1782,21 +1782,33 @@ function renderMyReservations() {
 function getPendingContractReservations() {
   return myReservations.filter(
     (reservation) =>
+      ["CONTRACT_PENDING", "SIGNING", "PROCESSING_FAILED"].includes(
+        reservation.status,
+      ) ||
+      (reservation.status === "SELLER_CANCELLED" &&
+        reservation.sellerCancellationNoticePending),
+  );
+}
+
+function getUnreadContractNotificationCount() {
+  return myReservations.filter(
+    (reservation) =>
       (reservation.contractNotificationPending &&
         ["CONTRACT_PENDING", "SIGNING", "PROCESSING_FAILED"].includes(
           reservation.status,
         )) ||
       (reservation.status === "SELLER_CANCELLED" &&
         reservation.sellerCancellationNoticePending),
-  );
+  ).length;
 }
 
 function renderContractNotifications() {
   const reservations = getPendingContractReservations();
   const count = reservations.length;
+  const unreadCount = getUnreadContractNotificationCount();
 
-  notificationBadge.hidden = count === 0;
-  notificationBadge.textContent = String(count);
+  notificationBadge.hidden = unreadCount === 0;
+  notificationBadge.textContent = String(unreadCount);
   notificationPanelCount.hidden = count === 0;
   notificationPanelCount.textContent = formatReservationCount(count);
 
@@ -3656,9 +3668,10 @@ function renderContractAiSummary(result) {
   contractAiSummary.hidden = false;
 }
 
-async function loadContractAiSummary(reservation) {
+async function loadContractAiSummary(reservation, { force = false } = {}) {
   if (!reservation?.id) return;
 
+  contractAiReloadButton.disabled = true;
   contractAiSummary.hidden = true;
   contractAiLoading.hidden = false;
   contractAiLoading.textContent = localizeText(
@@ -3667,9 +3680,11 @@ async function loadContractAiSummary(reservation) {
   );
 
   const cacheKey = `signature:${activeLocale}:${reservation.id}`;
+  if (force) state.contractSummaryCache.delete(cacheKey);
   const cachedSummary = state.contractSummaryCache.get(cacheKey);
-  if (cachedSummary) {
+  if (cachedSummary && !force) {
     renderContractAiSummary(cachedSummary);
+    contractAiReloadButton.disabled = false;
     return;
   }
 
@@ -3677,7 +3692,7 @@ async function loadContractAiSummary(reservation) {
     const response = await fetch("/api/signature/contract-summary", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reservationId: reservation.id, locale: activeLocale }),
+      body: JSON.stringify({ reservationId: reservation.id, locale: activeLocale, force }),
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.message || "약관을 요약하지 못했습니다.");
@@ -3688,6 +3703,8 @@ async function loadContractAiSummary(reservation) {
     state.contractSummaryCache.set(cacheKey, fallbackSummary);
     renderContractAiSummary(fallbackSummary);
     console.error("전자서명 전 AI 약관 요약 오류:", error.message);
+  } finally {
+    contractAiReloadButton.disabled = false;
   }
 }
 
@@ -3748,6 +3765,37 @@ async function markBuyerNotificationRead(reservation, notificationType) {
   renderContractNotifications();
   return result.reservation;
 }
+
+async function markAllBuyerNotificationsRead() {
+  const unreadReservations = myReservations.filter(
+    (reservation) =>
+      (reservation.contractNotificationPending &&
+        ["CONTRACT_PENDING", "SIGNING", "PROCESSING_FAILED"].includes(
+          reservation.status,
+        )) ||
+      (reservation.status === "SELLER_CANCELLED" &&
+        reservation.sellerCancellationNoticePending),
+  );
+  if (unreadReservations.length === 0) return;
+
+  const confirmedReservations = await Promise.all(
+    unreadReservations.map((reservation) =>
+      markBuyerNotificationRead(
+        reservation,
+        reservation.status === "SELLER_CANCELLED" ? "cancellation" : "contract",
+      ),
+    ),
+  );
+  if (confirmedReservations.length > 0) renderContractNotifications();
+}
+
+notificationButton.addEventListener("click", () => {
+  setNotificationPanelOpen(true);
+  void markAllBuyerNotificationsRead().catch((error) => {
+    console.error("알림 확인 상태 저장 오류:", error.message);
+    showToast("알림을 확인 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+  });
+});
 
 contractNotificationList.addEventListener("click", async (event) => {
   const sellerCancellation = event.target.closest(
@@ -3834,7 +3882,7 @@ contractAiReloadButton.addEventListener("click", () => {
     showToast("전자서명 예약 정보를 찾지 못했습니다.");
     return;
   }
-  void loadContractAiSummary(reservation);
+  void loadContractAiSummary(reservation, { force: true });
 });
 
 async function resumeSignature(reservation) {

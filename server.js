@@ -725,6 +725,7 @@ app.post("/api/seller/contracts/draft", async (request, response) => {
 
   try {
     const reservationId = cleanText(request.body?.reservationId, 100);
+    const force = request.body?.force === true;
     const reservation = reservations.find(
       (item) =>
         item.id === reservationId && sellerOwnsReservation(item, user.id),
@@ -1651,32 +1652,6 @@ app.post("/api/signature/start", async (request, response) => {
 
   try {
     if (reservation.documentId && reservation.status !== "PROCESSING_FAILED") {
-      const savedSigning = getSavedEmbeddedSigningView(reservation);
-      if (savedSigning) {
-        response.json({
-          documentId: reservation.documentId,
-          reservationId: reservation.id,
-          embeddedUrl: savedSigning.embeddedUrl,
-          delivery: "embedded",
-          alreadySent: true,
-          cached: true,
-        });
-        return;
-      }
-
-      const cachedSigning = getCachedEmbeddedSigningView(reservation.documentId);
-      if (cachedSigning) {
-        response.json({
-          documentId: reservation.documentId,
-          reservationId: reservation.id,
-          embeddedUrl: cachedSigning.embeddedUrl,
-          delivery: "embedded",
-          alreadySent: true,
-          cached: true,
-        });
-        return;
-      }
-
       let existingDocument = await getModusignDocument(
         reservation.documentId,
       );
@@ -1714,6 +1689,8 @@ app.post("/api/signature/start", async (request, response) => {
         existingDocument,
         reservation.name,
       );
+      // 모두싸인 임베디드 서명 주소는 짧게 만료되거나 재사용이 제한될 수 있습니다.
+      // 재진입 시에는 기존 문서를 그대로 사용하되, 화면 주소만 새로 발급합니다.
       cacheEmbeddedSigningView(reservation.documentId, existingSigning);
       saveEmbeddedSigningView(reservation, existingSigning);
       await saveReservations();
@@ -1888,6 +1865,7 @@ app.post("/api/signature/contract-summary", async (request, response) => {
 
   try {
     const reservationId = cleanText(request.body?.reservationId, 100);
+    const force = request.body?.force === true;
     const outputLocale =
       request.body?.locale === "ko"
         ? "ko"
@@ -1906,30 +1884,31 @@ app.post("/api/signature/contract-summary", async (request, response) => {
       return;
     }
 
+    const summaryPipeline = "document-parse-information-extract-v1";
     const savedSummary = reservation.aiContractSummaries?.[outputLocale];
-    if (savedSummary) {
+    if (savedSummary?.pipeline === summaryPipeline && !force) {
       response.json({ ...savedSummary, cached: true });
       return;
     }
 
-    const cacheKey = `${reservation.documentId}:${outputLocale}`;
+    const cacheKey = `${summaryPipeline}:${reservation.documentId}:${outputLocale}`;
     const cachedSummary = documentSummaryCache.get(cacheKey);
-    if (cachedSummary) {
+    if (cachedSummary && !force) {
       response.json({ ...cachedSummary, cached: true });
       return;
     }
 
     const document = await requestModusign(`/documents/${reservation.documentId}`);
+    // 1) Document Parse가 실제 계약서 PDF를 OCR/구조화해 약관 원문을 취합합니다.
     const documentText = await extractModusignDocumentText(document, reservation);
     const product = getAllProducts().find(
       (item) => item.id === reservation.productId,
     ) ?? { name: reservation.activity, refundPolicy: "", safetyNotes: [] };
     const baselineRiskLevel =
       productContracts[reservation.productId]?.riskLevel ?? "보통";
-    const solarSummary = await requestFocusedContractSummary(
-      product,
-      [documentText],
-      baselineRiskLevel,
+    // 2) Information Extract가 취합된 약관에서 소비자 확인 항목을 구조적으로 추출합니다.
+    const extractedTerms = await requestContractInformationExtraction(
+      documentText,
       outputLocale,
     );
     const fallbackSummary =
@@ -1941,9 +1920,19 @@ app.post("/api/signature/contract-summary", async (request, response) => {
           )
         : createTranslatedDocumentFallback(product, baselineRiskLevel, outputLocale);
     const result = {
-      mode: solarSummary ? "modusign-document" : "modusign-document-fallback",
+      pipeline: summaryPipeline,
+      mode: extractedTerms
+        ? "document-parse-information-extract"
+        : "modusign-document-fallback",
       source: "modusign-document",
-      summary: solarSummary ?? fallbackSummary,
+      summary:
+        extractedTerms
+          ? createSummaryFromExtractedContractInfo(
+              product,
+              extractedTerms,
+              baselineRiskLevel,
+            )
+          : fallbackSummary,
     };
     documentSummaryCache.set(cacheKey, result);
     reservation.aiContractSummaries ??= {};
@@ -3330,12 +3319,27 @@ async function extractModusignDocumentText(document, reservation) {
     );
   }
 
-  const parsedContent = getDocumentParseContent(parsedDocument);
+  const parsedContent = documentParseHtmlToText(
+    getDocumentParseContent(parsedDocument),
+  );
   const text = redactContractPersonalData(parsedContent, reservation);
   if (text.length < 40) {
     throw new Error("계약서에서 읽을 수 있는 약관 텍스트를 찾지 못했습니다.");
   }
   return text.slice(0, 28000);
+}
+
+function documentParseHtmlToText(content) {
+  return String(content || "")
+    .replace(/<\s*br\s*\/?>/gi, "\n")
+    .replace(/<\/(?:p|div|h[1-6]|li|tr|section|article)>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'");
 }
 
 function getDocumentParseContent(parsedDocument) {
@@ -4356,6 +4360,139 @@ async function requestInterfaceTranslationChunk(texts, outputLanguage) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function requestContractInformationExtraction(documentText, outputLocale = "ko") {
+  const apiKey = process.env.UPSTAGE_API_KEY?.trim();
+  if (!apiKey) return null;
+
+  const outputLanguage =
+    outputLocale === "ko" ? "Korean" : getTranslationLanguage(outputLocale);
+  const schema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      fees: {
+        type: "array",
+        items: { type: "string" },
+        description: "Amounts, extra charges, deposits, and payment conditions.",
+      },
+      termAndSchedule: {
+        type: "array",
+        items: { type: "string" },
+        description: "Usage period, time, schedule changes, and attendance requirements.",
+      },
+      cancellationAndRefund: {
+        type: "array",
+        items: { type: "string" },
+        description: "Cancellation deadlines, refund limits, fees, and no-show rules.",
+      },
+      safety: {
+        type: "array",
+        items: { type: "string" },
+        description: "Safety rules, participation restrictions, weather, and equipment duties.",
+      },
+      compensationAndLiability: {
+        type: "array",
+        items: { type: "string" },
+        description: "Liability, compensation, damage, insurance, and customer responsibility clauses.",
+      },
+    },
+    required: [
+      "fees",
+      "termAndSchedule",
+      "cancellationAndRefund",
+      "safety",
+      "compensationAndLiability",
+    ],
+  };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+
+  try {
+    const apiResponse = await fetch(
+      "https://api.upstage.ai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "information-extract",
+          messages: [
+            {
+              role: "user",
+              content: `The following is a marine leisure contract structured by Document Parse. Extract only facts explicitly present in it. Return every string in ${outputLanguage}. Use an empty array when the contract has no relevant clause.\n\n${documentText}`,
+            },
+          ],
+          response_format: {
+            type: "json_schema",
+            json_schema: { name: "marine_leisure_contract_terms", schema },
+          },
+        }),
+        signal: controller.signal,
+      },
+    );
+    if (!apiResponse.ok) {
+      throw new Error(`Information Extract API 응답 오류 (${apiResponse.status})`);
+    }
+
+    const apiResult = await apiResponse.json();
+    const content = apiResult.choices?.[0]?.message?.content;
+    if (!content) throw new Error("Information Extract 응답에 추출 결과가 없습니다.");
+    const extracted = typeof content === "string" ? JSON.parse(content) : content;
+    return {
+      fees: normalizeSummaryItems(extracted.fees, 3, 180),
+      termAndSchedule: normalizeSummaryItems(extracted.termAndSchedule, 3, 180),
+      cancellationAndRefund: normalizeSummaryItems(
+        extracted.cancellationAndRefund,
+        4,
+        180,
+      ),
+      safety: normalizeSummaryItems(extracted.safety, 3, 180),
+      compensationAndLiability: normalizeSummaryItems(
+        extracted.compensationAndLiability,
+        3,
+        180,
+      ),
+    };
+  } catch (error) {
+    console.error("Information Extract 계약서 조항 추출 오류:", error.message);
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function createSummaryFromExtractedContractInfo(
+  product,
+  extractedTerms,
+  baselineRiskLevel,
+) {
+  const refundWarnings = extractedTerms.cancellationAndRefund.slice(0, 3);
+  const watchouts = [
+    ...extractedTerms.fees,
+    ...extractedTerms.termAndSchedule,
+    ...extractedTerms.safety,
+    ...extractedTerms.compensationAndLiability,
+  ].slice(0, 5);
+  const primaryWarning = refundWarnings[0] || watchouts[0];
+
+  return {
+    headline: primaryWarning
+      ? `${product.name}: ${primaryWarning}`
+      : `${product.name}의 이용 조건과 안전 관련 조항을 확인해 주세요.`,
+    riskLevel: baselineRiskLevel || "보통",
+    refundWarnings:
+      refundWarnings.length > 0
+        ? refundWarnings
+        : ["계약서에 명시된 취소·환불 조건을 확인해 주세요."],
+    unfairTerms:
+      watchouts.length > 0
+        ? watchouts
+        : ["계약서에 명시된 이용 조건과 책임 범위를 확인해 주세요."],
+  };
 }
 
 async function requestFocusedContractSummary(
