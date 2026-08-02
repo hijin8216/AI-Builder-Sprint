@@ -137,6 +137,409 @@ a {
   }
 }
 
+/* 예약과 계약 카드는 좁은 대시보드 칸에서도 같은 한 줄 흐름을 유지합니다. */
+.seller-reservation-card,
+.seller-contract-card {
+  display: grid;
+  padding: 20px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  background: #fff;
+  border: 1px solid #dbe8eb;
+  border-radius: 14px;
+}
+
+.seller-reservation-card .card-top,
+.seller-contract-card .card-top {
+  grid-column: 1;
+  margin: 0 0 12px;
+}
+
+.seller-reservation-card h4,
+.seller-contract-card h4 {
+  margin: 0 0 8px;
+  grid-column: 1;
+  font-size: 17px;
+  line-height: 1.35;
+}
+
+.seller-reservation-card .reservation-customer,
+.seller-contract-card .reservation-customer,
+.seller-contract-card > p:not(.contract-error-copy) {
+  grid-column: 1;
+  margin-bottom: 14px;
+}
+
+.seller-reservation-card .contract-meta,
+.seller-contract-card .contract-meta {
+  display: flex;
+  margin: 0;
+  grid-column: 1;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.seller-reservation-card .contract-meta .reservation-detail-row {
+  display: contents;
+}
+
+.seller-reservation-card .contract-meta span,
+.seller-contract-card .contract-meta span {
+  width: auto;
+  min-width: 0;
+  padding: 7px 9px;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+
+.seller-reservation-card .contract-meta .reservation-detail-row span {
+  min-width: 0;
+}
+
+.reservation-actions,
+.seller-contract-card .contract-actions {
+  display: flex;
+  margin: 12px 0 0;
+  padding: 10px 0 0;
+  grid-column: 1;
+  grid-row: auto;
+  gap: 6px;
+  align-items: center;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid #e4edef;
+  border-radius: 0;
+}
+
+.reservation-actions .send-contract-button,
+.reservation-actions .seller-cancel-reservation-button,
+.reservation-actions .seller-confirm-cancellation-button,
+.seller-contract-card .contract-actions button {
+  width: auto;
+  min-height: 32px;
+  margin: 0 !important;
+  padding: 0 10px;
+  flex: 0 0 auto;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.reservation-actions .template-delivery-note {
+  width: 100%;
+  margin: 0 0 3px;
+  font-size: 11px;
+}
+
+/* 구매자 마이페이지 예약 카드와 같은 상단 정보 + 하단 액션 구조 */
+.seller-reservation-card,
+.seller-contract-card {
+  padding: 28px 30px 0;
+  border-color: #b9dce3;
+  border-radius: 18px;
+}
+
+.seller-reservation-card .card-top,
+.seller-contract-card .card-top {
+  margin-bottom: 22px;
+}
+
+.seller-reservation-card h4,
+.seller-contract-card h4 {
+  margin-bottom: 6px;
+  font-size: 20px;
+}
+
+.seller-reservation-card .reservation-customer,
+.seller-contract-card > p:not(.contract-error-copy) {
+  margin-bottom: 20px;
+  color: #6a8290;
+}
+
+.seller-reservation-card .contract-meta,
+.seller-contract-card .contract-meta {
+  margin-bottom: 22px;
+}
+
+.seller-reservation-card .contract-meta span,
+.seller-contract-card .contract-meta span {
+  padding: 8px 10px;
+  color: #356577;
+  background: #f0f9fa;
+  font-size: 12px;
+}
+
+.reservation-actions,
+.seller-contract-card .contract-actions {
+  display: grid;
+  width: calc(100% + 60px);
+  margin: 0 -30px;
+  padding: 20px 30px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  background: #f7fbfc;
+  border: 0;
+  border-top: 1px solid #e0edf0;
+}
+
+.reservation-actions .reservation-contract-state,
+.reservation-actions .template-delivery-note {
+  grid-column: 1 / -1;
+}
+
+.reservation-actions .send-contract-button,
+.reservation-actions .seller-cancel-reservation-button,
+.reservation-actions .seller-confirm-cancellation-button,
+.seller-contract-card .contract-actions button {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.seller-contract-card .contract-actions button:not(.is-primary) {
+  color: #456575;
+  background: #fff;
+  border-color: #cbdde2;
+}
+
+@media (max-width: 650px) {
+  .seller-reservation-card,
+  .seller-contract-card {
+    padding: 17px;
+  }
+
+  .reservation-actions .send-contract-button,
+  .reservation-actions .seller-cancel-reservation-button,
+  .reservation-actions .seller-confirm-cancellation-button,
+  .seller-contract-card .contract-actions button {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .reservation-actions,
+  .seller-contract-card .contract-actions {
+    width: calc(100% + 34px);
+    margin: 0 -17px;
+    padding: 16px 17px;
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 판매자 예약 보드: 기존 카드 규칙과 분리한 새 레이아웃 */
+.contract-workspace {
+  max-width: 1180px;
+  gap: 20px;
+}
+
+.reservation-inbox,
+.contract-history {
+  padding: 24px;
+  background: #ffffff;
+  border: 1px solid #dce9ec;
+  border-radius: 18px;
+  box-shadow: 0 10px 28px rgba(18, 64, 78, 0.035);
+}
+
+.reservation-inbox .panel-heading,
+.contract-history .panel-heading {
+  margin-bottom: 18px;
+}
+
+.seller-reservation-list,
+.seller-contract-list {
+  gap: 14px;
+}
+
+.seller-reservation-card,
+.seller-contract-card {
+  display: block !important;
+  position: relative;
+  padding: 0 184px 0 0 !important;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #d8e6e9;
+  border-radius: 14px;
+  box-shadow: none;
+}
+
+.seller-reservation-card .card-top,
+.seller-contract-card .card-top {
+  display: flex !important;
+  position: relative;
+  margin: 0 !important;
+  padding: 16px 18px 0;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.seller-reservation-card .card-top time,
+.seller-contract-card .card-top time {
+  margin-left: auto;
+  color: #8499a2;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.seller-reservation-card h4,
+.seller-contract-card h4 {
+  margin: 16px 18px 5px !important;
+  color: #073e57;
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.seller-reservation-card .reservation-customer,
+.seller-contract-card > p:not(.contract-error-copy) {
+  display: flex;
+  margin: 0 18px 16px !important;
+  gap: 7px;
+  align-items: baseline;
+  color: #718893;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.seller-reservation-card .reservation-customer strong,
+.seller-contract-card .reservation-customer strong,
+.seller-contract-card > p:not(.contract-error-copy) {
+  color: #234f63;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.seller-reservation-card .reservation-customer span,
+.seller-contract-card .reservation-customer span {
+  color: #718893;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.seller-reservation-card .contract-meta,
+.seller-contract-card .contract-meta {
+  display: flex !important;
+  margin: 0 18px 17px !important;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.seller-reservation-card .contract-meta span,
+.seller-contract-card .contract-meta span,
+.seller-reservation-card .contract-meta .reservation-detail-row span {
+  display: inline-flex;
+  width: auto !important;
+  min-width: 0 !important;
+  padding: 6px 8px;
+  align-items: center;
+  color: #3f6979;
+  background: #f1f8f9;
+  border: 0;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.seller-reservation-card .contract-meta .reservation-detail-row {
+  display: contents !important;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+
+.reservation-actions,
+.seller-contract-card .contract-actions {
+  display: grid !important;
+  position: absolute;
+  top: 52px;
+  right: 18px;
+  width: 148px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  grid-template-columns: 1fr;
+  gap: 6px !important;
+  align-items: center;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+
+.reservation-actions .reservation-contract-state,
+.reservation-actions .template-delivery-note {
+  display: none;
+}
+
+.reservation-actions .send-contract-button,
+.reservation-actions .seller-cancel-reservation-button,
+.reservation-actions .seller-confirm-cancellation-button,
+.seller-contract-card .contract-actions button {
+  width: 100% !important;
+  min-height: 34px !important;
+  margin: 0 !important;
+  padding: 0 10px !important;
+  flex: 0 0 auto !important;
+  border-radius: 7px;
+  font-size: 10px !important;
+  font-weight: 850;
+  grid-column: 1;
+  justify-content: center;
+}
+
+.reservation-actions .send-contract-button span,
+.reservation-actions .seller-cancel-reservation-button span {
+  display: none;
+}
+
+.reservation-actions .send-contract-button,
+.seller-contract-card .contract-actions button.is-primary {
+  color: #ffffff;
+  background: #0e8499;
+  border-color: #0e8499;
+}
+
+.reservation-actions .seller-cancel-reservation-button,
+.seller-contract-card .contract-actions button.is-archive {
+  color: #a45050;
+  background: #fffafa;
+  border-color: #efcece;
+}
+
+@media (max-width: 650px) {
+  .reservation-inbox,
+  .contract-history {
+    padding: 18px;
+  }
+
+  .reservation-actions,
+  .seller-contract-card .contract-actions {
+    position: static;
+    width: auto !important;
+    margin: 0 !important;
+    padding: 11px 12px !important;
+    grid-template-columns: 1fr;
+    background: #f7fbfc !important;
+    border-top: 1px solid #e3edef !important;
+  }
+
+  .reservation-actions .reservation-contract-state,
+  .reservation-actions .template-delivery-note,
+  .reservation-actions .send-contract-button,
+  .reservation-actions .seller-cancel-reservation-button,
+  .reservation-actions .seller-confirm-cancellation-button,
+  .seller-contract-card .contract-actions button {
+    width: 100% !important;
+    grid-column: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .seller-brand .brand-wave span {
     animation: none;
@@ -979,9 +1382,18 @@ textarea:focus {
 .product-workspace,
 .contract-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
   gap: 16px;
   align-items: start;
+}
+
+.product-workspace {
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+}
+
+.contract-workspace {
+  max-width: 1320px;
+  margin: 0 auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .product-workspace.has-hidden-form {
@@ -1464,6 +1876,106 @@ textarea:focus {
   border-color: #d7e0e3;
 }
 
+/* 계약 발송 현황도 들어온 예약 카드와 같은 정보 구조로 정렬합니다. */
+.seller-contract-card {
+  position: relative;
+  display: grid;
+  padding: 22px 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 330px);
+  column-gap: 34px;
+  row-gap: 0;
+  overflow: hidden;
+  background: #fff;
+  border-color: #d7e7eb;
+}
+
+.seller-contract-card .card-top {
+  display: flex;
+  margin-bottom: 5px;
+  grid-column: 1 / -1;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.seller-contract-card .card-top time {
+  color: #567383;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.seller-contract-card h4 {
+  margin-top: 13px;
+  grid-column: 1;
+  color: var(--navy);
+  font-size: 18px;
+}
+
+.seller-contract-card > p:not(.contract-error-copy) {
+  display: flex;
+  margin: 0;
+  grid-column: 1;
+  gap: 8px;
+  align-items: baseline;
+  color: #5b7683;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.seller-contract-card .contract-meta {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  grid-column: 1;
+}
+
+.seller-contract-card .contract-meta span {
+  width: fit-content;
+  padding: 7px 9px;
+  color: #15566d;
+  background: #edf8fa;
+  border: 0;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.seller-contract-card .contract-error-copy {
+  margin: 12px 0 0 !important;
+  grid-column: 1;
+  font-size: 11px;
+}
+
+.seller-contract-card .contract-actions {
+  display: flex;
+  margin: 0;
+  padding: 16px;
+  grid-column: 2;
+  grid-row: 2 / span 4;
+  gap: 8px;
+  align-items: stretch;
+  flex-direction: column;
+  justify-content: center;
+  background: #f6fafb;
+  border: 1px solid #dcebed;
+  border-radius: 12px;
+}
+
+.seller-contract-card .contract-actions button {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  color: #0e7184;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.seller-contract-card .contract-actions button.is-primary {
+  color: #fff;
+  background: var(--ocean);
+}
+
 .card-top {
   display: flex;
   gap: 10px;
@@ -1775,7 +2287,8 @@ textarea:focus {
 }
 
 .contract-history {
-  min-height: 420px;
+  min-height: 0;
+  height: fit-content;
 }
 
 .contract-error-copy {
@@ -1835,6 +2348,124 @@ textarea:focus {
 .contract-draft-dialog::backdrop {
   background: rgba(4, 31, 45, 0.62);
   backdrop-filter: blur(4px);
+}
+
+.contract-safeguard-check {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px 22px;
+  padding: 20px;
+  border: 1px solid #c9e2e6;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f8feff 0%, #edf9fa 100%);
+}
+
+.contract-safeguard-check > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.contract-safeguard-check > div:first-child strong {
+  color: #063c57;
+  font-size: 17px;
+}
+
+.contract-safeguard-check span,
+.contract-safeguard-check p {
+  color: #5c7580;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.contract-safeguard-check button {
+  justify-self: start;
+  padding: 10px 14px;
+  border: 1px solid #0d8195;
+  border-radius: 9px;
+  color: #fff;
+  background: #0d8195;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.contract-safeguard-check > #contract-safeguard-check {
+  align-self: center;
+  white-space: nowrap;
+}
+
+.contract-safeguard-check > #contract-safeguard-result {
+  grid-column: 1 / -1;
+}
+
+.contract-safeguard-missing {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin: 2px 0 12px;
+}
+
+.contract-safeguard-missing strong {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: #a44a31;
+  background: #fff0e9;
+  font-size: 11px;
+}
+
+.contract-safeguard-missing span {
+  padding-top: 2px;
+}
+
+.contract-safeguard-clauses {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.contract-safeguard-clauses label {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 13px 14px;
+  border: 1px solid #dce9eb;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.contract-safeguard-clauses input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  accent-color: #138b9c;
+}
+
+.contract-safeguard-clauses label span {
+  color: #294d5c;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.contract-safeguard-check [data-apply-safeguards] {
+  color: #087587;
+  background: #fff;
+}
+
+@media (max-width: 640px) {
+  .contract-safeguard-check {
+    grid-template-columns: 1fr;
+  }
+
+  .contract-safeguard-check > #contract-safeguard-check {
+    justify-self: stretch;
+  }
+
+  .contract-safeguard-missing {
+    display: grid;
+  }
 }
 
 .contract-draft-form {
@@ -2692,6 +3323,11 @@ textarea:focus {
     column-gap: 20px;
   }
 
+  .seller-contract-card {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+    column-gap: 20px;
+  }
+
   .seller-access form {
     grid-template-columns: 1fr 1fr;
   }
@@ -2724,11 +3360,21 @@ textarea:focus {
     padding: 19px;
   }
 
+  .seller-contract-card {
+    display: block;
+    padding: 19px;
+  }
+
   .seller-reservation-card .card-top {
     margin-bottom: 10px;
   }
 
   .reservation-actions {
+    margin-top: 17px;
+    padding: 14px;
+  }
+
+  .seller-contract-card .contract-actions {
     margin-top: 17px;
     padding: 14px;
   }
@@ -2958,5 +3604,61 @@ textarea:focus {
   *::after {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* 예약·계약 카드의 최종 타이포그래피 및 우측 날짜 정렬 */
+.seller-reservation-card .card-top,
+.seller-contract-card .card-top {
+  position: relative !important;
+}
+
+.seller-reservation-card .card-top time,
+.seller-contract-card .card-top time {
+  position: absolute !important;
+  top: 16px;
+  right: -166px;
+  margin: 0 !important;
+  white-space: nowrap;
+}
+
+.seller-reservation-card h4,
+.seller-contract-card h4 {
+  font-family: inherit !important;
+  font-size: 18px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.55px !important;
+}
+
+.seller-reservation-card .reservation-customer,
+.seller-contract-card .reservation-customer {
+  display: flex !important;
+  margin: 0 18px 16px !important;
+  gap: 8px !important;
+  align-items: baseline !important;
+  font-family: inherit !important;
+}
+
+.seller-reservation-card .reservation-customer strong,
+.seller-contract-card .reservation-customer strong {
+  color: #234f63 !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
+  font-weight: 750 !important;
+}
+
+.seller-reservation-card .reservation-customer span,
+.seller-contract-card .reservation-customer span {
+  color: #718893 !important;
+  font-family: inherit !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+@media (max-width: 650px) {
+  .seller-reservation-card .card-top time,
+  .seller-contract-card .card-top time {
+    position: static !important;
+    margin-left: auto !important;
   }
 }

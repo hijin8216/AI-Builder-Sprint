@@ -69,6 +69,8 @@ const contractReviewDescription = document.querySelector(
   "#contract-review-description",
 );
 const draftAuthoringLayout = document.querySelector("#draft-authoring-layout");
+const contractSafeguardCheck = document.querySelector("#contract-safeguard-check");
+const contractSafeguardResult = document.querySelector("#contract-safeguard-result");
 const contractDraftStepPanels = document.querySelectorAll("[data-draft-step-panel]");
 const contractDraftStepIndicators = document.querySelectorAll(
   "[data-draft-step-indicator]",
@@ -365,6 +367,10 @@ async function requestJson(url, options = {}) {
 }
 
 function showToast(message) {
+  const toastHost = contractDraftDialog?.open
+    ? contractDraftDialog
+    : document.body;
+  if (toast.parentElement !== toastHost) toastHost.append(toast);
   toast.textContent = message;
   toast.classList.add("is-visible");
   window.clearTimeout(showToast.timer);
@@ -513,6 +519,7 @@ function setContractDraftBusy(isBusy, message = "") {
   contractDraftClose.disabled = isBusy;
   contractTemplateEdit.disabled = isBusy;
   contractAiRecommend.disabled = isBusy;
+  contractSafeguardCheck.disabled = isBusy;
   contractReviewNext.disabled = isBusy;
   contractReviewBack.disabled = isBusy;
   contractStartTemplate.disabled = isBusy;
@@ -663,6 +670,8 @@ function fillContractDraftForm(contract, reservation) {
   setDraftStartMode(sellerState.activeDraftStoredMode);
   setContractReviewMode(sellerState.activeDraftStoredMode);
   setFormError(contractDraftError);
+  contractSafeguardResult.hidden = true;
+  contractSafeguardResult.innerHTML = "";
   setContractDraftBusy(false);
 }
 
@@ -722,6 +731,10 @@ async function saveContractDraft({ silent = false } = {}) {
     },
   );
   if (!silent) showToast("계약 초안을 저장했습니다. 아직 발송되지 않았습니다.");
+  sellerState.contracts = sellerState.contracts.map((contract) =>
+    contract.id === result.contract.id ? result.contract : contract,
+  );
+  renderContracts();
   return result.contract;
 }
 
@@ -1160,11 +1173,14 @@ function renderContracts() {
             <time>${formatDate(contract.createdAt, true)}</time>
           </div>
           <h4>${escapeHtml(contract.postTitle)}</h4>
-          <p>${escapeHtml(contract.customerName)} · ${escapeHtml(contract.customerEmail)}</p>
+          <div class="reservation-customer">
+            <strong>${escapeHtml(contract.customerName)}</strong>
+            <span>${escapeHtml(contract.customerEmail)}</span>
+          </div>
           <div class="contract-meta">
-            <span>${sellerText("reservationDate")} ${formatReservationDate(contract.reservationDate)}</span>
+            <span>${sellerText("usageDate")} ${formatReservationDate(contract.reservationDate)}</span>
+            ${contract.reservationTime ? `<span>${escapeHtml(contract.reservationTime)}</span>` : ""}
             <span>${sellerText("people", escapeHtml(contract.people))}</span>
-            ${contract.selectedTemplateTitle ? `<span>${escapeHtml(contract.selectedTemplateTitle)}</span>` : ""}
           </div>
           ${
             contract.error
@@ -1671,6 +1687,9 @@ contractDraftClose.addEventListener("click", () => {
 contractDraftDialog.addEventListener("click", (event) => {
   if (event.target === contractDraftDialog) contractDraftDialog.close();
 });
+contractDraftDialog.addEventListener("close", () => {
+  if (toast.parentElement === contractDraftDialog) document.body.append(toast);
+});
 
 contractStartTemplate.addEventListener("click", () => {
   if (
@@ -1725,6 +1744,49 @@ contractDraftForm.addEventListener("input", (event) => {
   }
 });
 
+contractSafeguardCheck.addEventListener("click", async () => {
+  const contractId = sellerState.activeDraftContractId;
+  if (!contractId) return;
+
+  contractSafeguardCheck.disabled = true;
+  contractSafeguardCheck.textContent = "점검 중…";
+  try {
+    const result = await requestJson(
+      `/api/seller/contracts/${encodeURIComponent(contractId)}/safeguards`,
+      {
+        method: "POST",
+        body: JSON.stringify({ draft: contractDraftPayload() }),
+      },
+    );
+    const review = result.review;
+    const clauses = review.standardClauses || [];
+    contractSafeguardResult.innerHTML = `
+      <p class="contract-safeguard-missing"><strong>보완이 필요한 항목</strong><span>${(review.missingSafeguards || []).map(escapeHtml).join(" · ") || "추가 확인이 필요한 항목이 없습니다."}</span></p>
+      ${clauses.length ? `<div class="contract-safeguard-clauses">${clauses.map((clause, index) => `<label><input type="checkbox" data-safeguard-clause="${index}" checked /><span>${escapeHtml(clause)}</span></label>`).join("")}</div><button type="button" data-apply-safeguards>선택 문구를 추가 특약에 반영</button>` : ""}
+    `;
+    contractSafeguardResult.hidden = false;
+  } catch (error) {
+    showToast(getSellerErrorMessage(error));
+  } finally {
+    contractSafeguardCheck.disabled = false;
+    contractSafeguardCheck.textContent = "안전장치 점검하기";
+  }
+});
+
+contractSafeguardResult.addEventListener("click", (event) => {
+  const applyButton = event.target.closest("[data-apply-safeguards]");
+  if (!applyButton) return;
+  const clauses = [...contractSafeguardResult.querySelectorAll("[data-safeguard-clause]:checked")]
+    .map((input) => input.nextElementSibling?.textContent?.trim())
+    .filter(Boolean);
+  if (!clauses.length) return;
+  const field = contractDraftForm.elements.additionalClauses;
+  const existing = String(field.value || "").trim();
+  const uniqueClauses = clauses.filter((clause) => !existing.includes(clause));
+  field.value = [existing, ...uniqueClauses].filter(Boolean).join("\n");
+  showToast("선택한 표준 문구를 추가 특약에 반영했습니다. 저장 후 계약서를 열어 주세요.");
+});
+
 contractAiRecommend.addEventListener("click", async () => {
   const contract = sellerState.contracts.find(
     (item) => item.id === sellerState.activeDraftContractId,
@@ -1763,13 +1825,21 @@ contractAiList.addEventListener("change", () => {
   contractTemplateStatus.textContent = `추천 계약서 ${sellerState.activeRecommendedTemplateKeys.length}종을 사용합니다.`;
 });
 
-contractTemplateSelect.addEventListener("change", () => {
+contractTemplateSelect.addEventListener("change", async () => {
   sellerState.activeRecommendedTemplateKeys = [];
   contractAiResult.hidden = true;
   const selectedTitle =
     contractTemplateSelect.options[contractTemplateSelect.selectedIndex]?.text ||
     "선택한 템플릿";
   contractTemplateStatus.textContent = `${selectedTitle}을(를) 예약별 초안으로 복사해 엽니다.`;
+});
+
+contractTemplateSelect.addEventListener("change", async () => {
+  try {
+    await saveContractDraft({ silent: true });
+  } catch (error) {
+    setRequestError(contractDraftError, error);
+  }
 });
 
 contractTemplateEdit.addEventListener("click", async () => {

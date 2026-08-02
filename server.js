@@ -812,11 +812,22 @@ app.patch("/api/seller/contracts/:contractId/draft", async (request, response) =
     if (templateKey && templateKey !== "product-default" && !contractTemplates[templateKey]) {
       throw new Error("선택한 계약 템플릿을 데이터 파일에서 찾지 못했습니다.");
     }
-    if (templateKey) contract.selectedTemplateKey = templateKey;
+    if (templateKey) {
+      contract.selectedTemplateKey = templateKey;
+      contract.selectedTemplateId =
+        templateKey === "product-default" ? "" : contractTemplates[templateKey] || "";
+      contract.selectedTemplateTitle =
+        templateKey === "product-default"
+          ? "상품 기본 계약서 묶음"
+          : contractTemplateLabels[templateKey] || templateKey;
+    }
     if (Array.isArray(request.body?.templateKeys)) {
       contract.selectedTemplateKeys = normalizeSelectedTemplateKeys(
         request.body.templateKeys,
       );
+      if (contract.selectedTemplateKeys.length > 0) {
+        contract.selectedTemplateTitle = `AI 추천 계약서 ${contract.selectedTemplateKeys.length}종`;
+      }
     }
     if (contract.draftMode === "manual") {
       contract.selectedTemplateKey = "product-default";
@@ -837,6 +848,35 @@ app.patch("/api/seller/contracts/:contractId/draft", async (request, response) =
     response.status(400).json({
       message: error.message || "계약 초안을 저장하지 못했습니다.",
     });
+  }
+});
+
+app.post("/api/seller/contracts/:contractId/safeguards", async (request, response) => {
+  const user = requireSellerUser(request, response);
+  if (!user) return;
+
+  const contractId = cleanText(request.params.contractId, 100);
+  const contract = sellerContracts.find(
+    (item) => item.id === contractId && item.userId === user.id,
+  );
+  if (!contract) {
+    response.status(404).json({ message: "계약 초안을 찾지 못했습니다." });
+    return;
+  }
+
+  try {
+    const draft = normalizeSellerContractDraft(request.body?.draft, contract.draft);
+    const extractedTerms = draftToExtractedTerms(draft);
+    const review = await requestSolarContractRiskReview(
+      { name: contract.postTitle },
+      extractedTerms,
+      "보통",
+      "ko",
+    );
+    if (!review) throw new Error("Solar 안전장치 점검을 완료하지 못했습니다.");
+    response.json({ review });
+  } catch (error) {
+    response.status(502).json({ message: error.message || "안전장치 제안을 만들지 못했습니다." });
   }
 });
 
@@ -1944,6 +1984,14 @@ app.post("/api/signature/contract-summary", async (request, response) => {
       documentText,
       outputLocale,
     );
+    const solarRiskReview = extractedTerms
+      ? await requestSolarContractRiskReview(
+          product,
+          extractedTerms,
+          baselineRiskLevel,
+          outputLocale,
+        )
+      : null;
     const fallbackSummary =
       outputLocale === "ko"
         ? createFocusedDocumentLocalSummary(
@@ -1955,17 +2003,20 @@ app.post("/api/signature/contract-summary", async (request, response) => {
     const result = {
       pipeline: summaryPipeline,
       mode: extractedTerms
-        ? "document-parse-information-extract"
+        ? solarRiskReview
+          ? "document-parse-information-extract-solar-risk-review"
+          : "document-parse-information-extract"
         : "modusign-document-fallback",
       source: "modusign-document",
       summary:
-        extractedTerms
+        solarRiskReview ??
+        (extractedTerms
           ? createSummaryFromExtractedContractInfo(
               product,
               extractedTerms,
               baselineRiskLevel,
             )
-          : fallbackSummary,
+          : fallbackSummary),
     };
     documentSummaryCache.set(cacheKey, result);
     reservation.aiContractSummaries ??= {};
@@ -4750,6 +4801,90 @@ function createSummaryFromExtractedContractInfo(
         ? watchouts
         : ["계약서에 명시된 이용 조건과 책임 범위를 확인해 주세요."],
   };
+}
+
+function draftToExtractedTerms(draft) {
+  const toItems = (value) =>
+    String(value || "")
+      .split(/\n+|(?<=[.!?])\s+/)
+      .map((item) => cleanText(item, 180))
+      .filter(Boolean)
+      .slice(0, 5);
+  return {
+    fees: [],
+    termAndSchedule: toItems(draft.termsAndConditions),
+    cancellationAndRefund: toItems(draft.refundPolicy),
+    safety: toItems(draft.safetyNotes),
+    compensationAndLiability: toItems(draft.additionalClauses),
+  };
+}
+
+async function requestSolarContractRiskReview(
+  product,
+  extractedTerms,
+  baselineRiskLevel,
+  outputLocale = "ko",
+) {
+  const apiKey = process.env.UPSTAGE_API_KEY?.trim();
+  if (!apiKey) return null;
+  const outputLanguage =
+    outputLocale === "ko" ? "Korean" : getTranslationLanguage(outputLocale);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+
+  try {
+    const apiResponse = await fetch("https://api.upstage.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "solar-pro3",
+        temperature: 0,
+        messages: [
+          {
+            role: "system",
+            content: `You are a consumer contract risk reviewer. Use only the extracted clauses. Highlight refund bans or limits, business immunity, unilateral changes, and missing safety safeguards. Explain in short, plain ${outputLanguage}. Never give legal advice or invent facts.`,
+          },
+          {
+            role: "user",
+            content: `Product: ${product.name}\nBaseline risk: ${baselineRiskLevel}\nExtracted contract clauses:\n${JSON.stringify(extractedTerms)}\n\nReturn only JSON:\n{"headline":"plain-language most important warning","riskLevel":"${baselineRiskLevel}","refundWarnings":["fact-based refund or cancellation warning"],"unfairTerms":["fact-based consumer risk or missing safeguard"],"missingSafeguards":["missing safeguard name"],"standardClauses":["short standard clause proposal that a seller can add"]}`,
+          },
+        ],
+      }),
+      signal: controller.signal,
+    });
+    if (!apiResponse.ok) throw new Error(`Solar API 응답 오류 (${apiResponse.status})`);
+    const result = await apiResponse.json();
+    const parsed = parseSolarJson(result.choices?.[0]?.message?.content || "");
+    const refundWarnings = normalizeSummaryItems(parsed.refundWarnings, 4, 180);
+    const unfairTerms = normalizeSummaryItems(parsed.unfairTerms, 5, 180);
+    const missingSafeguards = normalizeSummaryItems(
+      parsed.missingSafeguards,
+      4,
+      120,
+    );
+    if (!cleanText(parsed.headline, 180) || (!refundWarnings.length && !unfairTerms.length)) {
+      throw new Error("Solar 위험 점검 응답 형식을 확인하지 못했습니다.");
+    }
+    return {
+      headline: cleanText(parsed.headline, 180),
+      riskLevel: baselineRiskLevel || "보통",
+      refundWarnings: refundWarnings.length ? refundWarnings : ["취소·환불 조건을 확인해 주세요."],
+      unfairTerms: [
+        ...unfairTerms,
+        ...missingSafeguards.map((item) => `누락 가능 안전장치: ${item}`),
+      ].slice(0, 5),
+      missingSafeguards,
+      standardClauses: normalizeSummaryItems(parsed.standardClauses, 4, 260),
+    };
+  } catch (error) {
+    console.error("Solar 계약 리스크 점검 오류:", error.message);
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function requestFocusedContractSummary(
