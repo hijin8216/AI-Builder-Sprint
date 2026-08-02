@@ -212,6 +212,7 @@ app.get("/api/health", (_request, response) => {
 });
 
 app.get("/api/products", (_request, response) => {
+  response.set("Cache-Control", "no-store");
   response.json({
     products: getAllProducts(),
   });
@@ -2867,6 +2868,7 @@ function sellerPostAsProduct(post) {
     detailImages: post.detailImages || [],
     contractTemplateKeys: getSellerContractTemplateKeys(post.category),
     sellerCreated: true,
+    updatedAt: post.updatedAt || post.createdAt || "",
   };
 }
 

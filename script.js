@@ -2,6 +2,8 @@ let experiences = [];
 let productDetails = {};
 let productContracts = {};
 let productMedia = {};
+let productListFingerprint = "";
+let productRefreshRequest = null;
 
 const state = {
   category: "",
@@ -3001,7 +3003,7 @@ function addSellerProductDetailData() {
 async function loadProducts() {
   try {
     const loadProductList = async () => {
-      const apiResponse = await fetch("/api/products");
+      const apiResponse = await fetch("/api/products", { cache: "no-store" });
       if (apiResponse.ok) return apiResponse;
 
       // 이전 서버 버전은 판매자 등록 API가 없을 수 있습니다.
@@ -3038,6 +3040,7 @@ async function loadProducts() {
       mediaResponse.json(),
     ]);
     experiences = productsData.products;
+    productListFingerprint = JSON.stringify(productsData.products);
     productDetails = detailsData.details;
     productContracts = contractsData.contracts;
     productMedia = mediaData.media;
@@ -3049,6 +3052,63 @@ async function loadProducts() {
     resultDescription.textContent = error.message;
     emptyState.hidden = false;
   }
+}
+
+async function refreshProducts() {
+  if (productRefreshRequest) return productRefreshRequest;
+
+  productRefreshRequest = (async () => {
+    try {
+      const response = await fetch("/api/products", { cache: "no-store" });
+      if (!response.ok) return;
+
+      const productsData = await response.json();
+      const nextProducts = Array.isArray(productsData.products)
+        ? productsData.products
+        : [];
+      const nextFingerprint = JSON.stringify(nextProducts);
+      if (nextFingerprint === productListFingerprint) return;
+
+      const previousSellerProductIds = experiences
+        .filter((product) => product.sellerCreated)
+        .map((product) => product.id);
+      previousSellerProductIds.forEach((productId) => {
+        delete productDetails[productId];
+        delete productContracts[productId];
+        delete productMedia[productId];
+      });
+
+      experiences = nextProducts;
+      productListFingerprint = nextFingerprint;
+      addSellerProductDetailData();
+
+      if (
+        state.selectedExperience &&
+        !experiences.some(
+          (product) => product.id === state.selectedExperience.id,
+        )
+      ) {
+        if (productDetailDialog.open) productDetailDialog.close();
+        state.selectedExperience = null;
+        showToast(
+          localizeText(
+            "판매가 종료된 상품입니다.",
+            "This experience is no longer available.",
+          ),
+        );
+      }
+
+      updateCategoryCounts();
+      renderExperiences();
+      if (mypageDialog.open) renderFavoriteExperiences();
+    } catch (_error) {
+      // 자동 동기화 실패 시 현재 화면은 유지하고 다음 확인 때 다시 시도합니다.
+    }
+  })().finally(() => {
+    productRefreshRequest = null;
+  });
+
+  return productRefreshRequest;
 }
 
 categoryButtons.forEach((button) => {
@@ -4889,6 +4949,14 @@ window.setInterval(() => {
     loadMyReservations({ silent: true });
   }
 }, 8000);
+
+window.setInterval(() => {
+  if (document.visibilityState === "visible") refreshProducts();
+}, 5000);
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") refreshProducts();
+});
 
 bookingDate.addEventListener("input", () => {
   bookingDate.setCustomValidity("");
