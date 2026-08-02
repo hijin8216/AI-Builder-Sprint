@@ -161,6 +161,9 @@ const reservationCancelConfirm = document.querySelector(
 );
 const bookingName = document.querySelector("#booking-name");
 const bookingEmail = document.querySelector("#booking-email");
+const bookingMinorOptions = [
+  ...document.querySelectorAll("input[name='booking-minor']"),
+];
 const notificationButton = document.querySelector("#notification-button");
 const notificationTrigger = document.querySelector("#notification-trigger");
 const notificationBadge = document.querySelector("#notification-badge");
@@ -911,6 +914,10 @@ function applyStaticLocale() {
   setLocaleContent("#booking-people option[value='3']", "3명", "3 guests");
   setLocaleContent("#booking-people option[value='4']", "4명", "4 guests");
   setLocaleContent("#booking-people option[value='5']", "5명 이상", "5+ guests");
+  setLocaleContent("#booking-minor-title", "예약자는 미성년자인가요?", "Is the booking guest a minor?");
+  setLocaleContent("#booking-minor-description", "미성년자인 경우 법정대리인 동의서가 계약서에 추가됩니다.", "A guardian consent form will be added for a minor booking guest.");
+  setLocaleContent("#booking-minor-no", "아니요, 성인입니다", "No, the guest is an adult");
+  setLocaleContent("#booking-minor-yes", "네, 미성년자입니다", "Yes, the guest is a minor");
   setLocaleContent("#booking-form .dialog-submit", "예약 요청하기 →", "Request reservation →");
   setLocaleContent(".booking-form > small", "웹사이트에서 전자서명을 완료하면 로그인 이메일로 완료 문서를 보내드립니다.", "After completing e-signature here, the completed document will be sent to your login email.");
 
@@ -2265,6 +2272,9 @@ function openBooking(experienceId) {
     searchDate.value && searchDate.value >= localToday ? searchDate.value : "";
   bookingName.value = currentUser.userId;
   bookingEmail.value = currentUser.email;
+  bookingMinorOptions.forEach((option) => {
+    option.checked = false;
+  });
   bookingTime.innerHTML = selectedExperience.timeSlots
     .map((time) => `<option value="${escapeHtml(time)}">${escapeHtml(time)}</option>`)
     .join("");
@@ -3525,12 +3535,18 @@ document.querySelector("#booking-form").addEventListener("submit", async (event)
   bookingDate.setCustomValidity("");
 
   const people = document.querySelector("#booking-people").value;
+  const minorSelection = bookingMinorOptions.find((option) => option.checked);
+  if (!minorSelection) {
+    bookingMinorOptions[0]?.reportValidity();
+    return;
+  }
   const experienceTitle = state.selectedExperience?.name ?? "선택한 경험";
   const submitButton = event.currentTarget.querySelector(".dialog-submit");
   const bookingDraft = {
     name: bookingName.value.trim(),
     productId: state.selectedExperience?.id ?? "",
     people,
+    isMinor: minorSelection.value === "true",
     date: reservationDate,
     time: bookingTime.value,
     activity: experienceTitle,

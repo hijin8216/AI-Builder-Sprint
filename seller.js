@@ -866,6 +866,7 @@ function renderReservations() {
             <span class="reservation-detail-row">
               ${reservation.time ? `<span>${escapeHtml(reservation.time)}</span>` : ""}
               <span>${sellerText("people", escapeHtml(reservation.people))}</span>
+              ${reservation.isMinor ? `<span>${escapeHtml(sellerText("minorReservation"))}</span>` : ""}
             </span>
           </div>
           <div class="reservation-actions">${actionItems.join("")}</div>
@@ -1434,7 +1435,10 @@ contractAiRecommend.addEventListener("click", async () => {
   try {
     const result = await requestJson("/api/seller/contract-recommendations", {
       method: "POST",
-      body: JSON.stringify({ postId: contract.postId }),
+      body: JSON.stringify({
+        postId: contract.postId,
+        reservationId: contract.reservationId,
+      }),
     });
     renderContractRecommendations(result);
   } catch (error) {

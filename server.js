@@ -664,6 +664,7 @@ app.post("/api/seller/contract-recommendations", async (request, response) => {
   if (!user) return;
 
   const postId = cleanText(request.body?.postId, 100);
+  const reservationId = cleanText(request.body?.reservationId, 100);
   const post = sellerPosts.find(
     (item) => item.id === postId && item.userId === user.id,
   );
@@ -672,17 +673,30 @@ app.post("/api/seller/contract-recommendations", async (request, response) => {
     return;
   }
 
-  const cacheKey = `${post.id}:${post.updatedAt || post.createdAt || ""}`;
+  const reservation = reservationId
+    ? reservations.find(
+        (item) =>
+          item.id === reservationId && sellerOwnsReservation(item, user.id),
+      )
+    : null;
+  if (reservationId && !reservation) {
+    response.status(404).json({ message: "계약서를 추천할 예약 정보를 찾지 못했습니다." });
+    return;
+  }
+
+  const minorStatus = reservation?.isMinor === true ? "minor" : "adult";
+  const cacheKey = `${post.id}:${post.updatedAt || post.createdAt || ""}:${minorStatus}`;
   const cached = contractRecommendationCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     response.json({ ...cached.result, cached: true });
     return;
   }
 
-  const localRecommendations = createLocalContractRecommendations(post);
+  const localRecommendations = createLocalContractRecommendations(post, reservation);
   const solarRecommendations = await requestSolarContractRecommendations(
     post,
     localRecommendations,
+    reservation,
   );
   const recommendations = mergeContractRecommendations(
     localRecommendations,
@@ -692,7 +706,7 @@ app.post("/api/seller/contract-recommendations", async (request, response) => {
     mode: solarRecommendations ? "solar" : "local",
     message: solarRecommendations
       ? "Solar가 상품의 활동 방식과 위험 요소를 분석했습니다. 필수 계약서는 규칙으로 보호됩니다."
-      : "기본 안전 규칙으로 계약서를 추천했습니다. Solar 연결 상태를 확인해 주세요.",
+      : "기본 안전 규칙과 예약자의 미성년 여부로 계약서를 추천했습니다. Solar 연결 상태를 확인해 주세요.",
     recommendations,
     recommendedTemplateKeys: recommendations
       .filter((item) => item.selected)
@@ -1302,6 +1316,7 @@ app.post("/api/reservations", async (request, response) => {
       date: booking.date,
       time: booking.time,
       people: booking.people,
+      isMinor: booking.isMinor,
       status: sellerPost ? "SELLER_REVIEW" : "CONTRACT_PENDING",
       signatureStatus: "",
       documentId: "",
@@ -2338,6 +2353,7 @@ function publicReservation(reservation) {
     date: reservation.date,
     time: reservation.time || "",
     people: reservation.people,
+    isMinor: reservation.isMinor === true,
     status: reservation.status,
     signatureStatus: reservation.signatureStatus,
     createdAt: reservation.createdAt,
@@ -2516,6 +2532,7 @@ function publicSellerReservation(reservation, sellerUserId) {
     date: reservation.date,
     time: reservation.time || "",
     people: reservation.people,
+    isMinor: reservation.isMinor === true,
     status: reservation.status,
     sellerCancelledAt: reservation.sellerCancelledAt ?? "",
     cancellationNoticePending:
@@ -2604,7 +2621,7 @@ function getSellerContractTemplateKeys(category) {
       ];
 }
 
-function createLocalContractRecommendations(post) {
+function createLocalContractRecommendations(post, reservation = null) {
   const activityText = [
     post.title,
     post.category,
@@ -2679,14 +2696,14 @@ function createLocalContractRecommendations(post) {
     isScuba,
   );
 
-  const allowsMinors = Number(post.minAge || 0) > 0 && Number(post.minAge) < 18;
+  const isMinorReservation = reservation?.isMinor === true;
   add(
     "minorGuardian",
-    allowsMinors ? "required" : "optional",
-    allowsMinors
-      ? `최소 참여 연령이 ${post.minAge}세이므로 미성년자 예약 가능성이 있습니다.`
-      : "미성년자가 참여하는 예약에만 선택하세요.",
-    allowsMinors,
+    isMinorReservation ? "required" : "optional",
+    isMinorReservation
+      ? "구매자가 예약 시 미성년자라고 확인하여 법정대리인 동의가 필요합니다."
+      : "구매자가 성인이라고 확인한 예약이므로 추천하지 않습니다.",
+    isMinorReservation,
   );
 
   const includesPhotography = /(사진|영상|촬영|카메라|스냅)/.test(activityText);
@@ -2702,7 +2719,11 @@ function createLocalContractRecommendations(post) {
   return [...recommendations.values()];
 }
 
-async function requestSolarContractRecommendations(post, localRecommendations) {
+async function requestSolarContractRecommendations(
+  post,
+  localRecommendations,
+  reservation = null,
+) {
   const apiKey = process.env.UPSTAGE_API_KEY?.trim();
   if (!apiKey) return null;
 
@@ -2723,11 +2744,15 @@ async function requestSolarContractRecommendations(post, localRecommendations) {
           {
             role: "system",
             content:
-              "당신은 해양레저 전자계약 템플릿 분류 도우미입니다. 제공된 템플릿 key만 사용할 수 있습니다. 법률 자문이나 새 계약 조항을 작성하지 말고, 상품 정보에 근거해 템플릿의 필요도와 짧은 이유만 JSON으로 반환하세요. 기본 규칙에서 required인 항목은 반드시 selected=true, priority=required로 유지하세요.",
+              "당신은 해양레저 전자계약 템플릿 분류 도우미입니다. 제공된 템플릿 key만 사용할 수 있습니다. 법률 자문이나 새 계약 조항을 작성하지 말고, 상품과 예약 정보에 근거해 템플릿의 필요도와 짧은 이유만 JSON으로 반환하세요. 기본 규칙에서 required인 항목은 반드시 selected=true, priority=required로 유지하세요. minorGuardian은 예약 정보의 isMinor가 true일 때만 selected=true로 추천하세요.",
           },
           {
             role: "user",
-            content: buildSolarContractRecommendationPrompt(post, localRecommendations),
+            content: buildSolarContractRecommendationPrompt(
+              post,
+              localRecommendations,
+              reservation,
+            ),
           },
         ],
       }),
@@ -2748,7 +2773,11 @@ async function requestSolarContractRecommendations(post, localRecommendations) {
   }
 }
 
-function buildSolarContractRecommendationPrompt(post, localRecommendations) {
+function buildSolarContractRecommendationPrompt(
+  post,
+  localRecommendations,
+  reservation = null,
+) {
   const product = {
     title: post.title,
     category: post.category,
@@ -2766,9 +2795,17 @@ function buildSolarContractRecommendationPrompt(post, localRecommendations) {
     participantRequirements: post.participantRequirements || [],
     safetyNotes: post.safetyNotes || [],
   };
+  const booking = {
+    isMinor: reservation?.isMinor === true,
+    people: Number(reservation?.people || 0),
+    date: reservation?.date || "",
+  };
   return `
 상품 정보:
 ${JSON.stringify(product, null, 2)}
+
+예약 정보:
+${JSON.stringify(booking, null, 2)}
 
 선택 가능한 템플릿과 기본 규칙:
 ${JSON.stringify(localRecommendations, null, 2)}
@@ -2813,7 +2850,9 @@ function mergeContractRecommendations(localRecommendations, solarRecommendations
   return localRecommendations
     .map((local) => {
       const solar = solarMap.get(local.key);
-      if (!solar || local.ruleRequired) return local;
+      if (!solar || local.ruleRequired || local.key === "minorGuardian") {
+        return local;
+      }
       return {
         ...local,
         priority: solar.priority,
@@ -3161,6 +3200,7 @@ function normalizeBooking(input = {}) {
     activity: cleanText(input.activity, 120), venue: cleanText(input.venue, 100),
     date: cleanText(input.date, 20), time: cleanText(input.time, 10),
     people: cleanText(input.people, 10),
+    isMinor: input.isMinor === true,
   };
   if (
     !booking.name ||
