@@ -3400,6 +3400,103 @@ html[lang="ko"] .product-translation-status {
 .contract-dialog-head, .signature-dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 24px; border-bottom: 1px solid #e5edf0; }.contract-dialog-head p { margin: 0 0 4px; color: var(--ocean); font-size: 10px; font-weight: 800; letter-spacing: 1.3px; }.contract-dialog-head h2 { margin: 0; color: var(--navy); font-size: 20px; }.contract-dialog-head button, .signature-dialog-head button { border: 0; background: transparent; color: var(--muted); font-size: 24px; cursor: pointer; }.contract-dialog-body { padding: 24px; }.contract-booking-summary, .contract-terms { padding: 15px; border-radius: 9px; font-size: 13px; line-height: 1.65; }.contract-booking-summary { margin-bottom: 14px; color: #12516c; background: #edf8fa; font-weight: 700; }.contract-terms { color: #435664; background: #f7fafb; }.contract-terms h3 { margin: 0 0 7px; color: var(--navy); font-size: 14px; }.contract-terms p { margin: 0; }.contract-agreement { display: flex; gap: 8px; align-items: flex-start; margin: 18px 0; color: #425563; font-size: 12px; line-height: 1.55; }.contract-agreement input { margin-top: 3px; }.signature-dialog { width: min(1000px, calc(100% - 30px)); height: min(760px, calc(100% - 30px)); }.signature-dialog-head strong { color: var(--navy); }.signature-dialog-head span { margin-left: auto; color: var(--muted); font-size: 12px; }.signature-frame-wrap { position: relative; height: calc(100% - 66px); }.signature-frame-wrap iframe { display: block; width: 100%; height: 100%; border: 0; }.signature-frame-wrap p { padding: 36px; color: var(--muted); text-align: center; }
 .signature-waiting { position: absolute; inset: 0; display: grid; place-content: center; gap: 10px; padding: 30px; background: #f3f7fa; color: var(--navy); text-align: center; }.signature-waiting[hidden] { display: none; }.signature-waiting strong { font-size: 20px; }.signature-waiting p { max-width: 360px; margin: 0; padding: 0; line-height: 1.7; }
 
+.signature-view-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.signature-dialog-head .signature-view-actions #signature-translation-view {
+  border: 1px solid #b9dce0;
+  border-radius: 8px;
+  padding: 7px 10px;
+  color: #136372;
+  background: #f4fbfc;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.signature-dialog-head .signature-view-actions #signature-translation-view[aria-pressed="true"] {
+  color: white;
+  border-color: #167d8e;
+  background: #167d8e;
+}
+
+.signature-translation-reader {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 24px;
+  color: #1e3847;
+  background: #f7fbfc;
+}
+
+.signature-translation-reader[hidden] {
+  display: none;
+}
+
+.signature-translation-reader header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #d7e8eb;
+}
+
+.signature-translation-reader header div {
+  display: grid;
+  gap: 5px;
+}
+
+.signature-translation-reader header span {
+  color: #5f858e;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.signature-translation-reader header strong {
+  color: var(--navy);
+  font-size: 18px;
+}
+
+.signature-translation-reader header button {
+  border: 1px solid #a7cfd4;
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #126273;
+  background: #fff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.signature-translation-reader article {
+  flex: 1;
+  overflow: auto;
+  margin: 18px 0 12px;
+  padding: 20px;
+  border: 1px solid #d7e7ea;
+  border-radius: 10px;
+  color: #304b57;
+  background: #fff;
+  font-size: 14px;
+  line-height: 1.85;
+  white-space: pre-wrap;
+}
+
+.signature-translation-reader small {
+  color: #6c838b;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
 .contract-dialog {
   width: min(640px, calc(100% - 30px));
 }
@@ -3569,6 +3666,24 @@ html[lang="ko"] .product-translation-status {
   opacity: 0.55;
 }
 
+.contract-ai-panel-actions #contract-summary-locale {
+  height: 34px;
+  border: 1px solid #c4e2e5;
+  border-radius: 10px;
+  padding: 0 7px;
+  color: #17606a;
+  background: #fff;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.contract-assist-tabs,
+.contract-translation-view,
+#signature-translation-view {
+  display: none !important;
+}
+
 .contract-assist-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -3637,6 +3752,36 @@ html[lang="ko"] .product-translation-status {
   font-size: 10px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.contract-translation-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.contract-translation-controls select {
+  height: 29px;
+  border: 1px solid #b8dadd;
+  border-radius: 7px;
+  padding: 0 6px;
+  color: #17606a;
+  background: #fff;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .contract-translation-content {

@@ -2031,6 +2031,43 @@ app.post("/api/signature/contract-summary", async (request, response) => {
   }
 });
 
+app.post("/api/signature/contract-summary-translation", async (request, response) => {
+  const user = requireAuthenticatedUser(request, response);
+  if (!user) return;
+
+  try {
+    const outputLocale = getTranslationLocale(request.body?.locale);
+    const summary = normalizeContractSummaryForTranslation(request.body?.summary);
+    if (!outputLocale) {
+      response.status(400).json({ message: "Choose a supported summary language." });
+      return;
+    }
+    if (!summary) {
+      response.status(400).json({ message: "The Korean AI summary is not ready yet." });
+      return;
+    }
+
+    const translatedSummary = await requestContractSummaryTranslation(
+      summary,
+      outputLocale,
+    );
+    if (!translatedSummary) {
+      response.status(503).json({ message: "The AI summary could not be translated." });
+      return;
+    }
+    response.json({
+      mode: "summary-translation",
+      source: "korean-ai-summary",
+      summary: translatedSummary,
+    });
+  } catch (error) {
+    console.error("AI summary translation error:", error.message);
+    response.status(502).json({
+      message: error.message || "The AI summary could not be translated.",
+    });
+  }
+});
+
 app.post("/api/signature/contract-translation", async (request, response) => {
   const user = requireAuthenticatedUser(request, response);
   if (!user) return;
@@ -2066,11 +2103,24 @@ app.post("/api/signature/contract-translation", async (request, response) => {
       return;
     }
 
-    const document = await getModusignDocument(reservation.documentId);
-    const documentText = await getExtractedModusignDocumentText(
-      document,
-      reservation,
-    );
+    let documentText;
+    let source = "modusign-document";
+    try {
+      const document = await getModusignDocument(reservation.documentId);
+      documentText = await getExtractedModusignDocumentText(
+        document,
+        reservation,
+      );
+    } catch (documentError) {
+      // 모두싸인은 서명 진행 중인 문서의 PDF 다운로드를 제한할 수 있습니다.
+      // 이 경우 예약 상품의 실제 약관을 번역해 사용자가 서명 전에 내용을 확인할 수 있게 합니다.
+      documentText = buildReservationContractText(reservation);
+      source = "reservation-terms";
+      console.warn(
+        "계약서 PDF를 불러오지 못해 예약 약관 기준 번역으로 전환합니다:",
+        documentError.message,
+      );
+    }
     const translatedText = await requestContractTranslation(
       documentText,
       outputLocale,
@@ -2084,7 +2134,7 @@ app.post("/api/signature/contract-translation", async (request, response) => {
 
     const result = {
       mode: "solar",
-      source: "modusign-document",
+      source,
       locale: outputLocale,
       targetLanguage: getTranslationLanguage(outputLocale),
       translatedText,
@@ -4126,6 +4176,23 @@ function buildContractTerms(product, detail, contract) {
   ];
 }
 
+function buildReservationContractText(reservation) {
+  const { product, detail, contract } = getProductContent(reservation.productId);
+  const terms = product && detail && contract
+    ? buildContractTerms(product, detail, contract)
+    : [];
+  return [
+    "Reservation contract terms",
+    `Activity: ${reservation.activity || product?.name || "Marine leisure experience"}`,
+    `Use date: ${reservation.date || "To be confirmed"}`,
+    reservation.time ? `Use time: ${reservation.time}` : "",
+    reservation.people ? `Participants: ${reservation.people}` : "",
+    product?.pricePerPerson ? `Price per person: ${product.pricePerPerson}` : "",
+    product?.refundPolicy ? `Refund policy: ${product.refundPolicy}` : "",
+    ...terms,
+  ].filter(Boolean).join("\n\n");
+}
+
 function normalizeContractTextForTranslation(text) {
   return text
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
@@ -4950,6 +5017,74 @@ async function requestFocusedContractSummary(
     );
   } catch (error) {
     console.error("Solar 약관 요약 연결 오류:", error.message);
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function normalizeContractSummaryForTranslation(summary) {
+  if (!summary || typeof summary !== "object") return null;
+  const normalized = {
+    headline: cleanText(summary.headline, 220),
+    riskLevel: cleanText(summary.riskLevel, 40),
+    refundWarnings: normalizeSummaryItems(summary.refundWarnings, 5, 220),
+    unfairTerms: normalizeSummaryItems(summary.unfairTerms, 5, 220),
+  };
+  return normalized.headline && normalized.refundWarnings.length && normalized.unfairTerms.length
+    ? normalized
+    : null;
+}
+
+async function requestContractSummaryTranslation(summary, outputLocale) {
+  const apiKey = process.env.UPSTAGE_API_KEY?.trim();
+  if (!apiKey) return null;
+
+  const outputLanguage = getTranslationLanguage(outputLocale);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+  try {
+    const apiResponse = await fetch("https://api.upstage.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "solar-pro3",
+        temperature: 0,
+        messages: [
+          {
+            role: "system",
+            content: `Translate the supplied Korean AI summary into natural ${outputLanguage}. Do not re-analyze the contract, change priorities, omit any list item, or add facts. Keep riskLevel unchanged. Return only a valid JSON object with these exact keys: {"headline":"translated sentence","riskLevel":"original risk level","refundWarnings":["translated item"],"unfairTerms":["translated item"]}. Do not use Korean in headline, refundWarnings, or unfairTerms.`,
+          },
+          {
+            role: "user",
+            content: JSON.stringify(summary),
+          },
+        ],
+      }),
+      signal: controller.signal,
+    });
+    if (!apiResponse.ok) {
+      throw new Error(`Solar summary translation error (${apiResponse.status})`);
+    }
+    const result = await apiResponse.json();
+    const translated = normalizeContractSummaryForTranslation(
+      parseSolarJson(result.choices?.[0]?.message?.content || ""),
+    );
+    if (!translated) throw new Error("Solar returned an invalid summary translation.");
+    if (
+      containsKoreanCharacters(translated.headline) ||
+      containsKoreanCharacters(translated.refundWarnings) ||
+      containsKoreanCharacters(translated.unfairTerms)
+    ) {
+      throw new Error("Solar returned an untranslated Korean AI summary.");
+    }
+    translated.riskLevel = summary.riskLevel;
+    return translated;
+  } catch (error) {
+    console.error("Solar summary translation connection error:", error.message);
     return null;
   } finally {
     clearTimeout(timeout);
