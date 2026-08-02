@@ -94,6 +94,12 @@ const sortSelect = document.querySelector("#sort-select");
 const bookingDialog = document.querySelector("#booking-dialog");
 const bookingDate = document.querySelector("#booking-date");
 const bookingTime = document.querySelector("#booking-time");
+const paymentDialog = document.querySelector("#payment-dialog");
+const paymentProduct = document.querySelector("#payment-product");
+const paymentSchedule = document.querySelector("#payment-schedule");
+const paymentTotal = document.querySelector("#payment-total");
+const paymentConfirmButton = document.querySelector("#payment-confirm");
+let pendingPaymentBooking = null;
 const searchDate = document.querySelector("#search-date");
 const productDetailDialog = document.querySelector("#product-detail-dialog");
 const recommendationDialog = document.querySelector("#recommendation-dialog");
@@ -1020,7 +1026,7 @@ function applyStaticLocale() {
   setLocaleContent(".detail-facts div:nth-child(4) dt", "최대 인원", "Max guests");
   setLocaleContent(".detail-facts div:nth-child(5) dt", "운영 시간", "Time slots");
   setLocaleContent(".detail-included > strong", "포함 사항", "Included");
-  setLocaleContent("#detail-book-button", "조건을 확인하고 예약하기 →", "Review terms and reserve →");
+  setLocaleContent("#detail-book-button", "예약하기 →", "Reserve →");
   setLocaleContent(".product-detail-booking > small", "예약 요청 후 약관 검토와 전자서명이 진행됩니다.", "After booking, you will review the terms and complete e-signature.");
 
   setLocaleContent(".dialog-price span", "1인 기준", "Per person");
@@ -1038,7 +1044,7 @@ function applyStaticLocale() {
   setLocaleContent("#booking-minor-description", "미성년자인 경우 법정대리인 동의서가 계약서에 추가됩니다.", "A guardian consent form will be added for a minor booking guest.");
   setLocaleContent("#booking-minor-no", "아니요, 성인입니다", "No, the guest is an adult");
   setLocaleContent("#booking-minor-yes", "네, 미성년자입니다", "Yes, the guest is a minor");
-  setLocaleContent("#booking-form .dialog-submit", "예약 요청하기 →", "Request reservation →");
+  setLocaleContent("#booking-form .dialog-submit", "예약하기 →", "Reserve →");
   setLocaleContent(".booking-form > small", "웹사이트에서 전자서명을 완료하면 로그인 이메일로 완료 문서를 보내드립니다.", "After completing e-signature here, the completed document will be sent to your login email.");
 
   setLocaleContent("#recommendation-chat-title", "바다 취향 찾기", "Find your sea style");
@@ -3979,6 +3985,73 @@ bookingDialog.addEventListener("click", (event) => {
   if (event.target === bookingDialog) bookingDialog.close();
 });
 
+function openFakePayment(bookingDraft, experienceTitle) {
+  const pricePerPerson = Number(state.selectedExperience?.pricePerPerson ?? 0);
+  const people = Number(bookingDraft.people ?? 1);
+
+  pendingPaymentBooking = { bookingDraft, experienceTitle };
+  paymentProduct.textContent = experienceTitle;
+  paymentSchedule.textContent = `${bookingDraft.date} · ${bookingDraft.time} · ${formatPeople(people)}`;
+  paymentTotal.textContent = formatPrice(pricePerPerson * people);
+  bookingDialog.close();
+  paymentDialog.showModal();
+  document.body.classList.add("dialog-open");
+}
+
+async function confirmFakePayment() {
+  if (!pendingPaymentBooking) return;
+
+  const { bookingDraft, experienceTitle } = pendingPaymentBooking;
+  paymentConfirmButton.disabled = true;
+  paymentConfirmButton.textContent = localizeText("결제 처리 중…", "Processing payment…");
+
+  try {
+    const response = await fetch("/api/reservations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(bookingDraft),
+    });
+    const result = await response.json();
+    if (response.status === 401) {
+      currentUser = null;
+      updateAuthInterface();
+      paymentDialog.close();
+      openAuthDialog("login");
+    }
+    if (!response.ok) throw new Error(result.message || "예약을 완료하지 못했습니다.");
+
+    paymentDialog.close();
+    pendingPaymentBooking = null;
+    contractNotification.hidden = true;
+    myReservations = [result.reservation, ...myReservations.filter((reservation) => reservation.id !== result.reservation.id)];
+    if (state.selectedExperience?.sellerCreated) {
+      pendingBooking = null;
+      notificationBadge.hidden = true;
+    } else {
+      pendingBooking = result.reservation;
+      renderContractNotifications();
+      notificationButton.setAttribute("aria-expanded", "false");
+    }
+    showToast(
+      state.selectedExperience?.sellerCreated
+        ? localizeText(`${experienceTitle} 예약이 판매자에게 전달되었어요. 계약서는 로그인 이메일로 전송됩니다.`, `${experienceTitle} was sent to the seller. The contract will arrive at your account email.`)
+        : localizeText(`${experienceTitle} 예약이 완료되었어요. 계약서를 확인해 주세요.`, `${experienceTitle} was reserved. Please review the contract.`),
+    );
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    paymentConfirmButton.disabled = false;
+    paymentConfirmButton.innerHTML = `${localizeText("결제 완료하기", "Complete payment")} <span>→</span>`;
+  }
+}
+
+document.querySelector("#payment-close").addEventListener("click", () => paymentDialog.close());
+paymentDialog.addEventListener("click", (event) => {
+  if (event.target === paymentDialog) paymentDialog.close();
+});
+paymentDialog.addEventListener("close", () => document.body.classList.remove("dialog-open"));
+paymentConfirmButton.addEventListener("click", confirmFakePayment);
+
 document.querySelector("#booking-form").addEventListener("submit", async (event) => {
   event.preventDefault();
 
@@ -4009,7 +4082,6 @@ document.querySelector("#booking-form").addEventListener("submit", async (event)
     return;
   }
   const experienceTitle = state.selectedExperience?.name ?? "선택한 경험";
-  const submitButton = event.currentTarget.querySelector(".dialog-submit");
   const bookingDraft = {
     name: bookingName.value.trim(),
     productId: state.selectedExperience?.id ?? "",
@@ -4020,6 +4092,9 @@ document.querySelector("#booking-form").addEventListener("submit", async (event)
     activity: experienceTitle,
     venue: state.selectedExperience?.partnerName ?? "WAVEON BUSAN 제휴 업체",
   };
+
+  openFakePayment(bookingDraft, experienceTitle);
+  return;
 
   submitButton.disabled = true;
   submitButton.textContent = localizeText("예약 저장 중…", "Saving reservation…");

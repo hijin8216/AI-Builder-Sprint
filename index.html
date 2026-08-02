@@ -586,7 +586,7 @@
               <strong>포함 사항</strong>
               <div id="detail-included"></div>
             </div>
-            <button id="detail-book-button" class="detail-book-button" type="button">조건을 확인하고 예약하기 <span>→</span></button>
+            <button id="detail-book-button" class="detail-book-button" type="button">예약하기 <span>→</span></button>
             <small>예약 요청 후 약관 검토와 전자서명이 진행됩니다.</small>
           </aside>
         </div>
@@ -649,9 +649,26 @@
             </div>
           </fieldset>
         </div>
-        <button class="dialog-submit" type="submit">예약 요청하기 <span>→</span></button>
+        <button class="dialog-submit" type="submit">예약하기 <span>→</span></button>
         <small>웹사이트에서 전자서명을 완료하면 로그인 이메일로 완료 문서를 보내드립니다.</small>
       </form>
+    </dialog>
+
+    <dialog id="payment-dialog" class="payment-dialog">
+      <div class="payment-dialog-head">
+        <div><p>PAYMENT</p><h2>결제하기</h2></div>
+        <button id="payment-close" type="button" aria-label="결제 창 닫기">×</button>
+      </div>
+      <div class="payment-dialog-body">
+        <div class="payment-notice"><span>테스트 결제</span><p>실제 결제는 진행되지 않는 데모 화면입니다.</p></div>
+        <dl class="payment-summary">
+          <div><dt>상품</dt><dd id="payment-product"></dd></div>
+          <div><dt>이용 정보</dt><dd id="payment-schedule"></dd></div>
+          <div><dt>결제 금액</dt><dd id="payment-total"></dd></div>
+        </dl>
+        <div class="payment-methods" role="radiogroup" aria-label="테스트 결제수단"><label><input type="radio" name="payment-method" checked /><span>신용·체크카드</span></label><label><input type="radio" name="payment-method" /><span>간편결제</span></label></div>
+        <button id="payment-confirm" class="dialog-submit" type="button">결제 완료하기 <span>→</span></button>
+      </div>
     </dialog>
 
     <dialog id="reservation-detail-dialog" class="reservation-detail-dialog">
