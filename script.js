@@ -14,6 +14,7 @@ const state = {
   recommendationMap: new Map(),
   recommendationMessage: "",
   contractSummaryCache: new Map(),
+  contractTranslationCache: new Map(),
   page: 0,
   regions: new Set(),
 };
@@ -96,8 +97,14 @@ const bookingTime = document.querySelector("#booking-time");
 const searchDate = document.querySelector("#search-date");
 const productDetailDialog = document.querySelector("#product-detail-dialog");
 const recommendationDialog = document.querySelector("#recommendation-dialog");
+const recommendationForm = document.querySelector("#recommendation-form");
 const recommendationError = document.querySelector("#recommendation-error");
 const recommendationSubmit = document.querySelector("#recommendation-submit");
+const recommendationChatLog = document.querySelector("#recommendation-chat-log");
+const recommendationChatControls = document.querySelector("#recommendation-chat-controls");
+const recommendationProgress = document.querySelector("#recommendation-progress");
+const recommendationBackButton = document.querySelector("#recommendation-back");
+const recommendationRestartButton = document.querySelector("#recommendation-restart");
 const toast = document.querySelector("#toast");
 const loginButton = document.querySelector("#login-button");
 const sellerPageLink = document.querySelector("#seller-page-link");
@@ -182,6 +189,16 @@ const contractAiHeadline = document.querySelector("#contract-ai-headline");
 const contractAiRefund = document.querySelector("#contract-ai-refund");
 const contractAiWatchout = document.querySelector("#contract-ai-watchout");
 const contractAiReloadButton = document.querySelector("#contract-ai-reload");
+const contractSummaryTab = document.querySelector("#contract-summary-tab");
+const contractTranslationTab = document.querySelector("#contract-translation-tab");
+const contractSummaryView = document.querySelector("#contract-summary-view");
+const contractTranslationView = document.querySelector("#contract-translation-view");
+const contractTranslationTitle = document.querySelector("#contract-translation-title");
+const contractTranslationMode = document.querySelector("#contract-translation-mode");
+const contractTranslationReload = document.querySelector("#contract-translation-reload");
+const contractTranslationLoading = document.querySelector("#contract-translation-loading");
+const contractTranslationContent = document.querySelector("#contract-translation-content");
+const contractTranslationNotice = document.querySelector("#contract-translation-notice");
 const signatureDialog = document.querySelector("#signature-dialog");
 const signatureFrameWrap = document.querySelector("#signature-frame-wrap");
 const signatureStatus = document.querySelector("#signature-status");
@@ -246,6 +263,10 @@ let signatureStatusTimer = null;
 let isResumingSignature = false;
 let notificationCloseTimer = null;
 let signatureFrameLoaded = false;
+let recommendationChatStep = 0;
+let recommendationChatPhase = "questions";
+let recommendationChatResult = null;
+let recommendationChatStarted = false;
 const detailFontScaleOptions = ["normal", "large", "x-large"];
 
 function updateHeaderScrollState() {
@@ -796,6 +817,39 @@ function applyStaticLocale() {
     "I have reviewed the key terms, read the full contract, and agree to proceed with e-signature.",
   );
   startSignatureButton.innerHTML = `${localizeText("전자서명 진행", "Proceed to e-signature")} <span>→</span>`;
+  setLocaleContent(".signature-dialog-head strong", "예약 약관 전자서명", "Reservation contract e-signature");
+  document.querySelector("#signature-close").setAttribute(
+    "aria-label",
+    localizeText("전자서명 창 닫기", "Close e-signature window"),
+  );
+  setLocaleContent("#contract-ai-title", "AI 요약 · 위험사항 안내", "AI summary and risk guide");
+  setLocaleContent("#contract-ai-reload", "AI 요약 다시 보기", "Reload AI summary");
+  setLocaleContent("#contract-summary-tab", "AI 요약", "AI summary");
+  const translationLanguageLabels = {
+    en: "English",
+    ja: "日本語",
+    zh: "中文",
+  };
+  contractTranslationTab.hidden = activeLocale === "ko";
+  if (activeLocale === "ko" && !contractTranslationView.hidden) {
+    setContractAssistView("summary");
+  }
+  contractTranslationTab.textContent = `${localizeText("계약서 번역", "Contract translation")}${activeLocale === "ko" ? "" : ` · ${translationLanguageLabels[activeLocale]}`}`;
+  setLocaleContent("#contract-translation-title", "계약서 번역", "Contract translation");
+  setLocaleContent("#contract-translation-reload", "다시 번역", "Translate again");
+  setLocaleContent("#contract-translation-loading", "실제 계약서 원문을 번역하고 있어요.", "Translating the actual contract…");
+  setLocaleContent(
+    "#contract-translation-notice",
+    "이 번역은 이해를 돕기 위한 참고용입니다. 전자서명과 법적 판단은 왼쪽의 원문 계약서를 기준으로 합니다.",
+    "This translation is for reference only. The original contract on the left governs the e-signature and any legal interpretation.",
+  );
+  setLocaleContent("#contract-ai-summary section:nth-of-type(1) > strong", "환불 · 취소 전 확인", "Refund and cancellation checks");
+  setLocaleContent("#contract-ai-summary section:nth-of-type(2) > strong", "소비자 주의 조항", "Terms requiring attention");
+  setLocaleContent(
+    "#contract-ai-summary > small",
+    "실제 모두싸인 계약서의 약관을 바탕으로 안내합니다. 개인정보는 분석 전에 제외하며, 최종 판단은 계약서 원문을 기준으로 해주세요.",
+    "This guide is based on the actual Modusign contract. Personal information is removed before analysis; rely on the original contract for final decisions.",
+  );
   document.querySelector(".hero-kicker").innerHTML =
     `<span></span>${localizeText("부산 해양레저 가이드", "BUSAN MARINE LEISURE GUIDE")}`;
 
@@ -921,8 +975,10 @@ function applyStaticLocale() {
   setLocaleContent("#booking-form .dialog-submit", "예약 요청하기 →", "Request reservation →");
   setLocaleContent(".booking-form > small", "웹사이트에서 전자서명을 완료하면 로그인 이메일로 완료 문서를 보내드립니다.", "After completing e-signature here, the completed document will be sent to your login email.");
 
-  setLocaleContent("#recommendation-dialog h2", "나에게 맞는 바다 찾기", "Find your ideal sea experience");
-  setLocaleContent(".recommendation-dialog-head > div > p:last-child", "간단한 조건을 알려주면 상품을 비교하고 Solar가 추천 이유를 설명해요.", "Tell us a few preferences and Solar will compare products and explain its recommendations.");
+  setLocaleContent("#recommendation-chat-title", "바다 취향 찾기", "Find your sea style");
+  setLocaleContent(".recommendation-agent-status", "● 해양레저 추천 도우미", "● Marine leisure assistant");
+  setLocaleContent("#recommendation-restart", "새 대화", "New chat");
+  setLocaleContent("#recommendation-back", "← 이전", "← Back");
   setLocaleContent("#recommendation-form label:nth-of-type(1) > span", "1인 최대 예산", "Maximum budget per person");
   setLocaleContent("#recommendation-form label:nth-of-type(2) > span", "이용자 나이", "Guest age");
   setLocaleContent("#recommendation-form label:nth-of-type(3) > span", "희망 지역", "Preferred area");
@@ -958,8 +1014,8 @@ function applyStaticLocale() {
   setLocaleContent("#recommend-mood option[value='도전']", "새로운 도전", "A new challenge");
   setLocaleContent("#recommend-mood option[value='스릴']", "짜릿한 스릴", "High-energy thrills");
   setLocaleContent("#recommend-mood option[value='자연']", "자연과 풍경", "Nature and scenery");
+  setLocaleContent("#recommend-mood option[value='환경']", "환경과 지역사회", "Environment and community");
   setLocaleContent("#recommend-mood option[value='야경']", "야경과 도시", "Night views and city lights");
-  setLocaleContent("#recommendation-submit span:first-child", "AI 추천 받기", "Get AI recommendations");
   setLocaleContent(".recommendation-privacy", "입력한 조건은 추천을 위해서만 사용하며 이름이나 연락처는 받지 않습니다.", "Your preferences are used only for recommendations. We do not collect your name or contact details.");
 }
 
@@ -992,6 +1048,9 @@ function applyLocale() {
     } else {
       renderProductDetail(state.selectedExperience.id);
     }
+  }
+  if (recommendationDialog.open && recommendationChatStarted) {
+    renderRecommendationChat();
   }
 }
 
@@ -3417,14 +3476,411 @@ reservationCancelDialog.addEventListener("click", (event) => {
   if (event.target === reservationCancelDialog) reservationCancelDialog.close();
 });
 
+function getRecommendationQuestions() {
+  return [
+    {
+      field: "#recommend-companion",
+      label: localizeText("동행", "Companion"),
+      prompt: localizeText("누구와 함께 부산 바다를 즐기고 싶나요?", "Who will join you for the experience?"),
+    },
+    {
+      field: "#recommend-mood",
+      label: localizeText("분위기", "Mood"),
+      prompt: localizeText("이번 체험에서 가장 원하는 분위기는 무엇인가요?", "What kind of mood do you want most?"),
+    },
+    {
+      field: "#recommend-category",
+      label: localizeText("관심 활동", "Activity"),
+      prompt: localizeText("관심 있는 활동이 있나요? 아직 없다면 상관없음을 골라도 좋아요.", "Is there an activity you are interested in? No preference is fine too."),
+    },
+    {
+      field: "#recommend-region",
+      label: localizeText("희망 지역", "Area"),
+      prompt: localizeText("가보고 싶은 부산의 바다를 선택해 주세요.", "Which part of Busan would you like to visit?"),
+    },
+    {
+      field: "#recommend-level",
+      label: localizeText("경험 수준", "Experience"),
+      prompt: localizeText("해양레저 경험은 어느 정도인가요?", "How experienced are you with marine activities?"),
+    },
+    {
+      field: "#recommend-swimming",
+      label: localizeText("수영", "Swimming"),
+      prompt: localizeText("안전한 추천을 위해 수영 가능 여부도 알려주세요.", "For a safer recommendation, can you swim?"),
+    },
+    {
+      field: "#recommend-budget",
+      label: localizeText("1인 예산", "Budget"),
+      prompt: localizeText("1인 기준으로 생각한 최대 예산은 얼마인가요?", "What is your maximum budget per person?"),
+    },
+    {
+      field: "#recommend-age",
+      kind: "number",
+      label: localizeText("나이", "Age"),
+      prompt: localizeText("마지막으로 이용자의 나이를 알려주세요.", "Lastly, how old is the guest?"),
+      placeholder: localizeText("나이 입력", "Enter age"),
+      min: 5,
+      max: 100,
+    },
+  ];
+}
+
+function getRecommendationAnswer(question) {
+  const field = document.querySelector(question.field);
+  if (question.kind === "number") {
+    const value = Number(field.value);
+    return {
+      value: String(value),
+      label: localizeText(`${value}세`, `${value} years old`),
+    };
+  }
+  const selectedOption = field.options[field.selectedIndex];
+  return {
+    value: field.value,
+    label: selectedOption?.textContent?.trim() || field.value,
+  };
+}
+
+function renderRecommendationChatMessage(role, message) {
+  const isAssistant = role === "assistant";
+  return `
+    <article class="recommendation-message is-${role}">
+      ${isAssistant ? '<span class="recommendation-message-avatar" aria-hidden="true">W</span>' : ""}
+      <div class="recommendation-message-bubble">${escapeHtml(message)}</div>
+    </article>
+  `;
+}
+
+function renderRecommendationSummary(questions) {
+  return `
+    <div class="recommendation-profile-summary" aria-label="입력한 추천 조건">
+      ${questions
+        .map((question) => {
+          const answer = getRecommendationAnswer(question);
+          return `<span><small>${escapeHtml(question.label)}</small>${escapeHtml(answer.label)}</span>`;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function renderRecommendationResultCards() {
+  const recommendations = recommendationChatResult?.recommendations ?? [];
+  return `
+    <div class="recommendation-chat-results">
+      ${recommendations
+        .map((recommendation, index) => {
+          const product = getDisplayExperience(recommendation.product);
+          return `
+            <button class="recommendation-chat-result" type="button" data-recommendation-product="${escapeHtml(product.id)}">
+              <img src="${escapeHtml(getProductImage(product))}" alt="" />
+              <span class="recommendation-chat-rank">${String(index + 1).padStart(2, "0")}</span>
+              <span class="recommendation-chat-result-copy">
+                <strong>${escapeHtml(product.name)}</strong>
+                <small>${escapeHtml(localizeRegion(product.region))} · ${escapeHtml(formatPrice(product.pricePerPerson))}</small>
+                <em>${escapeHtml(recommendation.reason)}</em>
+              </span>
+              <span class="recommendation-chat-score">${recommendation.score}<small>FIT</small></span>
+            </button>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function renderRecommendationChat() {
+  const questions = getRecommendationQuestions();
+  const completedQuestionCount = Math.min(recommendationChatStep, questions.length);
+  const conversation = [
+    renderRecommendationChatMessage(
+      "assistant",
+      localizeText(
+        "안녕하세요! 몇 가지 질문에 답해주시면 지금 등록된 부산 해양레저를 비교해 잘 맞는 체험을 찾아드릴게요.",
+        "Hello! Answer a few quick questions and I’ll compare the available Busan marine experiences for you.",
+      ),
+    ),
+  ];
+
+  for (let index = 0; index < completedQuestionCount; index += 1) {
+    const question = questions[index];
+    conversation.push(renderRecommendationChatMessage("assistant", question.prompt));
+    conversation.push(renderRecommendationChatMessage("user", getRecommendationAnswer(question).label));
+  }
+
+  if (recommendationChatStep < questions.length) {
+    conversation.push(
+      renderRecommendationChatMessage(
+        "assistant",
+        questions[recommendationChatStep].prompt,
+      ),
+    );
+  } else {
+    conversation.push(
+      renderRecommendationChatMessage(
+        "assistant",
+        localizeText(
+          "좋아요. 알려주신 조건이 맞는지 확인해 주세요. 바로 상품을 비교할 수 있어요.",
+          "Great. Check your preferences below and I can compare the experiences now.",
+        ),
+      ),
+    );
+    conversation.push(renderRecommendationSummary(questions));
+  }
+
+  if (recommendationChatPhase === "loading") {
+    conversation.push(`
+      <article class="recommendation-message is-assistant is-thinking">
+        <span class="recommendation-message-avatar" aria-hidden="true">W</span>
+        <div class="recommendation-message-bubble">
+          <span>${escapeHtml(localizeText("상품의 가격, 난이도와 안전 조건을 비교하고 있어요", "Comparing price, difficulty, and safety"))}</span>
+          <span class="recommendation-thinking-dots" aria-label="처리 중"><i></i><i></i><i></i></span>
+        </div>
+      </article>
+    `);
+  }
+
+  if (recommendationChatPhase === "result" && recommendationChatResult) {
+    conversation.push(
+      renderRecommendationChatMessage(
+        "assistant",
+        recommendationChatResult.mode === "solar"
+          ? localizeText("조건을 모두 비교했어요. Solar가 고른 추천 순서와 이유를 확인해 보세요.", "All set. Here are Solar’s top matches and reasons.")
+          : localizeText("조건을 모두 비교했어요. 상품 점수를 바탕으로 잘 맞는 체험을 골랐습니다.", "All set. Here are the best matches based on product scores."),
+      ),
+    );
+    conversation.push(renderRecommendationResultCards());
+  }
+
+  recommendationChatLog.innerHTML = conversation.join("");
+  recommendationProgress.textContent =
+    recommendationChatPhase === "result"
+      ? localizeText("추천 완료", "Complete")
+      : recommendationChatStep < questions.length
+        ? localizeText(
+            `질문 ${recommendationChatStep + 1} / ${questions.length}`,
+            `Question ${recommendationChatStep + 1} / ${questions.length}`,
+          )
+        : localizeText("조건 확인", "Review preferences");
+
+  recommendationBackButton.hidden =
+    recommendationChatStep === 0 || recommendationChatPhase !== "questions";
+  recommendationRestartButton.disabled = recommendationChatPhase === "loading";
+  recommendationSubmit.disabled = recommendationChatPhase === "loading";
+  recommendationSubmit.hidden = true;
+  recommendationChatControls.innerHTML = "";
+
+  if (recommendationChatPhase === "result") {
+    recommendationSubmit.hidden = false;
+    recommendationSubmit.querySelector("span:first-child").textContent = localizeText(
+      "추천 상품 모두 보기",
+      "View all recommendations",
+    );
+    recommendationSubmit.querySelector("span:last-child").textContent = "→";
+  } else if (recommendationChatPhase === "loading") {
+    recommendationChatControls.innerHTML = `<p class="recommendation-composer-note">${escapeHtml(localizeText("잠시만 기다려 주세요. 보통 몇 초 안에 끝나요.", "Please wait. This usually takes only a few seconds."))}</p>`;
+  } else if (recommendationChatStep < questions.length) {
+    const question = questions[recommendationChatStep];
+    if (question.kind === "number") {
+      const answer = getRecommendationAnswer(question);
+      recommendationChatControls.innerHTML = `
+        <label class="recommendation-age-input">
+          <span class="visually-hidden">${escapeHtml(question.label)}</span>
+          <input id="recommendation-chat-age" type="number" min="${question.min}" max="${question.max}" value="${escapeHtml(answer.value)}" placeholder="${escapeHtml(question.placeholder)}" inputmode="numeric" required />
+          <span>${escapeHtml(localizeText("세", "years old"))}</span>
+        </label>
+      `;
+      recommendationSubmit.hidden = false;
+      recommendationSubmit.querySelector("span:first-child").textContent = localizeText("보내기", "Send");
+      recommendationSubmit.querySelector("span:last-child").textContent = "↑";
+      window.requestAnimationFrame(() => document.querySelector("#recommendation-chat-age")?.focus());
+    } else {
+      const field = document.querySelector(question.field);
+      recommendationChatControls.innerHTML = `
+        <div class="recommendation-choice-list" role="group" aria-label="${escapeHtml(question.label)}">
+          ${[...field.options]
+            .map(
+              (option) => `
+                <button type="button" data-recommendation-value="${escapeHtml(option.value)}">
+                  ${escapeHtml(option.textContent.trim())}
+                </button>
+              `,
+            )
+            .join("")}
+        </div>
+      `;
+    }
+  } else {
+    recommendationChatControls.innerHTML = `<p class="recommendation-composer-note">${escapeHtml(localizeText("이 조건으로 추천을 시작할까요?", "Ready to find your matches?"))}</p>`;
+    recommendationSubmit.hidden = false;
+    recommendationSubmit.querySelector("span:first-child").textContent = localizeText("AI 추천 시작하기", "Find my matches");
+    recommendationSubmit.querySelector("span:last-child").textContent = "✦";
+  }
+
+  window.requestAnimationFrame(() => {
+    recommendationChatLog.scrollTop = recommendationChatLog.scrollHeight;
+  });
+}
+
+function startRecommendationChat() {
+  const defaults = {
+    "#recommend-budget": "50000",
+    "#recommend-age": "25",
+    "#recommend-region": "",
+    "#recommend-category": "",
+    "#recommend-level": "beginner",
+    "#recommend-swimming": "false",
+    "#recommend-companion": "친구",
+    "#recommend-mood": "도전",
+  };
+  Object.entries(defaults).forEach(([selector, value]) => {
+    document.querySelector(selector).value = value;
+  });
+  recommendationChatStep = 0;
+  recommendationChatPhase = "questions";
+  recommendationChatResult = null;
+  recommendationChatStarted = true;
+  recommendationError.hidden = true;
+  renderRecommendationChat();
+}
+
+function completeRecommendationAnswer(value) {
+  const questions = getRecommendationQuestions();
+  const question = questions[recommendationChatStep];
+  if (!question) return;
+  document.querySelector(question.field).value = value;
+  recommendationChatStep += 1;
+  recommendationError.hidden = true;
+  renderRecommendationChat();
+}
+
+function applyRecommendationResult(result) {
+  state.recommendedIds = result.recommendations.map(
+    (recommendation) => recommendation.product.id,
+  );
+  state.recommendationMap = new Map(
+    result.recommendations.map((recommendation) => [
+      recommendation.product.id,
+      recommendation,
+    ]),
+  );
+  state.recommendationMessage = result.message;
+  state.page = 0;
+  state.category = "";
+  state.region = "";
+  state.regions.clear();
+  state.keyword = "";
+  regionSelect.value = "";
+  keywordInput.value = "";
+  updateRegionFilterButtons();
+
+  categoryButtons.forEach((button) => {
+    const isActive = button.dataset.category === "";
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+  renderExperiences();
+}
+
+async function requestChatRecommendations() {
+  recommendationError.hidden = true;
+  recommendationChatPhase = "loading";
+  renderRecommendationChat();
+
+  const profile = {
+    budget: Number(document.querySelector("#recommend-budget").value),
+    age: Number(document.querySelector("#recommend-age").value),
+    region: document.querySelector("#recommend-region").value,
+    category: document.querySelector("#recommend-category").value,
+    experienceLevel: document.querySelector("#recommend-level").value,
+    canSwim: document.querySelector("#recommend-swimming").value === "true",
+    companion: document.querySelector("#recommend-companion").value,
+    mood: document.querySelector("#recommend-mood").value,
+  };
+
+  try {
+    const response = await fetch("/api/recommendations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(profile),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.message || "추천 결과를 불러오지 못했습니다.");
+    }
+
+    recommendationChatResult = result;
+    recommendationChatPhase = "result";
+    applyRecommendationResult(result);
+    renderRecommendationChat();
+    showToast(
+      result.mode === "solar"
+        ? localizeText("Solar가 맞춤 추천을 완성했어요.", "Solar completed your recommendations.")
+        : localizeText("상품 점수로 추천을 완성했어요.", "Your score-based recommendations are ready."),
+    );
+  } catch (error) {
+    recommendationChatPhase = "questions";
+    renderRecommendationChat();
+    recommendationError.textContent = error.message;
+    recommendationError.hidden = false;
+  }
+}
+
 document.querySelector("#open-recommendation").addEventListener("click", () => {
   recommendationError.hidden = true;
   recommendationDialog.showModal();
   document.body.classList.add("dialog-open");
+  if (!recommendationChatStarted) startRecommendationChat();
+  else renderRecommendationChat();
 });
 
 document.querySelector(".recommendation-close").addEventListener("click", () => {
   recommendationDialog.close();
+});
+
+recommendationRestartButton.addEventListener("click", startRecommendationChat);
+
+recommendationBackButton.addEventListener("click", () => {
+  if (recommendationChatStep === 0 || recommendationChatPhase !== "questions") return;
+  recommendationChatStep -= 1;
+  recommendationError.hidden = true;
+  renderRecommendationChat();
+});
+
+recommendationChatControls.addEventListener("click", (event) => {
+  const optionButton = event.target.closest("[data-recommendation-value]");
+  if (!optionButton) return;
+  completeRecommendationAnswer(optionButton.dataset.recommendationValue);
+});
+
+recommendationChatLog.addEventListener("click", (event) => {
+  const resultButton = event.target.closest("[data-recommendation-product]");
+  if (!resultButton) return;
+  recommendationDialog.close();
+  openProductDetail(resultButton.dataset.recommendationProduct);
+});
+
+recommendationForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const questions = getRecommendationQuestions();
+
+  if (recommendationChatPhase === "result") {
+    recommendationDialog.close();
+    document.querySelector("#experiences").scrollIntoView({ behavior: "smooth" });
+    return;
+  }
+  if (recommendationChatPhase === "loading") return;
+
+  const question = questions[recommendationChatStep];
+  if (question?.kind === "number") {
+    const ageInput = document.querySelector("#recommendation-chat-age");
+    if (!ageInput.reportValidity()) return;
+    completeRecommendationAnswer(ageInput.value);
+    return;
+  }
+  if (recommendationChatStep >= questions.length) {
+    await requestChatRecommendations();
+  }
 });
 
 recommendationDialog.addEventListener("close", () => {
@@ -3434,79 +3890,6 @@ recommendationDialog.addEventListener("close", () => {
 recommendationDialog.addEventListener("click", (event) => {
   if (event.target === recommendationDialog) recommendationDialog.close();
 });
-
-document
-  .querySelector("#recommendation-form")
-  .addEventListener("submit", async (event) => {
-    event.preventDefault();
-    recommendationError.hidden = true;
-    recommendationSubmit.disabled = true;
-    recommendationSubmit.querySelector("span").textContent = "추천을 찾는 중...";
-
-    const profile = {
-      budget: Number(document.querySelector("#recommend-budget").value),
-      age: Number(document.querySelector("#recommend-age").value),
-      region: document.querySelector("#recommend-region").value,
-      category: document.querySelector("#recommend-category").value,
-      experienceLevel: document.querySelector("#recommend-level").value,
-      canSwim: document.querySelector("#recommend-swimming").value === "true",
-      companion: document.querySelector("#recommend-companion").value,
-      mood: document.querySelector("#recommend-mood").value,
-    };
-
-    try {
-      const response = await fetch("/api/recommendations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(profile),
-      });
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || "추천 결과를 불러오지 못했습니다.");
-      }
-
-      state.recommendedIds = result.recommendations.map(
-        (recommendation) => recommendation.product.id,
-      );
-      state.recommendationMap = new Map(
-        result.recommendations.map((recommendation) => [
-          recommendation.product.id,
-          recommendation,
-        ]),
-      );
-      state.recommendationMessage = result.message;
-      state.page = 0;
-      state.category = "";
-      state.region = "";
-      state.regions.clear();
-      state.keyword = "";
-      regionSelect.value = "";
-      keywordInput.value = "";
-      updateRegionFilterButtons();
-
-      categoryButtons.forEach((button) => {
-        const isActive = button.dataset.category === "";
-        button.classList.toggle("is-active", isActive);
-        button.setAttribute("aria-pressed", String(isActive));
-      });
-
-      recommendationDialog.close();
-      renderExperiences();
-      document.querySelector("#experiences").scrollIntoView({ behavior: "smooth" });
-      showToast(
-        result.mode === "solar"
-          ? "Solar가 맞춤 추천을 완성했어요."
-          : "상품 점수로 추천했어요. Solar 연결 상태를 확인해주세요.",
-      );
-    } catch (error) {
-      recommendationError.textContent = error.message;
-      recommendationError.hidden = false;
-    } finally {
-      recommendationSubmit.disabled = false;
-      recommendationSubmit.querySelector("span").textContent = "AI 추천 받기";
-    }
-  });
 
 document.querySelector(".dialog-close").addEventListener("click", () => {
   bookingDialog.close();
@@ -3644,6 +4027,87 @@ function renderContractBookingSummary(reservation) {
   const displayReservation = getReservationDisplay(reservation);
   contractBookingSummary.textContent =
     `${displayReservation.activity} · ${reservation.date}${reservation.time ? ` ${reservation.time}` : ""} · ${formatPeople(Number(reservation.people))} / ${displayReservation.venue}`;
+}
+
+function getActiveSignatureReservation() {
+  return (
+    pendingBooking ??
+    myReservations.find((item) => item.id === activeReservationId) ??
+    null
+  );
+}
+
+function setContractAssistView(view) {
+  const showTranslation = view === "translation" && activeLocale !== "ko";
+  contractSummaryView.hidden = showTranslation;
+  contractTranslationView.hidden = !showTranslation;
+  contractSummaryTab.classList.toggle("is-active", !showTranslation);
+  contractTranslationTab.classList.toggle("is-active", showTranslation);
+  contractSummaryTab.setAttribute("aria-selected", String(!showTranslation));
+  contractTranslationTab.setAttribute("aria-selected", String(showTranslation));
+}
+
+function renderContractTranslation(result) {
+  contractTranslationTitle.textContent = `${result.targetLanguage} ${localizeText("계약서 번역", "contract translation")}`;
+  contractTranslationMode.textContent = result.cached
+    ? localizeText("저장된 번역", "CACHED")
+    : "SOLAR AI";
+  contractTranslationContent.textContent = result.translatedText;
+  contractTranslationLoading.hidden = true;
+  contractTranslationContent.hidden = false;
+}
+
+async function loadContractTranslation(reservation, { force = false } = {}) {
+  if (!reservation?.id || activeLocale === "ko") return;
+
+  const cacheKey = `${activeLocale}:${reservation.id}`;
+  if (!force) {
+    const cachedTranslation = state.contractTranslationCache.get(cacheKey);
+    if (cachedTranslation) {
+      renderContractTranslation(cachedTranslation);
+      return;
+    }
+  } else {
+    state.contractTranslationCache.delete(cacheKey);
+  }
+
+  contractTranslationContent.hidden = true;
+  contractTranslationLoading.hidden = false;
+  contractTranslationLoading.textContent = localizeText(
+    "실제 계약서 원문을 번역하고 있어요.",
+    "Translating the actual contract…",
+  );
+  contractTranslationReload.disabled = true;
+
+  try {
+    const response = await fetch("/api/signature/contract-translation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reservationId: reservation.id,
+        locale: activeLocale,
+        force,
+      }),
+    });
+    const result = await response.json();
+    if (response.status === 401) {
+      currentUser = null;
+      updateAuthInterface();
+      closeSignatureDialog();
+      openAuthDialog("login");
+    }
+    if (!response.ok) {
+      throw new Error(result.message || "계약서를 번역하지 못했습니다.");
+    }
+    state.contractTranslationCache.set(cacheKey, result);
+    renderContractTranslation(result);
+  } catch (error) {
+    contractTranslationLoading.hidden = false;
+    contractTranslationLoading.textContent =
+      error.message || localizeText("계약서를 번역하지 못했습니다.", "The contract could not be translated.");
+  } finally {
+    contractTranslationReload.disabled = false;
+  }
 }
 
 function renderContractAiSummary(result) {
@@ -3856,6 +4320,11 @@ function openEmbeddedSignature(result, reservation) {
   pendingBooking = reservation;
   updateReservationAfterSignature(result.reservationId, "SIGNING");
   if (contractDialog.open) contractDialog.close();
+  contractTranslationTab.hidden = activeLocale === "ko";
+  setContractAssistView("summary");
+  contractTranslationContent.hidden = true;
+  contractTranslationContent.textContent = "";
+  contractTranslationLoading.hidden = false;
   signatureFrameLoaded = false;
   signatureStatus.textContent = localizeText(
     "계약서에 서명해 주세요.",
@@ -3882,14 +4351,35 @@ function openEmbeddedSignature(result, reservation) {
 }
 
 contractAiReloadButton.addEventListener("click", () => {
-  const reservation =
-    pendingBooking ??
-    myReservations.find((item) => item.id === activeReservationId);
+  const reservation = getActiveSignatureReservation();
   if (!reservation) {
     showToast("전자서명 예약 정보를 찾지 못했습니다.");
     return;
   }
   void loadContractAiSummary(reservation, { force: true });
+});
+
+contractSummaryTab.addEventListener("click", () => {
+  setContractAssistView("summary");
+});
+
+contractTranslationTab.addEventListener("click", () => {
+  const reservation = getActiveSignatureReservation();
+  if (!reservation) {
+    showToast("번역할 계약서 예약 정보를 찾지 못했습니다.");
+    return;
+  }
+  setContractAssistView("translation");
+  void loadContractTranslation(reservation);
+});
+
+contractTranslationReload.addEventListener("click", () => {
+  const reservation = getActiveSignatureReservation();
+  if (!reservation) {
+    showToast("번역할 계약서 예약 정보를 찾지 못했습니다.");
+    return;
+  }
+  void loadContractTranslation(reservation, { force: true });
 });
 
 async function resumeSignature(reservation) {
@@ -4033,6 +4523,9 @@ function resetSignatureDialogSession() {
   activeReservationId = null;
   signatureFrameLoaded = false;
   signatureFrameWrap.innerHTML = "";
+  setContractAssistView("summary");
+  contractTranslationContent.hidden = true;
+  contractTranslationContent.textContent = "";
 }
 
 function closeSignatureDialog() {

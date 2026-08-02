@@ -52,6 +52,23 @@ const contractAiList = document.querySelector("#contract-ai-list");
 const contractReviewNext = document.querySelector("#contract-review-next");
 const contractReviewBack = document.querySelector("#contract-review-back");
 const contractReviewSummary = document.querySelector("#contract-review-summary");
+const contractStartTemplate = document.querySelector("#contract-start-template");
+const contractStartManual = document.querySelector("#contract-start-manual");
+const draftTemplateWorkflow = document.querySelector("#draft-template-workflow");
+const draftManualWorkflow = document.querySelector("#draft-manual-workflow");
+const contractManualStart = document.querySelector("#contract-manual-start");
+const contractManualToolbar = document.querySelector("#contract-manual-toolbar");
+const contractManualLoadBase = document.querySelector("#contract-manual-load-base");
+const contractManualDetails = document.querySelector("#draft-manual-details");
+const contractManualPreview = document.querySelector("#contract-manual-preview");
+const contractManualPreviewContent = document.querySelector(
+  "#contract-manual-preview-content",
+);
+const contractReviewTitle = document.querySelector("#contract-review-title");
+const contractReviewDescription = document.querySelector(
+  "#contract-review-description",
+);
+const draftAuthoringLayout = document.querySelector("#draft-authoring-layout");
 const contractDraftStepPanels = document.querySelectorAll("[data-draft-step-panel]");
 const contractDraftStepIndicators = document.querySelectorAll(
   "[data-draft-step-indicator]",
@@ -74,6 +91,9 @@ const sellerState = {
   templateOptionsByPost: new Map(),
   templateTitleByKey: new Map(),
   activeRecommendedTemplateKeys: [],
+  activeDraftMode: "template",
+  activeDraftStoredMode: "template",
+  activeDraftBase: null,
 };
 
 function sellerText(key, ...args) {
@@ -299,6 +319,128 @@ function contractDraftPayload() {
   };
 }
 
+function selectedDraftTemplateKey() {
+  return sellerState.activeDraftMode === "manual"
+    ? "product-default"
+    : contractTemplateSelect.value;
+}
+
+function selectedDraftTemplateKeys() {
+  return sellerState.activeDraftMode === "manual"
+    ? []
+    : selectedRecommendedTemplateKeys();
+}
+
+function setDraftStartMode(mode) {
+  const manualMode = mode === "manual";
+  sellerState.activeDraftMode = manualMode ? "manual" : "template";
+  contractStartTemplate.classList.toggle("is-active", !manualMode);
+  contractStartManual.classList.toggle("is-active", manualMode);
+  contractStartTemplate.setAttribute("aria-pressed", String(!manualMode));
+  contractStartManual.setAttribute("aria-pressed", String(manualMode));
+  draftTemplateWorkflow.hidden = manualMode;
+  draftManualWorkflow.hidden = !manualMode;
+}
+
+function getSuggestedContractDraft(contract) {
+  const post = sellerState.posts.find((item) => item.id === contract?.postId);
+  const savedDraft = contract?.draft || {};
+  return {
+    title:
+      savedDraft.title ||
+      `${contract?.reservationDate || ""}_${contract?.postTitle || post?.title || "계약서"}_${contract?.customerName || ""}`,
+    termsAndConditions:
+      post?.termsAndConditions || post?.description || savedDraft.termsAndConditions || "",
+    refundPolicy: post?.refundPolicy || savedDraft.refundPolicy || "",
+    safetyNotes: Array.isArray(post?.safetyNotes)
+      ? post.safetyNotes.join("\n")
+      : savedDraft.safetyNotes || "",
+    additionalClauses: Array.isArray(post?.participantRequirements)
+      ? post.participantRequirements.join("\n")
+      : savedDraft.additionalClauses || "",
+    sellerMessage: savedDraft.sellerMessage || "",
+  };
+}
+
+function setContractDraftFields(draft = {}) {
+  for (const fieldName of [
+    "title",
+    "termsAndConditions",
+    "refundPolicy",
+    "safetyNotes",
+    "additionalClauses",
+    "sellerMessage",
+  ]) {
+    contractDraftForm.elements[fieldName].value = draft[fieldName] || "";
+  }
+  renderContractManualPreview();
+}
+
+function renderDraftPreviewSection(number, title, value) {
+  return `
+    <section>
+      <span>${number}</span>
+      <div>
+        <strong>${escapeHtml(title)}</strong>
+        <p class="${value ? "" : "is-empty"}">${value ? escapeHtml(value).replaceAll("\n", "<br />") : "아직 작성하지 않았습니다."}</p>
+      </div>
+    </section>
+  `;
+}
+
+function renderContractManualPreview() {
+  if (!contractManualPreviewContent) return;
+  const contract = sellerState.contracts.find(
+    (item) => item.id === sellerState.activeDraftContractId,
+  );
+  const draft = contractDraftPayload();
+  contractManualPreviewContent.innerHTML = `
+    <header>
+      <small>WAVEON BUSAN · ELECTRONIC CONTRACT</small>
+      <h4>${escapeHtml(draft.title || "계약서 제목을 입력해 주세요")}</h4>
+      <dl>
+        <div><dt>상품</dt><dd>${escapeHtml(contract?.postTitle || "-")}</dd></div>
+        <div><dt>구매자</dt><dd>${escapeHtml(contract?.customerName || "-")}</dd></div>
+        <div><dt>예약일</dt><dd>${escapeHtml(contract?.reservationDate || "-")}${contract?.reservationTime ? ` · ${escapeHtml(contract.reservationTime)}` : ""}</dd></div>
+        <div><dt>인원</dt><dd>${escapeHtml(contract?.people || "-")}명</dd></div>
+      </dl>
+    </header>
+    ${renderDraftPreviewSection("01", "계약 목적·이용 조건", draft.termsAndConditions)}
+    ${renderDraftPreviewSection("02", "결제·환불·취소 규정", draft.refundPolicy)}
+    ${renderDraftPreviewSection("03", "안전·책임·면책 범위", draft.safetyNotes)}
+    ${renderDraftPreviewSection("04", "추가 특약", draft.additionalClauses)}
+    ${renderDraftPreviewSection("05", "구매자 전달사항", draft.sellerMessage)}
+    <footer>최종 전자서명 문서는 모두싸인 화면에서 다시 확인합니다.</footer>
+  `;
+}
+
+function setContractReviewMode(mode = sellerState.activeDraftMode) {
+  const manualMode = mode === "manual";
+  sellerState.activeDraftMode = manualMode ? "manual" : "template";
+  contractReviewTitle.textContent = manualMode
+    ? "계약서 초안 직접 작성"
+    : "선택한 계약서 검토·수정";
+  contractReviewDescription.textContent = manualMode
+    ? "예약 기본정보는 자동으로 연결됩니다. 계약 내용을 조항별로 직접 작성해 주세요."
+    : "예약 정보와 선택한 계약서를 확인한 뒤 모두싸인에서 실제 문서를 수정하세요.";
+  contractManualToolbar.hidden = !manualMode;
+  contractManualPreview.hidden = !manualMode;
+  draftAuthoringLayout.classList.toggle("is-manual", manualMode);
+  contractManualDetails.open = manualMode;
+  contractTemplateEdit.innerHTML = manualMode
+    ? "모두싸인에서 서명 문서 최종 확인 <span>↗</span>"
+    : "모두싸인에서 실제 계약서 검토·수정 <span>↗</span>";
+  if (!contractDraftSend.disabled) {
+    contractDraftSend.textContent = manualMode
+      ? "직접 작성 초안 최종 서명 요청"
+      : "수정 없이 최종 서명 요청";
+  }
+  document.querySelector("#draft-mapping-note").textContent = manualMode
+    ? "직접 입력한 값은 모두싸인 기본 전자서명 서식의 해당 입력란에 반영됩니다. 최종 발송 전 모두싸인 화면에서 실제 문서를 다시 확인하세요."
+    : "수정한 값은 모두싸인 템플릿에 같은 이름의 요청자 입력란이 있을 때 실제 서명 문서에 자동 반영됩니다.";
+  renderContractManualPreview();
+}
+
 function setContractDraftBusy(isBusy, message = "") {
   contractDraftSave.disabled = isBusy;
   contractDraftSend.disabled = isBusy;
@@ -307,8 +449,15 @@ function setContractDraftBusy(isBusy, message = "") {
   contractAiRecommend.disabled = isBusy;
   contractReviewNext.disabled = isBusy;
   contractReviewBack.disabled = isBusy;
+  contractStartTemplate.disabled = isBusy;
+  contractStartManual.disabled = isBusy;
+  contractManualStart.disabled = isBusy;
+  contractManualLoadBase.disabled = isBusy;
   contractDraftSend.textContent =
-    message || "수정 없이 최종 서명 요청";
+    message ||
+    (sellerState.activeDraftMode === "manual"
+      ? "직접 작성 초안 최종 서명 요청"
+      : "수정 없이 최종 서명 요청");
 }
 
 function setContractDraftStep(step) {
@@ -326,6 +475,16 @@ function setContractDraftStep(step) {
 }
 
 function renderContractReviewSummary() {
+  if (sellerState.activeDraftMode === "manual") {
+    contractReviewSummary.innerHTML = `
+      <strong>직접 작성 계약서</strong>
+      <div class="contract-review-template-list">
+        <span>예약 정보 자동 연결</span><span>기본 전자서명 서식</span><span>직접 작성 조항</span>
+      </div>
+      <p>판매자가 입력한 계약 내용으로 초안을 저장합니다. 서명 위치와 실제 반영 내용을 모두싸인 화면에서 확인한 뒤 구매자에게 발송해 주세요.</p>
+    `;
+    return;
+  }
   const recommendedKeys = selectedRecommendedTemplateKeys();
   const templateKeys = recommendedKeys.length
     ? recommendedKeys
@@ -419,17 +578,6 @@ async function loadContractTemplateOptions(postId, selectedKey = "product-defaul
 
 function fillContractDraftForm(contract, reservation) {
   const draft = contract.draft || {};
-  for (const fieldName of [
-    "title",
-    "termsAndConditions",
-    "refundPolicy",
-    "safetyNotes",
-    "additionalClauses",
-    "sellerMessage",
-  ]) {
-    contractDraftForm.elements[fieldName].value = draft[fieldName] || "";
-  }
-
   contractDraftReservation.innerHTML = `
     <div><span>상품</span><strong>${escapeHtml(contract.postTitle || reservation?.activity)}</strong></div>
     <div><span>구매자</span><strong>${escapeHtml(contract.customerName)} · ${escapeHtml(contract.customerEmail)}</strong></div>
@@ -438,11 +586,16 @@ function fillContractDraftForm(contract, reservation) {
   `;
   sellerState.activeDraftContractId = contract.id;
   sellerState.activeDraftReservationId = contract.reservationId;
+  sellerState.activeDraftStoredMode = contract.draftMode === "manual" ? "manual" : "template";
+  sellerState.activeDraftBase = getSuggestedContractDraft(contract);
   sellerState.activeRecommendedTemplateKeys = Array.isArray(
     contract.selectedTemplateKeys,
   )
     ? [...contract.selectedTemplateKeys]
     : [];
+  setContractDraftFields(draft);
+  setDraftStartMode(sellerState.activeDraftStoredMode);
+  setContractReviewMode(sellerState.activeDraftStoredMode);
   setFormError(contractDraftError);
   setContractDraftBusy(false);
 }
@@ -496,8 +649,9 @@ async function saveContractDraft({ silent = false } = {}) {
       method: "PATCH",
       body: JSON.stringify({
         draft: contractDraftPayload(),
-        templateKey: contractTemplateSelect.value,
-        templateKeys: selectedRecommendedTemplateKeys(),
+        draftMode: sellerState.activeDraftMode,
+        templateKey: selectedDraftTemplateKey(),
+        templateKeys: selectedDraftTemplateKeys(),
       }),
     },
   );
@@ -1445,13 +1599,57 @@ contractDraftDialog.addEventListener("click", (event) => {
   if (event.target === contractDraftDialog) contractDraftDialog.close();
 });
 
+contractStartTemplate.addEventListener("click", () => {
+  if (
+    sellerState.activeDraftMode === "manual" &&
+    sellerState.activeDraftStoredMode !== "manual" &&
+    sellerState.activeDraftBase
+  ) {
+    setContractDraftFields(sellerState.activeDraftBase);
+  }
+  setDraftStartMode("template");
+});
+
+contractStartManual.addEventListener("click", () => {
+  setDraftStartMode("manual");
+});
+
+contractManualStart.addEventListener("click", () => {
+  if (sellerState.activeDraftStoredMode !== "manual") {
+    const title = sellerState.activeDraftBase?.title || contractDraftPayload().title;
+    setContractDraftFields({ title });
+  }
+  setDraftStartMode("manual");
+  setContractReviewMode("manual");
+  renderContractReviewSummary();
+  setContractDraftStep("review");
+});
+
+contractManualLoadBase.addEventListener("click", () => {
+  if (!sellerState.activeDraftBase) return;
+  setContractDraftFields(sellerState.activeDraftBase);
+  showToast("판매 상품의 기본 약관과 안전 정보를 불러왔습니다.");
+});
+
 contractReviewNext.addEventListener("click", () => {
+  setDraftStartMode("template");
+  setContractReviewMode("template");
   renderContractReviewSummary();
   setContractDraftStep("review");
 });
 
 contractReviewBack.addEventListener("click", () => {
+  setDraftStartMode(sellerState.activeDraftMode);
   setContractDraftStep("select");
+});
+
+contractDraftForm.addEventListener("input", (event) => {
+  if (
+    sellerState.activeDraftMode === "manual" &&
+    event.target.matches("input[name], textarea[name]")
+  ) {
+    renderContractManualPreview();
+  }
 });
 
 contractAiRecommend.addEventListener("click", async () => {
@@ -1524,7 +1722,10 @@ contractTemplateEdit.addEventListener("click", async () => {
   editorWindow.document.body.textContent = "모두싸인 계약 초안 편집 화면을 준비하고 있습니다…";
 
   setContractDraftBusy(true);
-  contractTemplateStatus.textContent = "선택한 템플릿으로 편집 초안을 만드는 중입니다…";
+  contractTemplateStatus.textContent =
+    sellerState.activeDraftMode === "manual"
+      ? "직접 작성한 내용을 기본 전자서명 서식에 반영하고 있습니다…"
+      : "선택한 템플릿으로 편집 초안을 만드는 중입니다…";
   try {
     const contractId = sellerState.activeDraftContractId;
     const result = await requestJson(
@@ -1533,13 +1734,15 @@ contractTemplateEdit.addEventListener("click", async () => {
         method: "POST",
         body: JSON.stringify({
           draft: contractDraftPayload(),
-          templateKey: contractTemplateSelect.value,
-          templateKeys: selectedRecommendedTemplateKeys(),
+          draftMode: sellerState.activeDraftMode,
+          templateKey: selectedDraftTemplateKey(),
+          templateKeys: selectedDraftTemplateKeys(),
         }),
       },
     );
-    contractTemplateStatus.textContent =
-      "모두싸인 편집 화면이 열렸습니다. 내용을 수정한 뒤 그 화면에서 서명 요청을 완료해 주세요.";
+    contractTemplateStatus.textContent = sellerState.activeDraftMode === "manual"
+      ? "모두싸인 확인 화면이 열렸습니다. 직접 작성한 내용과 서명 위치를 확인한 뒤 서명 요청을 완료해 주세요."
+      : "모두싸인 편집 화면이 열렸습니다. 내용을 수정한 뒤 그 화면에서 서명 요청을 완료해 주세요.";
     setContractDraftStep("send");
     editorWindow.location.replace(result.embeddedUrl);
     await loadOverview();
@@ -1586,7 +1789,9 @@ contractDraftForm.addEventListener("submit", async (event) => {
   if (!contractDraftForm.reportValidity()) return;
   if (
     !window.confirm(
-      "모두싸인 편집 화면을 열지 않고 선택한 템플릿을 바로 발송하시겠습니까?\n구매자 웹 알림과 이메일로 전송되며 발송 후에는 수정할 수 없습니다.",
+      sellerState.activeDraftMode === "manual"
+        ? "직접 작성한 계약 초안을 구매자에게 바로 발송하시겠습니까?\n구매자 웹 알림과 이메일로 전송되며 발송 후에는 수정할 수 없습니다."
+        : "모두싸인 편집 화면을 열지 않고 선택한 템플릿을 바로 발송하시겠습니까?\n구매자 웹 알림과 이메일로 전송되며 발송 후에는 수정할 수 없습니다.",
     )
   ) {
     return;
@@ -1602,8 +1807,9 @@ contractDraftForm.addEventListener("submit", async (event) => {
         method: "POST",
         body: JSON.stringify({
           draft: contractDraftPayload(),
-          templateKey: contractTemplateSelect.value,
-          templateKeys: selectedRecommendedTemplateKeys(),
+          draftMode: sellerState.activeDraftMode,
+          templateKey: selectedDraftTemplateKey(),
+          templateKeys: selectedDraftTemplateKeys(),
         }),
       },
     );

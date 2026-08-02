@@ -1824,7 +1824,7 @@ textarea:focus {
 }
 
 .contract-draft-dialog {
-  width: min(760px, calc(100% - 32px));
+  width: min(1040px, calc(100% - 32px));
   max-height: calc(100vh - 40px);
   padding: 0;
   border: 0;
@@ -1974,6 +1974,124 @@ textarea:focus {
   color: var(--muted);
   font-size: 9px;
   line-height: 1.6;
+}
+
+.draft-start-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.draft-start-option {
+  display: grid;
+  min-height: 92px;
+  padding: 15px;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  color: #4b6976;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid #c6dfe4;
+  border-radius: 12px;
+  text-align: left;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.draft-start-option:hover,
+.draft-start-option.is-active {
+  border-color: var(--ocean);
+  box-shadow: 0 9px 24px rgba(14, 94, 120, 0.1);
+  transform: translateY(-1px);
+}
+
+.draft-start-option.is-active {
+  background: white;
+}
+
+.draft-start-option-number {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  color: #527784;
+  background: #e4f2f4;
+  border-radius: 9px;
+  font-family: "DM Sans", sans-serif;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.draft-start-option.is-active .draft-start-option-number {
+  color: white;
+  background: var(--ocean);
+}
+
+.draft-start-option > span:last-child {
+  display: grid;
+  gap: 5px;
+}
+
+.draft-start-option strong {
+  color: var(--navy);
+  font-size: 11px;
+}
+
+.draft-start-option small {
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.draft-template-workflow {
+  display: grid;
+  gap: 14px;
+  padding-top: 4px;
+}
+
+.draft-template-workflow[hidden],
+.draft-manual-workflow[hidden] {
+  display: none;
+}
+
+.draft-manual-workflow {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  background: white;
+  border: 1px solid #b8dce3;
+  border-radius: 12px;
+}
+
+.draft-manual-workflow > div {
+  display: flex;
+  gap: 13px;
+  align-items: center;
+}
+
+.draft-manual-workflow > div > div {
+  display: grid;
+  gap: 4px;
+}
+
+.draft-manual-workflow strong {
+  color: var(--navy);
+  font-size: 11px;
+}
+
+.draft-manual-workflow p {
+  font-size: 9px;
+}
+
+.draft-manual-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: white;
+  background: var(--ocean);
+  border-radius: 12px;
+  font-size: 18px;
 }
 
 .draft-ai-recommendation {
@@ -2237,6 +2355,58 @@ textarea:focus {
   line-height: 1.6;
 }
 
+.contract-manual-toolbar {
+  display: flex;
+  padding: 12px 14px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #eaf6f8;
+  border: 1px solid #bddde3;
+  border-radius: 10px;
+}
+
+.contract-manual-toolbar[hidden] {
+  display: none;
+}
+
+.contract-manual-toolbar > div {
+  display: grid;
+  gap: 3px;
+}
+
+.contract-manual-toolbar strong {
+  color: var(--navy);
+  font-size: 10px;
+}
+
+.contract-manual-toolbar span {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.contract-manual-toolbar button {
+  min-height: 34px;
+  padding: 0 11px;
+  color: #315f6c;
+  white-space: nowrap;
+  background: white;
+  border: 1px solid #b8d3d9;
+  border-radius: 8px;
+  font-size: 8px;
+  font-weight: 900;
+}
+
+.draft-authoring-layout {
+  display: grid;
+  gap: 14px;
+}
+
+.draft-authoring-layout.is-manual {
+  grid-template-columns: minmax(0, 1.08fr) minmax(330px, 0.92fr);
+  align-items: start;
+}
+
 .draft-manual-details {
   background: white;
   border: 1px solid var(--line);
@@ -2255,6 +2425,14 @@ textarea:focus {
   display: grid;
   gap: 18px;
   padding: 4px 16px 18px;
+}
+
+.draft-authoring-layout.is-manual .draft-manual-details summary {
+  display: none;
+}
+
+.draft-authoring-layout.is-manual .draft-manual-fields {
+  padding-top: 18px;
 }
 
 .draft-field {
@@ -2298,6 +2476,144 @@ textarea:focus {
   border-radius: 9px;
   font-size: 9px;
   line-height: 1.65;
+}
+
+.contract-manual-preview {
+  position: sticky;
+  top: 0;
+  overflow: hidden;
+  background: #e9f0f2;
+  border: 1px solid #c8d9de;
+  border-radius: 11px;
+}
+
+.contract-manual-preview[hidden] {
+  display: none;
+}
+
+.contract-manual-preview-head {
+  display: flex;
+  min-height: 46px;
+  padding: 0 14px;
+  align-items: center;
+  justify-content: space-between;
+  background: #dce8eb;
+  border-bottom: 1px solid #c4d5da;
+}
+
+.contract-manual-preview-head span {
+  color: var(--ocean);
+  font-family: "DM Sans", sans-serif;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 1.2px;
+}
+
+.contract-manual-preview-head strong {
+  color: var(--navy);
+  font-size: 9px;
+}
+
+.contract-manual-preview article {
+  max-height: 610px;
+  margin: 14px;
+  padding: 25px 22px;
+  overflow-y: auto;
+  color: #243f4d;
+  background: white;
+  border-radius: 3px;
+  box-shadow: 0 8px 22px rgba(9, 47, 66, 0.12);
+}
+
+.contract-manual-preview article > header {
+  padding-bottom: 18px;
+  border-bottom: 2px solid var(--navy);
+}
+
+.contract-manual-preview article > header small {
+  color: #77909c;
+  font-family: "DM Sans", sans-serif;
+  font-size: 6px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+}
+
+.contract-manual-preview h4 {
+  margin: 8px 0 14px;
+  color: var(--navy);
+  font-size: 16px;
+  letter-spacing: -0.5px;
+}
+
+.contract-manual-preview dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+  margin: 0;
+}
+
+.contract-manual-preview dl div {
+  display: flex;
+  min-width: 0;
+  gap: 6px;
+}
+
+.contract-manual-preview dt,
+.contract-manual-preview dd {
+  margin: 0;
+  font-size: 7px;
+}
+
+.contract-manual-preview dt {
+  color: #82949d;
+  font-weight: 800;
+}
+
+.contract-manual-preview dd {
+  overflow: hidden;
+  color: #324f5d;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contract-manual-preview article > section {
+  display: grid;
+  padding: 16px 0;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 8px;
+  border-bottom: 1px solid #e4ebee;
+}
+
+.contract-manual-preview article > section > span {
+  color: #86a0ac;
+  font-family: "DM Sans", sans-serif;
+  font-size: 7px;
+  font-weight: 800;
+}
+
+.contract-manual-preview article > section strong {
+  color: var(--navy);
+  font-size: 8px;
+}
+
+.contract-manual-preview article > section p {
+  margin: 7px 0 0;
+  color: #536b77;
+  font-size: 7px;
+  line-height: 1.75;
+  word-break: keep-all;
+}
+
+.contract-manual-preview article > section p.is-empty {
+  color: #a5b2b8;
+  font-style: italic;
+}
+
+.contract-manual-preview article > footer {
+  padding-top: 18px;
+  color: #8a9ca4;
+  font-size: 6px;
+  text-align: center;
 }
 
 .draft-dialog-actions {
@@ -2383,6 +2699,18 @@ textarea:focus {
   .seller-access form button,
   .seller-access .form-error {
     grid-column: 1 / -1;
+  }
+
+  .draft-authoring-layout.is-manual {
+    grid-template-columns: 1fr;
+  }
+
+  .contract-manual-preview {
+    position: static;
+  }
+
+  .contract-manual-preview article {
+    max-height: 520px;
   }
 }
 
@@ -2577,6 +2905,19 @@ textarea:focus {
 
   .contract-draft-form {
     padding: 21px;
+  }
+
+  .draft-start-options {
+    grid-template-columns: 1fr;
+  }
+
+  .contract-manual-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .contract-manual-toolbar button {
+    width: 100%;
   }
 
   .draft-reservation-summary {
