@@ -3803,6 +3803,15 @@ html[lang="ko"] .product-translation-status {
   border-radius: 6px;
 }
 
+.detail-translation-loading[hidden] {
+  display: none;
+}
+
+.mypage-tabs[hidden],
+.mypage-reservations[hidden] {
+  display: none;
+}
+
 .detail-translation-loading p {
   margin: 0;
   font-size: 13px;

@@ -1688,7 +1688,9 @@ function renderMyReservations() {
   }
 
   updateMyPageView();
-  const visibleReservations = myReservations;
+  const visibleReservations = myReservations.filter(
+    (reservation) => !["CANCELLED", "SELLER_CANCELLED"].includes(reservation.status),
+  );
   mypageReservationCount.textContent = formatReservationCount(
     visibleReservations.length,
   );
@@ -2198,10 +2200,10 @@ function setMypageSettingsOpen(isOpen) {
   mypageSettingsOpen = isOpen;
   mypageSettingsPanel.hidden = !isOpen;
   mypageSettingsButton.setAttribute("aria-expanded", String(isOpen));
-  mypageMainAccount.hidden = isOpen;
+  mypageMainAccount.hidden = false;
   mypageMainTabs.hidden = isOpen;
   mypageMainReservations.hidden = isOpen;
-  mypageTitle.textContent = isOpen ? "설정" : "마이페이지";
+  mypageTitle.textContent = "마이페이지";
   if (isOpen) setMypageSettingsScreen("menu");
   else resetMypageSettings();
 }
@@ -2525,12 +2527,13 @@ function setDetailTranslationLoading(isLoading) {
 
   if (!loadingPanel || !loadingSpinner || !loadingMessage) return;
 
-  loadingPanel.hidden = !isLoading;
-  loadingSpinner.hidden = !isLoading;
-  loadingSpinner.toggleAttribute("hidden", !isLoading);
+  const shouldShowLoading = isLoading && isTranslatedLocale();
+  loadingPanel.hidden = !shouldShowLoading;
+  loadingSpinner.hidden = !shouldShowLoading;
+  loadingSpinner.toggleAttribute("hidden", !shouldShowLoading);
   loadingMessage.textContent = "Preparing the experience details in your selected language.";
-  productDetailDialog.classList.toggle("is-translating", isLoading);
-  productDetailDialog.setAttribute("aria-busy", String(isLoading));
+  productDetailDialog.classList.toggle("is-translating", shouldShowLoading);
+  productDetailDialog.setAttribute("aria-busy", String(shouldShowLoading));
 }
 
 function showDetailTranslationFailure() {
@@ -2541,6 +2544,10 @@ function showDetailTranslationFailure() {
   );
 
   if (!loadingPanel || !loadingSpinner || !loadingMessage) return;
+  if (!isTranslatedLocale()) {
+    setDetailTranslationLoading(false);
+    return;
+  }
 
   loadingPanel.hidden = false;
   loadingSpinner.hidden = true;
@@ -3151,7 +3158,7 @@ document.querySelector("#mypage-close").addEventListener("click", () => mypageDi
 document.querySelector("#logout-button").addEventListener("click", logout);
 
 mypageSettingsButton.addEventListener("click", () => {
-  setMypageSettingsOpen(true);
+  setMypageSettingsOpen(!mypageSettingsOpen);
 });
 
 mypageSettingsClose.addEventListener("click", () => setMypageSettingsOpen(false));
