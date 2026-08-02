@@ -33,10 +33,9 @@
       "cover": "https://images.unsplash.com/photo-1502680390469-be75c86b636f?auto=format&fit=crop&w=1400&q=84",
       "coverAlt": "푸른 파도 위에서 보드를 타는 초보 서퍼",
       "sourceUrl": "https://unsplash.com/photos/h0AnGGgseio",
-      "gallery": [
-        "https://images.unsplash.com/photo-1672842408576-5076d505d8c1?auto=format&fit=crop&w=1000&q=82",
-        "https://images.unsplash.com/photo-1455729552865-3658a5d39692?auto=format&fit=crop&w=1000&q=82"
-      ]
+    "gallery": [
+      "https://images.unsplash.com/photo-1455729552865-3658a5d39692?auto=format&fit=crop&w=1000&q=82"
+    ]
     },
       "WB-005": {
         "cover": "https://images.pexels.com/photos/19756562/pexels-photo-19756562/free-photo-of-a-woman-with-a-surfboard-on-a-beach.jpeg?auto=compress&cs=tinysrgb&w=1400",
@@ -51,8 +50,7 @@
       "coverAlt": "큰 파도에서 균형을 잡으며 서핑하는 사람",
       "sourceUrl": "https://unsplash.com/photos/Q7QM2WSOTs4",
       "gallery": [
-        "https://images.unsplash.com/photo-1502680390469-be75c86b636f?auto=format&fit=crop&w=1000&q=82",
-        "https://images.unsplash.com/photo-1672842408576-5076d505d8c1?auto=format&fit=crop&w=1000&q=82"
+        "https://images.unsplash.com/photo-1502680390469-be75c86b636f?auto=format&fit=crop&w=1000&q=82"
       ]
     },
     "WB-007": {
@@ -155,7 +153,7 @@
       "sourceUrl": "https://unsplash.com/photos/7JpXCIYkZkk",
       "gallery": [
         "https://images.unsplash.com/photo-1672671152875-e4af21b888bd?auto=format&fit=crop&w=1000&q=82",
-        "https://images.unsplash.com/photo-1510137600163-2729bc695e3a?auto=format&fit=crop&w=1000&q=82"
+        "https://images.pexels.com/photos/16477585/pexels-photo-16477585.jpeg?auto=compress&cs=tinysrgb&w=1000"
       ]
     },
     "WB-019": {
@@ -168,12 +166,11 @@
       ]
     },
     "WB-020": {
-      "cover": "https://images.unsplash.com/photo-1521336575822-6da63fb45455?auto=format&fit=crop&w=1400&q=84",
-      "coverAlt": "보호자와 반려견이 함께 타기 좋은 2인승 카약",
-      "sourceUrl": "https://unsplash.com/s/photos/kayak-dog",
+      "cover": "https://images.pexels.com/photos/5247935/pexels-photo-5247935.jpeg?auto=compress&cs=tinysrgb&w=1400",
+      "coverAlt": "보호자와 반려견이 함께 카약을 타는 모습",
+      "sourceUrl": "https://www.pexels.com/photo/a-man-kayaking-with-his-dog-5247935/",
       "gallery": [
-        "https://images.unsplash.com/photo-1521120413309-42e7eada0334?auto=format&fit=crop&w=1000&q=82",
-        "https://images.unsplash.com/photo-1615256871065-e12d4b97a260?auto=format&fit=crop&w=1000&q=82"
+        "https://images.pexels.com/photos/5247935/pexels-photo-5247935.jpeg?auto=compress&cs=tinysrgb&w=1000"
       ]
     },
     "WB-021": {

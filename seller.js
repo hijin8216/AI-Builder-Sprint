@@ -96,8 +96,74 @@ const sellerState = {
   activeDraftBase: null,
 };
 
+const sellerProductTranslationCache = new Map([
+  ["en", new Map()],
+  ["ja", new Map()],
+  ["zh", new Map()],
+]);
+const pendingSellerProductTranslations = new Set();
+let sellerProductTranslationTimer = null;
+let sellerProductTranslationRequest = null;
+
 function sellerText(key, ...args) {
   return window.SellerLocale?.getText?.(key, ...args) ?? "";
+}
+
+function sellerProductText(value) {
+  const source = String(value ?? "").trim();
+  const locale = window.SellerLocale?.getLocale?.() ?? "ko";
+  if (!source || locale === "ko") return source;
+
+  const cache = sellerProductTranslationCache.get(locale);
+  const translation = cache?.get(source);
+  if (translation) return translation;
+
+  pendingSellerProductTranslations.add(source);
+  if (!sellerProductTranslationTimer && !sellerProductTranslationRequest) {
+    sellerProductTranslationTimer = window.setTimeout(() => {
+      sellerProductTranslationTimer = null;
+      requestSellerProductTranslations();
+    }, 80);
+  }
+  return source;
+}
+
+async function requestSellerProductTranslations() {
+  const locale = window.SellerLocale?.getLocale?.() ?? "ko";
+  if (
+    locale === "ko" ||
+    sellerProductTranslationRequest ||
+    pendingSellerProductTranslations.size === 0
+  ) {
+    return;
+  }
+
+  const texts = [...pendingSellerProductTranslations].slice(0, 24);
+  texts.forEach((text) => pendingSellerProductTranslations.delete(text));
+  sellerProductTranslationRequest = fetch("/api/interface-translations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ locale, texts }),
+  })
+    .then(async (response) => {
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || "Translation is unavailable.");
+
+      const cache = sellerProductTranslationCache.get(locale);
+      result.translations.forEach(({ source, translation }) => {
+        if (source && translation) cache?.set(source, translation);
+      });
+      if ((window.SellerLocale?.getLocale?.() ?? "ko") === locale) renderPosts();
+    })
+    .catch((error) => {
+      console.error("Seller product translation failed:", error.message);
+    })
+    .finally(() => {
+      sellerProductTranslationRequest = null;
+      if (pendingSellerProductTranslations.size > 0) requestSellerProductTranslations();
+    });
+
+  await sellerProductTranslationRequest;
 }
 
 function sellerIntlLocale() {
@@ -837,29 +903,35 @@ function renderPosts() {
 
   postList.innerHTML = sellerState.posts
     .map(
-      (post) => `
+      (post) => {
+        const title = sellerProductText(post.title);
+        const category = sellerProductText(post.category);
+        const description = sellerProductText(post.description);
+        const partnerName = sellerProductText(post.partnerName);
+        const region = sellerProductText(post.region);
+        return `
         <article
           class="seller-post-card seller-post-card-link"
           data-edit-seller-post="/seller/edit/${encodeURIComponent(post.id)}"
           role="link"
           tabindex="0"
-          aria-label="${escapeHtml(post.title)} ${sellerText("productEdit")}"
+          aria-label="${escapeHtml(title)} ${sellerText("productEdit")}" 
         >
           ${
             post.thumbnailImage
-              ? `<img class="seller-post-image" src="${escapeHtml(post.thumbnailImage)}" alt="${escapeHtml(post.title)} ${sellerText("productPhoto")}" />`
+              ? `<img class="seller-post-image" src="${escapeHtml(post.thumbnailImage)}" alt="${escapeHtml(title)} ${sellerText("productPhoto")}" />`
               : ""
           }
           <div class="seller-post-card-body">
             <div class="card-top">
-              <span class="card-status">${escapeHtml(post.category)}</span>
+              <span class="card-status">${escapeHtml(category)}</span>
               <time>${formatDate(post.createdAt)}</time>
             </div>
-            <h4>${escapeHtml(post.title)}</h4>
-            <p>${escapeHtml(post.description)}</p>
+            <h4>${escapeHtml(title)}</h4>
+            <p>${escapeHtml(description)}</p>
             <div class="post-meta">
-              <span>${escapeHtml(post.partnerName)}</span>
-              <span>${escapeHtml(post.region)}</span>
+              <span>${escapeHtml(partnerName)}</span>
+              <span>${escapeHtml(region)}</span>
               <span>${sellerText("priceWithCurrency", formatPrice(post.pricePerPerson))}</span>
               <span>${sellerText("minutes", escapeHtml(post.durationMinutes))}</span>
               <span>${sellerText("difficulty", escapeHtml(post.difficulty || 2))}</span>
@@ -869,7 +941,7 @@ function renderPosts() {
               <a
                 class="post-edit-hint"
                 href="/seller/edit/${encodeURIComponent(post.id)}"
-                aria-label="${escapeHtml(post.title)} ${sellerText("productEdit")}"
+                aria-label="${escapeHtml(title)} ${sellerText("productEdit")}" 
               >
                 ${sellerText("productEdit")} <span>→</span>
               </a>
@@ -883,7 +955,8 @@ function renderPosts() {
             </div>
           </div>
         </article>
-      `,
+      `;
+      },
     )
     .join("");
 }

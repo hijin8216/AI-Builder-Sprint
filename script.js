@@ -940,7 +940,13 @@ function applyStaticLocale() {
   setLocaleContent(".detail-ai-watchout strong", "나에게 불리할 수 있어요", "Possible disadvantages");
   setLocaleContent(".detail-ai-summary > small", "AI 요약은 이해를 돕기 위한 참고 자료입니다. 아래 원문 약관과 최종 전자계약서를 함께 확인하세요.", "The AI summary is for reference. Review the full terms and final e-contract as well.");
   setLocaleContent("#detail-terms-title", "예약 전 세부 조건", "Pre-booking terms");
-  setLocaleContent("#detail-itinerary-title", "체험은 이렇게 진행돼요", "Here's how the experience works");
+  const detailItineraryTitle = {
+    ko: "체험은 이렇게 진행돼요",
+    en: "Here's how the experience works",
+    ja: "体験の流れ",
+    zh: "体验流程",
+  };
+  document.querySelector(".detail-itinerary-wrap > strong").textContent = detailItineraryTitle[activeLocale];
   setLocaleContent(".detail-terms-intro", "취소·환불, 지각, 일정 변경, 참여 기준과 안전 수칙 등 예약 전 확인할 핵심 조건입니다.", "Review the key booking conditions, including cancellation, late arrival, schedule changes, participation requirements, and safety rules.");
   document.querySelector(".detail-terms-accessibility").setAttribute("aria-label", localizeText("예약 조건 접근성 도구", "Booking terms accessibility tools"));
   detailFontDecreaseButton.setAttribute("aria-label", localizeText("예약 조건 글자 작게", "Decrease booking terms text"));
