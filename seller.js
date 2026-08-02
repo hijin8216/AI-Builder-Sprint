@@ -9,6 +9,10 @@ const sellerUserId = document.querySelector("#seller-user-id");
 const sellerUserEmail = document.querySelector("#seller-user-email");
 const modusignState = document.querySelector("#modusign-state");
 const logoutButton = document.querySelector("#seller-logout");
+const sellerSettings = document.querySelector("#seller-settings");
+const sellerSettingsToggle = document.querySelector("#seller-settings-toggle");
+const sellerSettingsMenu = document.querySelector("#seller-settings-menu");
+const sellerSettingsClose = document.querySelector("#seller-settings-close");
 const refreshButton = document.querySelector("#refresh-overview");
 
 const postForm = document.querySelector("#seller-post-form");
@@ -625,6 +629,7 @@ function createSellerPostPayload(formData) {
 }
 
 function showLogin() {
+  setSellerSettingsOpen(false);
   sellerState.user = null;
   sellerState.overviewLoaded = false;
   reservationNotificationButton.hidden = true;
@@ -636,6 +641,11 @@ function showLogin() {
 function showDashboard() {
   sellerAccess.hidden = true;
   sellerDashboard.hidden = false;
+}
+
+function setSellerSettingsOpen(isOpen) {
+  sellerSettingsMenu.hidden = !isOpen;
+  sellerSettingsToggle.setAttribute("aria-expanded", String(isOpen));
 }
 
 function contractStatusDetails(status) {
@@ -1101,6 +1111,28 @@ sellerAuthTabs.forEach((tab) => {
   tab.addEventListener("click", () => {
     setSellerAuthMode(tab.dataset.sellerAuthMode);
   });
+});
+
+sellerSettingsToggle.addEventListener("click", () => {
+  setSellerSettingsOpen(sellerSettingsMenu.hidden);
+});
+
+sellerSettingsClose.addEventListener("click", () => {
+  setSellerSettingsOpen(false);
+  sellerSettingsToggle.focus();
+});
+
+document.addEventListener("click", (event) => {
+  if (!sellerSettingsMenu.hidden && !sellerSettings.contains(event.target)) {
+    setSellerSettingsOpen(false);
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !sellerSettingsMenu.hidden) {
+    setSellerSettingsOpen(false);
+    sellerSettingsToggle.focus();
+  }
 });
 
 logoutButton.addEventListener("click", async () => {

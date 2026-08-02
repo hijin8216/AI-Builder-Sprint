@@ -40,6 +40,9 @@
       sellerDemoAccount: "판매자 데모 계정",
       eContractConfigured: "전자계약 연동 완료",
       eContractSetupRequired: "전자계약 연동 설정 필요",
+      settings: "설정",
+      settingsClose: "설정 닫기",
+      language: "언어",
       logout: "로그아웃",
       registeredProducts: "등록 상품",
       contractsSent: "계약 발송",
@@ -154,6 +157,9 @@
       sellerDemoAccount: "Seller demo account",
       eContractConfigured: "E-contract integration ready",
       eContractSetupRequired: "E-contract setup required",
+      settings: "Settings",
+      settingsClose: "Close settings",
+      language: "Language",
       logout: "Log out",
       registeredProducts: "Published products",
       contractsSent: "Contracts sent",
@@ -268,6 +274,9 @@
       sellerDemoAccount: "出店者デモアカウント",
       eContractConfigured: "電子契約の連携が完了しました",
       eContractSetupRequired: "電子契約の連携設定が必要です",
+      settings: "設定",
+      settingsClose: "設定を閉じる",
+      language: "言語",
       logout: "ログアウト",
       registeredProducts: "登録商品",
       contractsSent: "契約書送信",
@@ -382,6 +391,9 @@
       sellerDemoAccount: "商家演示账号",
       eContractConfigured: "电子合同集成已完成",
       eContractSetupRequired: "需要配置电子合同集成",
+      settings: "设置",
+      settingsClose: "关闭设置",
+      language: "语言",
       logout: "退出登录",
       registeredProducts: "已发布商品",
       contractsSent: "已发送合同",
@@ -491,6 +503,9 @@
     document.querySelectorAll(".seller-language-switcher").forEach((switcher) => {
       switcher.setAttribute("aria-label", localeCopy.languageLabel);
     });
+    document.querySelectorAll(".seller-settings-language").forEach((switcher) => {
+      switcher.setAttribute("aria-label", localeCopy.languageLabel);
+    });
     document.querySelectorAll("[data-seller-locale]").forEach((button) => {
       button.setAttribute("aria-pressed", String(button.dataset.sellerLocale === locale));
     });
@@ -540,6 +555,14 @@
     setText("#seller-register-form button[type='submit']", localeCopy.registerSubmit);
     setText(".seller-register-help", localeCopy.registerHelp);
     setText(".seller-account > div:first-child > span", localeCopy.sellerDemoAccount);
+    setText(".seller-settings-heading strong", localeCopy.settings);
+    setText(".seller-settings-language-group > span", localeCopy.language);
+    const settingsToggle = document.querySelector("#seller-settings-toggle");
+    if (settingsToggle) settingsToggle.setAttribute("aria-label", localeCopy.settings);
+    const settingsMenu = document.querySelector("#seller-settings-menu");
+    if (settingsMenu) settingsMenu.setAttribute("aria-label", localeCopy.settings);
+    const settingsClose = document.querySelector("#seller-settings-close");
+    if (settingsClose) settingsClose.setAttribute("aria-label", localeCopy.settingsClose);
     setText("#seller-logout", localeCopy.logout);
     setText("#seller-reservation-notification-label", localeCopy.reservationNotification);
     setText("#seller-reservation-alert-title", localeCopy.reservationAttention);

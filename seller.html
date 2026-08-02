@@ -15,21 +15,15 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;600;700&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/seller.css?v=20260801-7" />
-    <script src="/seller-locale.js?v=20260802-1" defer></script>
-    <script src="/seller.js?v=20260802-1" defer></script>
+    <link rel="stylesheet" href="/seller.css?v=20260802-2" />
+    <script src="/seller-locale.js?v=20260802-2" defer></script>
+    <script src="/seller.js?v=20260802-2" defer></script>
   </head>
   <body>
     <header class="seller-header">
       <a class="seller-brand" href="/seller" aria-label="WAVEON BUSAN 홈">
         <span class="brand-wave" aria-hidden="true"><span>W</span><span>A</span><span>V</span><span>E</span></span><span>ON</span><small>BUSAN</small>
       </a>
-      <div class="seller-language-switcher" role="group" aria-label="언어 선택">
-        <button type="button" data-seller-locale="ko" aria-pressed="true">KR</button>
-        <button type="button" data-seller-locale="en" aria-pressed="false">EN</button>
-        <button type="button" data-seller-locale="ja" aria-pressed="false">JP</button>
-        <button type="button" data-seller-locale="zh" aria-pressed="false">中</button>
-      </div>
       <nav aria-label="판매자 메뉴">
         <button
           id="seller-reservation-notification"
@@ -234,7 +228,40 @@
           </div>
           <div class="account-actions">
             <span id="modusign-state" class="api-state">모두싸인 확인 중</span>
-            <button id="seller-logout" type="button">로그아웃</button>
+            <div id="seller-settings" class="seller-settings">
+              <button
+                id="seller-settings-toggle"
+                class="seller-settings-toggle"
+                type="button"
+                aria-label="설정"
+                aria-expanded="false"
+                aria-controls="seller-settings-menu"
+              >⚙</button>
+              <section
+                id="seller-settings-menu"
+                class="seller-settings-menu"
+                aria-label="설정"
+                hidden
+              >
+                <div class="seller-settings-heading">
+                  <div>
+                    <small>ACCOUNT SETTINGS</small>
+                    <strong>설정</strong>
+                  </div>
+                  <button id="seller-settings-close" type="button" aria-label="설정 닫기">×</button>
+                </div>
+                <div class="seller-settings-language-group">
+                  <span>언어</span>
+                  <div class="seller-settings-language" role="group" aria-label="언어 선택">
+                    <button type="button" data-seller-locale="ko" aria-pressed="true">한국어</button>
+                    <button type="button" data-seller-locale="en" aria-pressed="false">English</button>
+                    <button type="button" data-seller-locale="ja" aria-pressed="false">日本語</button>
+                    <button type="button" data-seller-locale="zh" aria-pressed="false">中文</button>
+                  </div>
+                </div>
+                <button id="seller-logout" class="seller-settings-logout" type="button">로그아웃</button>
+              </section>
+            </div>
           </div>
         </section>
 

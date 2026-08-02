@@ -479,7 +479,7 @@ main {
   display: block;
   margin-bottom: 35px;
   color: var(--aqua);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 900;
 }
 
@@ -490,7 +490,7 @@ main {
 
 .hero-flow strong {
   color: var(--navy);
-  font-size: 14px;
+  font-size: 16px;
   overflow-wrap: anywhere;
   word-break: normal;
 }
@@ -498,7 +498,7 @@ main {
 .hero-flow small {
   margin-top: 6px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   overflow-wrap: anywhere;
   word-break: normal;
 }
@@ -697,22 +697,23 @@ textarea:focus {
   display: block;
   margin-bottom: 7px;
   color: rgba(255, 255, 255, 0.64);
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 900;
   letter-spacing: 1.6px;
 }
 
 .seller-account strong {
-  font-size: 18px;
+  font-size: 20px;
 }
 
 .seller-account p {
   margin: 5px 0 0;
   color: rgba(255, 255, 255, 0.72);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .account-actions {
+  position: relative;
   display: flex;
   gap: 10px;
   align-items: center;
@@ -722,7 +723,7 @@ textarea:focus {
 .account-actions button {
   padding: 9px 11px;
   border-radius: 7px;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 800;
 }
 
@@ -739,6 +740,119 @@ textarea:focus {
   color: white;
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.seller-settings {
+  position: relative;
+}
+
+.account-actions .seller-settings-toggle {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  place-items: center;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.seller-settings-toggle:hover,
+.seller-settings-toggle[aria-expanded="true"] {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.seller-settings-menu {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  z-index: 15;
+  width: min(390px, calc(100vw - 56px));
+  padding: 22px;
+  color: var(--ink);
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 22px 60px rgba(3, 39, 57, 0.22);
+}
+
+.seller-settings-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.seller-settings-heading > div {
+  display: grid;
+  gap: 5px;
+}
+
+.seller-settings-heading small {
+  color: var(--ocean);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+}
+
+.seller-settings-heading strong {
+  color: var(--navy);
+  font-size: 20px;
+}
+
+.account-actions .seller-settings-heading button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  place-items: center;
+  color: var(--muted);
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.seller-settings-language-group {
+  margin-top: 22px;
+}
+
+.seller-settings-language-group > span {
+  display: block;
+  margin-bottom: 9px;
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.seller-settings-language {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.account-actions .seller-settings-language button {
+  min-height: 40px;
+  padding: 8px;
+  color: var(--muted);
+  background: white;
+  border: 1px solid var(--line);
+  font-size: 11px;
+}
+
+.account-actions .seller-settings-language button[aria-pressed="true"] {
+  color: white;
+  background: var(--ocean);
+  border-color: var(--ocean);
+}
+
+.account-actions .seller-settings-logout {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 20px;
+  color: white;
+  background: var(--navy);
+  border-color: var(--navy);
+  font-size: 12px;
 }
 
 .seller-reservation-alert {
@@ -809,7 +923,7 @@ textarea:focus {
   display: block;
   margin-bottom: 17px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
 }
 
@@ -821,7 +935,7 @@ textarea:focus {
 .dashboard-stats small {
   margin-left: 5px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .workspace-section {
@@ -845,7 +959,7 @@ textarea:focus {
 .section-heading > p {
   margin: 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .new-product-link {
@@ -1148,12 +1262,12 @@ textarea:focus {
 .panel-heading h3 {
   margin: 0;
   color: var(--navy);
-  font-size: 16px;
+  font-size: 18px;
 }
 
 .panel-heading > span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
 }
 
@@ -1163,7 +1277,7 @@ textarea:focus {
   background: #edf7f9;
   border: 0;
   border-radius: 6px;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 800;
 }
 
@@ -1207,7 +1321,8 @@ textarea:focus {
   background: #f7fafb;
   border: 1px dashed #cbdce1;
   border-radius: 10px;
-  font-size: 11px;
+  font-size: 13px;
+  line-height: 1.55;
   text-align: center;
 }
 
@@ -2430,6 +2545,15 @@ textarea:focus {
   .account-actions {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .seller-settings-menu {
+    width: min(390px, calc(100vw - 42px));
+    padding: 19px;
+  }
+
+  .seller-settings-language {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .seller-reservation-alert {
