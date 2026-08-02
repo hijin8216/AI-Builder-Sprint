@@ -174,12 +174,12 @@
       ]
     },
     "WB-021": {
-      "cover": "https://images.unsplash.com/photo-1769816325485-07ae41696287?auto=format&fit=crop&w=1400&q=84",
-      "coverAlt": "바디보드를 타고 파도를 내려오는 체험자",
-      "sourceUrl": "https://unsplash.com/photos/J3YGIMsjcwc",
+      "cover": "https://images.pexels.com/photos/7863336/pexels-photo-7863336.jpeg?auto=compress&cs=tinysrgb&w=1400",
+      "coverAlt": "해변에서 바디보드를 들고 있는 어린이들",
+      "sourceUrl": "https://www.pexels.com/photo/a-back-view-of-kids-standing-on-a-body-board-7863336/",
       "gallery": [
-        "https://images.unsplash.com/photo-1502680390469-be75c86b636f?auto=format&fit=crop&w=1000&q=82",
-        "https://images.unsplash.com/photo-1750740078902-e925f2be1198?auto=format&fit=crop&w=1000&q=82"
+        "https://images.pexels.com/photos/6299971/pexels-photo-6299971.jpeg?auto=compress&cs=tinysrgb&w=1000",
+        "https://images.pexels.com/photos/6299951/pexels-photo-6299951.jpeg?auto=compress&cs=tinysrgb&w=1000"
       ]
     },
     "WB-022": {
@@ -199,12 +199,12 @@
       ]
     },
     "WB-024": {
-      "cover": "https://images.unsplash.com/photo-1540946485063-a40da27545f8?auto=format&fit=crop&w=1400&q=84",
-      "coverAlt": "부산 해안 풍경을 감상할 수 있는 편안한 크루즈 선박",
-      "sourceUrl": "https://unsplash.com/photos/8manzosDSGM",
+      "cover": "https://images.pexels.com/photos/24032797/pexels-photo-24032797.jpeg?auto=compress&cs=tinysrgb&w=1400",
+      "coverAlt": "승객을 태우고 바다를 항해하는 여객선",
+      "sourceUrl": "https://www.pexels.com/photo/photo-of-people-traveling-by-a-ferry-24032797/",
       "gallery": [
-        "https://images.unsplash.com/photo-1763887487283-483d0b1d48d4?auto=format&fit=crop&w=1000&q=82",
-        "https://images.unsplash.com/photo-1672671152875-e4af21b888bd?auto=format&fit=crop&w=1000&q=82"
+        "https://images.pexels.com/photos/19215727/pexels-photo-19215727.jpeg?auto=compress&cs=tinysrgb&w=1000",
+        "https://images.pexels.com/photos/29894567/pexels-photo-29894567.jpeg?auto=compress&cs=tinysrgb&w=1000"
       ]
     }
   }
