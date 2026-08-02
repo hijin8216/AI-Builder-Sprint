@@ -310,6 +310,7 @@ const mypageCopy = {
     favoriteCount: (count) => `${count}개`,
     noFavoritesTitle: "찜한 상품이 없습니다.",
     noFavoritesDescription: "마음에 드는 상품의 하트를 눌러 찜 목록에 저장해 보세요.",
+    settings: { kicker: "계정 설정", title: "계정 설정", language: "언어", changePassword: "비밀번호 변경", changePasswordDescription: "새 비밀번호를 설정합니다.", deleteAccount: "회원 탈퇴", deleteAccountDescription: "계정과 관련 데이터를 삭제합니다.", verifyPassword: "비밀번호 확인", verifyPasswordDescription: "현재 비밀번호를 입력해 주세요.", currentPassword: "현재 비밀번호", next: "다음", cancel: "취소", newPasswordTitle: "새 비밀번호 설정", newPasswordDescription: "영문과 숫자를 포함해 8자 이상으로 설정해 주세요.", newPassword: "새 비밀번호", newPasswordConfirm: "새 비밀번호 확인", savePassword: "비밀번호 변경", deleteVerifyTitle: "회원 탈퇴 확인", deleteVerifyDescription: "계정 보호를 위해 현재 비밀번호를 입력해 주세요.", deleteConfirmTitle: "정말 탈퇴할까요?", deleteConfirmDescription: "예약, 판매자 게시물, 계약 데이터가 삭제되며 복구할 수 없습니다.", returnToMyPage: "마이페이지로 돌아가기" },
   },
   en: {
     reservationsTab: "My reservations",
@@ -322,6 +323,7 @@ const mypageCopy = {
     favoriteCount: (count) => `${count} saved`,
     noFavoritesTitle: "No saved experiences yet.",
     noFavoritesDescription: "Use the heart on an experience to save it here.",
+    settings: { kicker: "ACCOUNT SETTINGS", title: "Account settings", language: "Language", changePassword: "Change password", changePasswordDescription: "Set a new password.", deleteAccount: "Delete account", deleteAccountDescription: "Delete your account and related data.", verifyPassword: "Verify password", verifyPasswordDescription: "Enter your current password.", currentPassword: "Current password", next: "Next", cancel: "Cancel", newPasswordTitle: "Set a new password", newPasswordDescription: "Use at least 8 characters with letters and numbers.", newPassword: "New password", newPasswordConfirm: "Confirm new password", savePassword: "Change password", deleteVerifyTitle: "Confirm account deletion", deleteVerifyDescription: "Enter your current password to protect your account.", deleteConfirmTitle: "Delete your account?", deleteConfirmDescription: "Your reservations, seller posts, and contract data will be permanently deleted.", returnToMyPage: "Back to my page" },
   },
   ja: {
     reservationsTab: "予約一覧",
@@ -334,6 +336,7 @@ const mypageCopy = {
     favoriteCount: (count) => `${count}件`,
     noFavoritesTitle: "お気に入りの商品がありません。",
     noFavoritesDescription: "気に入った商品のハートを押して、お気に入りリストに保存してみてください。",
+    settings: { kicker: "アカウント設定", title: "アカウント設定", language: "言語", changePassword: "パスワードを変更", changePasswordDescription: "新しいパスワードを設定します。", deleteAccount: "退会", deleteAccountDescription: "アカウントと関連データを削除します。", verifyPassword: "パスワードの確認", verifyPasswordDescription: "現在のパスワードを入力してください。", currentPassword: "現在のパスワード", next: "次へ", cancel: "キャンセル", newPasswordTitle: "新しいパスワードを設定", newPasswordDescription: "英字と数字を含む8文字以上で設定してください。", newPassword: "新しいパスワード", newPasswordConfirm: "新しいパスワードを確認", savePassword: "パスワードを変更", deleteVerifyTitle: "退会の確認", deleteVerifyDescription: "アカウント保護のため、現在のパスワードを入力してください。", deleteConfirmTitle: "退会しますか？", deleteConfirmDescription: "予約、出店者投稿、契約データは削除され、元に戻せません。", returnToMyPage: "マイページに戻る" },
   },
   zh: {
     reservationsTab: "我的预约",
@@ -346,6 +349,7 @@ const mypageCopy = {
     favoriteCount: (count) => `${count}个收藏`,
     noFavoritesTitle: "还没有收藏的体验。",
     noFavoritesDescription: "点击体验商品上的爱心，将它保存到收藏列表中。",
+    settings: { kicker: "账户设置", title: "账户设置", language: "语言", changePassword: "修改密码", changePasswordDescription: "设置新密码。", deleteAccount: "注销账户", deleteAccountDescription: "删除账户及相关数据。", verifyPassword: "确认密码", verifyPasswordDescription: "请输入当前密码。", currentPassword: "当前密码", next: "下一步", cancel: "取消", newPasswordTitle: "设置新密码", newPasswordDescription: "请设置至少8位且包含字母和数字的密码。", newPassword: "新密码", newPasswordConfirm: "确认新密码", savePassword: "修改密码", deleteVerifyTitle: "确认注销账户", deleteVerifyDescription: "为保护账户，请输入当前密码。", deleteConfirmTitle: "确定要注销账户吗？", deleteConfirmDescription: "预约、商家发布内容和合同数据将被永久删除，无法恢复。", returnToMyPage: "返回我的页面" },
   },
 };
 const footerPartnerCopy = {
@@ -818,9 +822,39 @@ function applyStaticLocale() {
   setLocaleContent(".mypage-account span", "로그인 계정", "Signed-in account");
   setLocaleContent("#logout-button", "로그아웃", "Log out");
   const myPageText = getMyPageCopy();
+  const settingsText = myPageText.settings;
   document.querySelector("[data-mypage-view='reservations']").textContent = myPageText.reservationsTab;
   document.querySelector("[data-mypage-view='favorites']").textContent = myPageText.favoritesTab;
   mypageReservationsTitle.textContent = myPageText.reservationsTitle;
+  mypageSettingsButton.setAttribute("aria-label", settingsText.title);
+  mypageSettingsPanel.setAttribute("aria-label", settingsText.title);
+  document.querySelector(".mypage-settings-head .dialog-kicker").textContent = settingsText.kicker;
+  document.querySelector(".mypage-settings-head h3").textContent = settingsText.title;
+  mypageSettingsClose.setAttribute("aria-label", settingsText.returnToMyPage);
+  document.querySelector(".mypage-settings-group > span").textContent = settingsText.language;
+  document.querySelector("#mypage-open-password strong").textContent = settingsText.changePassword;
+  document.querySelector("#mypage-open-password small").textContent = settingsText.changePasswordDescription;
+  document.querySelector("#mypage-open-delete strong").textContent = settingsText.deleteAccount;
+  document.querySelector("#mypage-open-delete small").textContent = settingsText.deleteAccountDescription;
+  document.querySelector("#mypage-password-verify-form .mypage-settings-card-head strong").textContent = settingsText.verifyPassword;
+  document.querySelector("#mypage-password-verify-form .mypage-settings-card-head p").textContent = settingsText.verifyPasswordDescription;
+  document.querySelector("#mypage-password-verify-form label").childNodes[0].textContent = settingsText.currentPassword;
+  document.querySelector("#mypage-password-verify-submit").textContent = settingsText.next;
+  document.querySelector("#mypage-password-form .mypage-settings-card-head strong").textContent = settingsText.newPasswordTitle;
+  document.querySelector("#mypage-password-form .mypage-settings-card-head p").textContent = settingsText.newPasswordDescription;
+  document.querySelector("#mypage-password-new").parentElement.childNodes[0].textContent = settingsText.newPassword;
+  document.querySelector("#mypage-password-confirm").parentElement.childNodes[0].textContent = settingsText.newPasswordConfirm;
+  document.querySelector("#mypage-password-submit").textContent = settingsText.savePassword;
+  document.querySelector("#mypage-delete-verify-form .mypage-settings-card-head strong").textContent = settingsText.deleteVerifyTitle;
+  document.querySelector("#mypage-delete-verify-form .mypage-settings-card-head p").textContent = settingsText.deleteVerifyDescription;
+  document.querySelector("#mypage-delete-password").parentElement.childNodes[0].textContent = settingsText.currentPassword;
+  document.querySelector("#mypage-delete-verify-submit").textContent = settingsText.next;
+  document.querySelector("#mypage-delete-confirm .mypage-settings-card-head strong").textContent = settingsText.deleteConfirmTitle;
+  document.querySelector("#mypage-delete-confirm .mypage-settings-card-head p").textContent = settingsText.deleteConfirmDescription;
+  document.querySelector("#mypage-delete-submit").textContent = settingsText.deleteAccount;
+  mypageSettingsBackButtons.forEach((button) => {
+    button.textContent = settingsText.cancel;
+  });
   setLocaleContent(".notification-panel-head strong", "알림", "Notifications");
   setLocaleContent("#reservation-detail-back", "← 내 예약", "← My reservations");
   setLocaleContent("#reservation-detail-dialog h2", "예약내역 확인", "Reservation details");
@@ -2293,7 +2327,7 @@ function setMypageSettingsOpen(isOpen) {
   mypageMainAccount.hidden = false;
   mypageMainTabs.hidden = isOpen;
   mypageMainReservations.hidden = isOpen;
-  mypageTitle.textContent = "마이페이지";
+  mypageTitle.textContent = localizeText("마이페이지", "My page");
   if (isOpen) setMypageSettingsScreen("menu");
   else resetMypageSettings();
 }
