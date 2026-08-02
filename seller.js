@@ -1246,10 +1246,15 @@ function renderDashboard() {
   modusignState.classList.toggle("is-offline", !sellerState.modusignConfigured);
 
   postStat.textContent = sellerState.posts.length;
-  contractStat.textContent = sellerState.contracts.length;
-  completedStat.textContent = sellerState.contracts.filter((contract) =>
+  const completedContracts = sellerState.contracts.filter((contract) =>
     ["COMPLETED", "SIGNED"].includes(contract.status),
+  );
+  contractStat.textContent = sellerState.contracts.filter((contract) =>
+    ["SENDING", "SCHEDULED", "ON_PROCESSING", "ON_GOING", "SENT"].includes(
+      contract.status,
+    ),
   ).length;
+  completedStat.textContent = completedContracts.length;
 
   renderPosts();
   renderReservations();

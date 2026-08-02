@@ -525,7 +525,7 @@ app.post(
   },
 );
 
-app.get("/api/seller/overview", (request, response) => {
+app.get("/api/seller/overview", async (request, response) => {
   const user = requireSellerUser(request, response);
   if (!user) return;
 
@@ -538,6 +538,14 @@ app.get("/api/seller/overview", (request, response) => {
     )
     .slice()
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+  let sellerContractsChanged = false;
+  for (const reservation of sellerReservations) {
+    sellerContractsChanged =
+      reconcileSellerContractWithReservation(reservation) ||
+      sellerContractsChanged;
+  }
+  if (sellerContractsChanged) await saveSellerContracts();
 
   response.json({
     user: publicUser(user),
@@ -3773,7 +3781,47 @@ async function syncReservationStatus(reservation) {
   });
   const changed = before !== after;
   if (changed) reservation.updatedAt = new Date().toISOString();
+  if (reconcileSellerContractWithReservation(reservation, document)) {
+    await saveSellerContracts();
+  }
   return changed;
+}
+
+function reconcileSellerContractWithReservation(reservation, document = null) {
+  if (!reservation?.id) return false;
+  const contract = sellerContracts.find(
+    (item) =>
+      item.documentId === reservation.documentId ||
+      (item.reservationId === reservation.id &&
+        (!item.documentId || item.documentId === reservation.documentId)),
+  );
+  if (!contract) return false;
+
+  const reservationCompleted =
+    reservation.status === "COMPLETED" ||
+    reservation.signatureStatus === "COMPLETED";
+  const nextStatus = reservationCompleted
+    ? "COMPLETED"
+    : document?.status || "";
+  if (!nextStatus) return false;
+
+  const nextUpdatedAt = reservationCompleted
+    ? reservation.signedAt ||
+      document?.updatedAt ||
+      reservation.updatedAt ||
+      new Date().toISOString()
+    : document?.updatedAt || new Date().toISOString();
+  const changed =
+    contract.status !== nextStatus ||
+    (reservationCompleted && contract.updatedAt !== nextUpdatedAt) ||
+    Boolean(contract.error);
+  if (!changed) return false;
+
+  contract.status = nextStatus;
+  contract.error = "";
+  contract.updatedAt = nextUpdatedAt;
+  if (reservationCompleted) contract.completedAt = nextUpdatedAt;
+  return true;
 }
 
 async function createModusignDocument(booking) {
