@@ -533,13 +533,14 @@ a {
   font-weight: 700;
 }
 
-/* 검토수정은 템플릿 검토·발송 단계로만 사용합니다. */
-#contract-start-authoring,
-#draft-manual-workflow,
+/* 초안 직접 작성은 유지하고, 불필요한 보조 UI는 숨깁니다. */
 .contract-safeguard-check,
 #contract-manual-toolbar,
-#draft-authoring-layout,
-#contract-review-description {
+#contract-draft-dialog[data-entry-mode="review"] #contract-review-description {
+  display: none !important;
+}
+
+#contract-template-status {
   display: none !important;
 }
 

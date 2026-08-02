@@ -595,15 +595,11 @@ function setContractDraftStep(step) {
 
 function renderContractReviewSummary() {
   if (sellerState.activeDraftMode === "manual") {
-    contractReviewSummary.innerHTML = `
-      <strong>직접 작성 계약서</strong>
-      <div class="contract-review-template-list">
-        <span>예약 정보 자동 연결</span><span>기본 전자서명 서식</span><span>직접 작성 조항</span>
-      </div>
-      <p>판매자가 입력한 계약 내용으로 초안을 저장합니다. 서명 위치와 실제 반영 내용을 모두싸인 화면에서 확인한 뒤 구매자에게 발송해 주세요.</p>
-    `;
+    contractReviewSummary.hidden = true;
+    contractReviewSummary.innerHTML = "";
     return;
   }
+  contractReviewSummary.hidden = false;
   const templateKeys = selectedContractTemplateKeys();
   const templateTitles = templateKeys.map((key) =>
     sellerState.templateTitleByKey.get(key) || key,
@@ -768,6 +764,7 @@ function fillContractDraftForm(contract, reservation) {
 
 async function openContractDraft(reservationId, contractId = "", initialView = "select") {
   try {
+    contractDraftDialog.dataset.entryMode = initialView;
     contractDraftDialogTitle.textContent = initialView === "review"
       ? "검토수정"
       : "초안 작성";
