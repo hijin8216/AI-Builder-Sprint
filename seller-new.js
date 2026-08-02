@@ -243,12 +243,8 @@ function populateEditForm(post) {
   };
   renderImages();
 
-  document.querySelector("#editor-kicker").textContent = "EDIT PRODUCT";
-  document.querySelector("#editor-title").textContent = "판매 상품 수정";
-  document.querySelector("#editor-description").textContent =
-    "기존 상품 정보를 단계별로 확인하고 필요한 부분만 수정해 저장하세요.";
-  submitButton.innerHTML = "수정 내용 저장 <span>→</span>";
-  document.title = "판매 상품 수정 | WAVEON PARTNER";
+  document.querySelector(".product-editor-page").dataset.editorMode = "edit";
+  window.SellerLocale?.applyLocale?.();
 }
 
 nextButton.addEventListener("click", () => {
@@ -315,9 +311,7 @@ productForm.addEventListener("submit", async (event) => {
     showError(error.message);
   } finally {
     submitButton.disabled = false;
-    submitButton.innerHTML = editingPostId
-      ? "수정 내용 저장 <span>→</span>"
-      : "상품 등록 완료 <span>→</span>";
+    window.SellerLocale?.applyLocale?.();
   }
 });
 

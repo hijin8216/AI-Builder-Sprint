@@ -470,6 +470,56 @@
       editorAccount: "正在确认账号",
     },
   };
+  const productEditorCopy = {
+    ko: {
+      newHeading: "새 판매 상품 작성",
+      editHeading: "판매 상품 수정",
+      newDescription: "항목을 네 단계로 나눠 작성합니다. 마지막 단계에서 약관과 안전 안내를 자세히 입력할 수 있습니다.",
+      editDescription: "기존 상품 정보를 단계별로 확인하고 필요한 부분만 수정해 저장하세요.",
+      steps: ["기본 정보", "사진·체험", "운영 정보", "약관·안전"],
+      legends: ["기본 상품 정보", "사진과 체험 특성", "운영 정보", "약관과 안전 정보"],
+      fields: { title: "상품명", partnerName: "업체명", category: "카테고리", region: "지역", location: "상세 위치", pricePerPerson: "1인 가격", durationMinutes: "이용 시간(분)", minAge: "최소 이용 나이", maxParticipants: "최대 인원", description: "상품 소개", difficulty: "난이도", thrillLevel: "스릴 정도", physicalIntensity: "활동 강도", swimmingRequired: "수영 필요 여부", moods: "분위기·검색 태그", timeSlots: "운영 시간대", weatherDependency: "날씨 영향", included: "포함 사항", refundPolicy: "환불·취소 정책", termsAndConditions: "상품 이용 약관", participantRequirements: "참가 조건·제한 사항", safetyNotes: "안전 주의사항" },
+      category: { "": "선택", "요트": "요트", "크루즈": "크루즈", "서핑": "서핑", "바디보드": "바디보드", "다이빙": "다이빙", "스노클링": "스노클링", "프리다이빙": "프리다이빙", SUP: "SUP", "카약": "카약", "낚시": "낚시", "제트스키": "제트스키", "바나나보트": "바나나보트", "웨이크보드": "웨이크보드", "기타": "기타" },
+      region: { "": "선택", "해운대": "해운대", "광안리": "광안리", "송정": "송정", "기장": "기장", "다대포": "다대포", "영도": "영도", "송도": "송도", "남구": "남구" },
+      difficulty: ["1 · 매우 쉬움", "2 · 쉬움", "3 · 보통", "4 · 어려움", "5 · 전문가"],
+      thrill: ["1 · 잔잔함", "2 · 가벼움", "3 · 보통", "4 · 짜릿함", "5 · 매우 짜릿함"],
+      intensity: ["1 · 휴식형", "2 · 가벼운 활동", "3 · 보통", "4 · 높은 활동", "5 · 매우 높음"],
+      swimming: ["수영을 못해도 가능", "수영 가능자만 참여"],
+      weather: ["낮음", "보통", "높음"],
+      thumbnail: ["대표 썸네일", "상품 목록에 보일 사진", "JPG, PNG, WEBP · 최대 5MB"],
+      details: ["상세 사진", "상품 설명용 사진 여러 장", "최대 6장"],
+      preview: "선택한 사진이 여기에 미리 표시됩니다.",
+      recommendedFor: "추천 대상", moodsHelp: "쉼표로 구분해 주세요.", availableDays: "이용 가능 요일", timeSlotsHelp: "쉼표로 구분", supportedLanguages: "지원 언어", lineHelp: "한 줄에 한 항목씩 입력해 주세요.",
+      audience: ["혼자", "친구", "연인", "가족"], days: ["월", "화", "수", "목", "금", "토", "일"], languages: ["한국어", "영어", "일본어", "중국어"],
+      termsTitle: "구매자가 예약 전에 확인해야 하는 내용을 구체적으로 적어주세요.", termsDescription: "환불, 기상 취소, 안전 책임, 이용 제한 사항을 빠뜨리지 않는 것이 좋습니다.", waiverTitle: "전자서명 동의서가 필요한 상품입니다.", waiverDescription: "예약 고객에게 전자계약서를 발송합니다.",
+      previous: "← 이전", cancel: "취소", next: "다음 단계", create: "상품 등록 완료", save: "수정 내용 저장",
+      placeholders: { title: "광안리 선셋 요트 투어", partnerName: "웨이브온 마린", location: "수영만 요트경기장", description: "고객이 경험할 내용과 상품의 특징을 소개해 주세요.", moods: "노을, 사진, 휴식, 기념일", timeSlots: "09:00, 11:30, 14:30", included: "구명조끼\n웰컴 음료\n사진 촬영", refundPolicy: "이용 3일 전까지 전액 환불, 2일 전 70%, 당일 환불 불가", termsAndConditions: "기상 악화 시 일정 변경 기준, 지각·노쇼 처리, 장비 파손 책임, 이용 중 준수사항 등을 자세히 입력해 주세요.", participantRequirements: "임산부 또는 특정 질환이 있는 이용자는 참여가 제한될 수 있습니다.\n미성년자는 보호자 동의가 필요합니다.", safetyNotes: "강풍 또는 풍랑특보 시 일정이 변경될 수 있습니다.\n현장 안전요원의 안내를 따라야 합니다." },
+    },
+    en: {
+      newHeading: "Create a new experience", editHeading: "Edit experience", newDescription: "Add your product details in four steps. Terms and safety information are completed in the final step.", editDescription: "Review the existing product in four steps and save only the changes you need.",
+      steps: ["Basics", "Photos & experience", "Operations", "Terms & safety"], legends: ["Basic product details", "Photos and experience details", "Operations", "Terms and safety"],
+      fields: { title: "Product name", partnerName: "Business name", category: "Category", region: "Area", location: "Specific location", pricePerPerson: "Price per guest (KRW)", durationMinutes: "Duration (minutes)", minAge: "Minimum age", maxParticipants: "Maximum guests", description: "Product description", difficulty: "Difficulty", thrillLevel: "Thrill level", physicalIntensity: "Activity intensity", swimmingRequired: "Swimming requirement", moods: "Mood and search tags", timeSlots: "Operating times", weatherDependency: "Weather sensitivity", included: "What's included", refundPolicy: "Refund and cancellation policy", termsAndConditions: "Terms of use", participantRequirements: "Participation requirements", safetyNotes: "Safety notes" },
+      category: { "": "Select", "요트": "Yacht", "크루즈": "Cruise", "서핑": "Surfing", "바디보드": "Bodyboarding", "다이빙": "Diving", "스노클링": "Snorkeling", "프리다이빙": "Freediving", SUP: "SUP", "카약": "Kayak", "낚시": "Fishing", "제트스키": "Jet ski", "바나나보트": "Banana boat", "웨이크보드": "Wakeboarding", "기타": "Other" },
+      region: { "": "Select", "해운대": "Haeundae", "광안리": "Gwangalli", "송정": "Songjeong", "기장": "Gijang", "다대포": "Dadaepo", "영도": "Yeongdo", "송도": "Songdo", "남구": "Nam-gu" },
+      difficulty: ["1 · Very easy", "2 · Easy", "3 · Moderate", "4 · Challenging", "5 · Expert"], thrill: ["1 · Calm", "2 · Light", "3 · Moderate", "4 · Exciting", "5 · Very exciting"], intensity: ["1 · Restful", "2 · Light activity", "3 · Moderate", "4 · Active", "5 · Very active"], swimming: ["No swimming required", "Swimmers only"], weather: ["Low", "Medium", "High"],
+      thumbnail: ["Cover image", "Shown in the product list", "JPG, PNG, WEBP · up to 5 MB"], details: ["Detail images", "Photos for the product story", "Up to 6 photos"], preview: "Selected photos appear here.", recommendedFor: "Recommended for", moodsHelp: "Separate tags with commas.", availableDays: "Available days", timeSlotsHelp: "Separate times with commas", supportedLanguages: "Supported languages", lineHelp: "Enter one item per line.", audience: ["Solo", "Friends", "Couples", "Families"], days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], languages: ["Korean", "English", "Japanese", "Chinese"],
+      termsTitle: "Add the details buyers should review before booking.", termsDescription: "Include refunds, weather cancellations, safety responsibilities, and participation limits.", waiverTitle: "This product requires an electronic consent form.", waiverDescription: "An electronic contract will be sent to each booking customer.", previous: "← Previous", cancel: "Cancel", next: "Next step", create: "Publish product", save: "Save changes",
+      placeholders: { title: "Gwangalli Sunset Yacht Tour", partnerName: "Waveon Marine", location: "Suyeong Bay Yacht Marina", description: "Describe the experience and the product's highlights.", moods: "sunset, photos, relaxation, anniversary", timeSlots: "09:00, 11:30, 14:30", included: "Life jacket\nWelcome drink\nPhoto session", refundPolicy: "Full refund until three days before use, 70% until two days before, no refund on the day", termsAndConditions: "Describe weather rescheduling, late arrival and no-show rules, equipment damage responsibility, and rules during the experience.", participantRequirements: "Guests who are pregnant or have certain medical conditions may be unable to participate.\nMinors need guardian consent.", safetyNotes: "The schedule may change in strong wind or high-wave advisories.\nFollow the on-site safety staff's instructions." },
+    },
+    ja: {
+      newHeading: "新しい体験を登録", editHeading: "体験を編集", newDescription: "商品情報を4段階で入力します。最後の段階で規約と安全案内を詳しく追加できます。", editDescription: "既存の商品情報を4段階で確認し、必要な内容だけ保存してください。", steps: ["基本情報", "写真・体験", "運営情報", "規約・安全"], legends: ["基本商品情報", "写真と体験の特徴", "運営情報", "規約と安全情報"],
+      fields: { title: "商品名", partnerName: "事業者名", category: "カテゴリー", region: "エリア", location: "詳細場所", pricePerPerson: "1人料金（KRW）", durationMinutes: "所要時間（分）", minAge: "最低年齢", maxParticipants: "最大人数", description: "商品紹介", difficulty: "難易度", thrillLevel: "スリル", physicalIntensity: "運動強度", swimmingRequired: "泳力条件", moods: "雰囲気・検索タグ", timeSlots: "運営時間", weatherDependency: "天候の影響", included: "含まれるもの", refundPolicy: "返金・キャンセル規定", termsAndConditions: "利用規約", participantRequirements: "参加条件・制限", safetyNotes: "安全上の注意" },
+      category: { "": "選択", "요트": "ヨット", "크루즈": "クルーズ", "서핑": "サーフィン", "바디보드": "ボディボード", "다이빙": "ダイビング", "스노클링": "シュノーケリング", "프리다이빙": "フリーダイビング", SUP: "SUP", "카약": "カヤック", "낚시": "釣り", "제트스키": "ジェットスキー", "바나나보트": "バナナボート", "웨이크보드": "ウェイクボード", "기타": "その他" }, region: { "": "選択", "해운대": "海雲台", "광안리": "広安里", "송정": "松亭", "기장": "機張", "다대포": "多大浦", "영도": "影島", "송도": "松島", "남구": "南区" },
+      difficulty: ["1 · とても簡単", "2 · 簡単", "3 · 普通", "4 · 難しい", "5 · 上級者向け"], thrill: ["1 · 穏やか", "2 · 軽め", "3 · 普通", "4 · スリリング", "5 · とてもスリリング"], intensity: ["1 · 休息型", "2 · 軽い運動", "3 · 普通", "4 · 活動的", "5 · とても活動的"], swimming: ["泳げなくても参加可", "泳げる方のみ"], weather: ["低い", "普通", "高い"], thumbnail: ["メイン画像", "商品一覧に表示", "JPG、PNG、WEBP · 最大5MB"], details: ["詳細写真", "商品説明用の写真", "最大6枚"], preview: "選択した写真がここに表示されます。", recommendedFor: "おすすめの対象", moodsHelp: "カンマで区切ってください。", availableDays: "利用可能な曜日", timeSlotsHelp: "カンマで区切る", supportedLanguages: "対応言語", lineHelp: "1行に1項目ずつ入力してください。", audience: ["一人", "友人", "カップル", "家族"], days: ["月", "火", "水", "木", "金", "土", "日"], languages: ["韓国語", "英語", "日本語", "中国語"], termsTitle: "購入者が予約前に確認すべき内容を具体的に入力してください。", termsDescription: "返金、天候による中止、安全責任、利用制限を含めてください。", waiverTitle: "この商品には電子署名の同意書が必要です。", waiverDescription: "予約したお客様に電子契約書を送信します。", previous: "← 前へ", cancel: "キャンセル", next: "次へ", create: "商品を登録", save: "変更を保存", placeholders: { title: "広安里サンセットヨットツアー", partnerName: "ウェーブオンマリン", location: "水営湾ヨット競技場", description: "お客様が体験する内容と商品の特徴を紹介してください。", moods: "夕日、写真、休息、記念日", timeSlots: "09:00, 11:30, 14:30", included: "ライフジャケット\nウェルカムドリンク\n写真撮影", refundPolicy: "利用3日前まで全額返金、2日前まで70%、当日は返金不可", termsAndConditions: "悪天候時の日程変更、遅刻・無断欠席、機材破損の責任、利用中のルールを詳しく入力してください。", participantRequirements: "妊娠中または特定の疾患がある方は参加できない場合があります。\n未成年者は保護者の同意が必要です。", safetyNotes: "強風または波浪注意報時は日程が変更される場合があります。\n現場の安全スタッフの案内に従ってください。" },
+    },
+    zh: {
+      newHeading: "创建新体验", editHeading: "编辑体验", newDescription: "请分四步填写商品信息。最后一步可补充条款和安全说明。", editDescription: "请分四步检查现有商品信息，只保存需要修改的内容。", steps: ["基本信息", "照片与体验", "运营信息", "条款与安全"], legends: ["基本商品信息", "照片和体验特点", "运营信息", "条款和安全信息"],
+      fields: { title: "商品名称", partnerName: "商家名称", category: "类别", region: "地区", location: "详细地点", pricePerPerson: "每人价格（KRW）", durationMinutes: "体验时长（分钟）", minAge: "最低年龄", maxParticipants: "最大人数", description: "商品介绍", difficulty: "难度", thrillLevel: "刺激程度", physicalIntensity: "活动强度", swimmingRequired: "游泳要求", moods: "氛围和搜索标签", timeSlots: "营业时段", weatherDependency: "天气影响", included: "包含项目", refundPolicy: "退款和取消政策", termsAndConditions: "使用条款", participantRequirements: "参与条件和限制", safetyNotes: "安全注意事项" },
+      category: { "": "请选择", "요트": "游艇", "크루즈": "游轮", "서핑": "冲浪", "바디보드": "趴板冲浪", "다이빙": "潜水", "스노클링": "浮潜", "프리다이빙": "自由潜水", SUP: "SUP", "카약": "皮划艇", "낚시": "钓鱼", "제트스키": "水上摩托", "바나나보트": "香蕉船", "웨이크보드": "尾波滑水", "기타": "其他" }, region: { "": "请选择", "해운대": "海云台", "광안리": "广安里", "송정": "松亭", "기장": "机张", "다대포": "多大浦", "영도": "影岛", "송도": "松岛", "남구": "南区" },
+      difficulty: ["1 · 非常简单", "2 · 简单", "3 · 普通", "4 · 较难", "5 · 专业级"], thrill: ["1 · 平静", "2 · 轻松", "3 · 普通", "4 · 刺激", "5 · 非常刺激"], intensity: ["1 · 休闲型", "2 · 轻度活动", "3 · 普通", "4 · 高强度", "5 · 非常高强度"], swimming: ["不会游泳也可参加", "仅限会游泳者"], weather: ["低", "中", "高"], thumbnail: ["封面图片", "显示在商品列表中", "JPG、PNG、WEBP · 最大5MB"], details: ["详情图片", "用于商品介绍的照片", "最多6张"], preview: "选择的照片会显示在这里。", recommendedFor: "推荐对象", moodsHelp: "请用逗号分隔。", availableDays: "可用日期", timeSlotsHelp: "请用逗号分隔", supportedLanguages: "支持语言", lineHelp: "每行输入一个项目。", audience: ["独自", "朋友", "情侣", "家庭"], days: ["周一", "周二", "周三", "周四", "周五", "周六", "周日"], languages: ["韩语", "英语", "日语", "中文"], termsTitle: "请具体填写购买者在预约前需要确认的内容。", termsDescription: "建议包含退款、天气取消、安全责任和参与限制。", waiverTitle: "该商品需要电子签名同意书。", waiverDescription: "将向预约客户发送电子合同。", previous: "← 上一步", cancel: "取消", next: "下一步", create: "发布商品", save: "保存修改", placeholders: { title: "广安里日落游艇之旅", partnerName: "WAVEON MARINE", location: "水营湾游艇码头", description: "请介绍客户将体验的内容和商品特色。", moods: "日落、拍照、休闲、纪念日", timeSlots: "09:00, 11:30, 14:30", included: "救生衣\n欢迎饮料\n照片拍摄", refundPolicy: "使用日前3天可全额退款，前2天可退70%，当天不可退款", termsAndConditions: "请详细填写恶劣天气改期、迟到和爽约处理、设备损坏责任及体验期间的规则。", participantRequirements: "孕妇或有特定疾病的客户可能无法参加。\n未成年人需要监护人同意。", safetyNotes: "强风或海浪警报时，日程可能会调整。\n请遵从现场安全人员的指引。" },
+    },
+  };
+
   const errorCopy = {
     SELLER_ACCOUNT_REQUIRED: {
       ko: "판매자로 등록된 계정만 판매자 센터를 이용할 수 있습니다.",
@@ -491,6 +541,92 @@
   function setText(selector, value) {
     const element = document.querySelector(selector);
     if (element) element.textContent = value;
+  }
+
+  function setEditorFieldLabel(name, value) {
+    const field = document.querySelector(`[name="${name}"]`);
+    const label = field?.closest("label")?.querySelector(":scope > span");
+    if (label) label.textContent = value;
+  }
+
+  function setEditorOptions(name, labels) {
+    document.querySelectorAll(`[name="${name}"] option`).forEach((option, index) => {
+      const label = Array.isArray(labels) ? labels[index] : labels[option.value];
+      if (label) option.textContent = label;
+    });
+  }
+
+  function setChoiceLabels(selector, labels) {
+    document.querySelectorAll(selector).forEach((label, index) => {
+      const text = label.matches("span") ? label : label.querySelector("span");
+      if (text && labels[index]) text.textContent = labels[index];
+    });
+  }
+
+  function applyProductEditorLocale(locale, localeCopy) {
+    const editor = document.querySelector(".product-editor-page");
+    if (!editor) return;
+
+    const editorCopy = productEditorCopy[locale] ?? productEditorCopy.ko;
+    const isEditing = editor.dataset.editorMode === "edit";
+    setText("#editor-kicker", isEditing ? "EDIT PRODUCT" : "NEW PRODUCT");
+    setText("#editor-title", isEditing ? editorCopy.editHeading : editorCopy.newHeading);
+    setText("#editor-description", isEditing ? editorCopy.editDescription : editorCopy.newDescription);
+    setText("#editor-account", localeCopy.editorAccount);
+    const stepsSuffix = locale === "en" ? "steps" : locale === "ja" ? "ステップ" : locale === "zh" ? "步骤" : "단계";
+    document.querySelector(".editor-steps")?.setAttribute("aria-label", `${editorCopy.newHeading} ${stepsSuffix}`);
+    document.querySelectorAll("[data-step-indicator] strong").forEach((element, index) => {
+      element.textContent = editorCopy.steps[index];
+    });
+    document.querySelectorAll("[data-product-step]").forEach((section, index) => {
+      const legend = section.querySelector("legend");
+      const number = legend?.querySelector("span");
+      if (legend && number) legend.replaceChildren(number, document.createTextNode(` ${editorCopy.legends[index]}`));
+    });
+    Object.entries(editorCopy.fields).forEach(([name, label]) => setEditorFieldLabel(name, label));
+    Object.entries(editorCopy.placeholders).forEach(([name, placeholder]) => {
+      const field = document.querySelector(`[name="${name}"]`);
+      if (field) field.placeholder = placeholder;
+    });
+    setEditorOptions("category", editorCopy.category);
+    setEditorOptions("region", editorCopy.region);
+    setEditorOptions("difficulty", editorCopy.difficulty);
+    setEditorOptions("thrillLevel", editorCopy.thrill);
+    setEditorOptions("physicalIntensity", editorCopy.intensity);
+    setEditorOptions("swimmingRequired", editorCopy.swimming);
+    setEditorOptions("weatherDependency", editorCopy.weather);
+
+    const imageBoxes = document.querySelectorAll(".image-upload-box");
+    [[...editorCopy.thumbnail], [...editorCopy.details]].forEach((texts, index) => {
+      const box = imageBoxes[index];
+      if (!box) return;
+      setText(`.image-upload-box:nth-of-type(${index + 1}) > span`, texts[0]);
+      setText(`.image-upload-box:nth-of-type(${index + 1}) > strong`, texts[1]);
+      setText(`.image-upload-box:nth-of-type(${index + 1}) > small`, texts[2]);
+    });
+    setText("#seller-image-preview p", editorCopy.preview);
+    setText("[data-product-step='2'] .input-label", editorCopy.recommendedFor);
+    setText("[name='moods'] + .field-help", editorCopy.moodsHelp);
+    setChoiceLabels("[name='suitableFor'] ~ span", editorCopy.audience);
+    setText("[data-product-step='3'] .input-label", editorCopy.availableDays);
+    setChoiceLabels("[name='availableDays'] ~ span", editorCopy.days);
+    setText("[name='timeSlots'] + .field-help", editorCopy.timeSlotsHelp);
+    const languageGroup = document.querySelector("[name='languages']")?.closest(".wide");
+    languageGroup?.querySelector(".input-label") && (languageGroup.querySelector(".input-label").textContent = editorCopy.supportedLanguages);
+    setChoiceLabels("[name='languages'] ~ span", editorCopy.languages);
+    document.querySelectorAll("[data-product-step='3'] .field-help, [data-product-step='4'] .field-help").forEach((element) => {
+      if (element !== document.querySelector("[name='timeSlots'] + .field-help")) element.textContent = editorCopy.lineHelp;
+    });
+    setText(".terms-editor-intro strong", editorCopy.termsTitle);
+    setText(".terms-editor-intro p", editorCopy.termsDescription);
+    setText(".waiver-choice strong", editorCopy.waiverTitle);
+    setText(".waiver-choice small", editorCopy.waiverDescription);
+    setText("#editor-previous", editorCopy.previous);
+    setText(".editor-cancel", editorCopy.cancel);
+    const next = document.querySelector("#editor-next");
+    const submit = document.querySelector("#editor-submit");
+    if (next) next.innerHTML = `${editorCopy.next} <span>→</span>`;
+    if (submit) submit.innerHTML = `${isEditing ? editorCopy.save : editorCopy.create} <span>→</span>`;
   }
 
   function applyLocale(locale) {
@@ -583,9 +719,7 @@
     setText(".inbox-guide", localeCopy.incomingReservationsGuide);
     setText(".contract-history .panel-heading h3", localeCopy.contractHistory);
     setText("#refresh-overview", localeCopy.refreshList);
-    setText("#editor-title", localeCopy.editorHeading);
-    setText("#editor-description", localeCopy.editorDescription);
-    setText("#editor-account", localeCopy.editorAccount);
+    applyProductEditorLocale(locale, localeCopy);
   }
 
   let activeLocale = getSavedLocale();
@@ -596,6 +730,9 @@
     },
     getLocale() {
       return activeLocale;
+    },
+    applyLocale() {
+      applyLocale(activeLocale);
     },
     getErrorMessage(code, fallback) {
       return errorCopy[code]?.[activeLocale] ?? fallback;

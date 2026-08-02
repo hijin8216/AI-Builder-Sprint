@@ -657,6 +657,10 @@ function formatPrice(price) {
   return activeLocale === "zh" ? `KRW ${formattedPrice}` : `KRW ${formattedPrice}`;
 }
 
+function formatRecommendationBudget(value) {
+  return `KRW ${Number(value).toLocaleString("en-US")}`;
+}
+
 function localizeText(korean, english) {
   if (activeLocale === "ko") return korean;
   if (activeLocale === "en") return english;
@@ -669,6 +673,18 @@ function localizeText(korean, english) {
   if (translation) return translation;
   queueInterfaceTranslation(korean);
   return english;
+}
+
+function localizeDynamicText(value) {
+  const source = String(value ?? "").trim();
+  if (!source || !isTranslatedLocale()) return source;
+
+  const cache = interfaceTranslationCache.get(activeLocale);
+  const translation = cache?.get(source);
+  if (translation) return translation;
+
+  queueInterfaceTranslation(source);
+  return source;
 }
 
 function localizeCategory(category) {
@@ -1003,10 +1019,9 @@ function applyStaticLocale() {
   setLocaleContent("#recommendation-form label:nth-of-type(6) > span", "수영 가능 여부", "Swimming ability");
   setLocaleContent("#recommendation-form label:nth-of-type(7) > span", "누구와 가나요?", "Who are you going with?");
   setLocaleContent("#recommendation-form label:nth-of-type(8) > span", "원하는 분위기", "Desired mood");
-  setLocaleContent("#recommend-budget option[value='30000']", "3만원 이하", "Up to KRW 30,000");
-  setLocaleContent("#recommend-budget option[value='50000']", "5만원 이하", "Up to KRW 50,000");
-  setLocaleContent("#recommend-budget option[value='80000']", "8만원 이하", "Up to KRW 80,000");
-  setLocaleContent("#recommend-budget option[value='120000']", "12만원 이하", "Up to KRW 120,000");
+  document.querySelectorAll("#recommend-budget option").forEach((option) => {
+    option.textContent = formatRecommendationBudget(option.value);
+  });
   setLocaleContent("#recommend-region option[value='']", "부산 전체", "All Busan");
   document.querySelectorAll("#recommend-region option[value]").forEach((option) => {
     if (option.value) option.textContent = localizeRegion(option.value);
@@ -1174,19 +1189,19 @@ function renderExperiences() {
         ? "BEST"
         : hotExperienceIds.has(experience.id)
           ? "HOT"
-          : "AVAILABLE";
+          : "";
       const recommendation = state.recommendationMap.get(experience.id);
       const recommendationNote = recommendation
         ? `
           <div class="recommendation-note">
             <strong>${localizeText(`✦ AI 추천 이유 · 적합도 ${recommendation.score}점`, `✦ AI recommendation · ${recommendation.score} score`)}</strong>
-            ${escapeHtml(recommendation.reason)}
+            ${escapeHtml(localizeDynamicText(recommendation.reason))}
             <span class="recommendation-tags">
               ${recommendation.fitPoints
-                .map((point) => `<span>${escapeHtml(point)}</span>`)
+                .map((point) => `<span>${escapeHtml(localizeDynamicText(point))}</span>`)
                 .join("")}
             </span>
-            <span class="recommendation-caution">${localizeText("주의:", "Caution:")} ${escapeHtml(recommendation.caution)}</span>
+            <span class="recommendation-caution">${localizeText("주의:", "Caution:")} ${escapeHtml(localizeDynamicText(recommendation.caution))}</span>
           </div>
         `
         : "";
@@ -1204,7 +1219,7 @@ function renderExperiences() {
               alt="${escapeHtml(getProductImageAlt(experience))}"
               loading="lazy"
             />
-            <span class="card-badge">${cardBadge}</span>
+            ${cardBadge ? `<span class="card-badge">${cardBadge}</span>` : ""}
           </button>
           <button
             class="favorite-button ${state.favorites.has(experience.id) ? "is-active" : ""}"
@@ -1241,7 +1256,7 @@ function renderExperiences() {
   }
 
   if (state.recommendedIds) {
-    resultDescription.textContent = state.recommendationMessage;
+    resultDescription.textContent = localizeDynamicText(state.recommendationMessage);
     return;
   }
 
@@ -3587,6 +3602,7 @@ function renderRecommendationResultCards() {
       ${recommendations
         .map((recommendation, index) => {
           const product = getDisplayExperience(recommendation.product);
+          const reason = localizeDynamicText(recommendation.reason);
           return `
             <button class="recommendation-chat-result" type="button" data-recommendation-product="${escapeHtml(product.id)}">
               <img src="${escapeHtml(getProductImage(product))}" alt="" />
@@ -3594,7 +3610,7 @@ function renderRecommendationResultCards() {
               <span class="recommendation-chat-result-copy">
                 <strong>${escapeHtml(product.name)}</strong>
                 <small>${escapeHtml(localizeRegion(product.region))} · ${escapeHtml(formatPrice(product.pricePerPerson))}</small>
-                <em>${escapeHtml(recommendation.reason)}</em>
+                <em>${escapeHtml(reason)}</em>
               </span>
               <span class="recommendation-chat-score">${recommendation.score}<small>FIT</small></span>
             </button>

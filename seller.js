@@ -111,6 +111,25 @@ function sellerText(key, ...args) {
   return window.SellerLocale?.getText?.(key, ...args) ?? "";
 }
 
+function sellerContractActionText(action) {
+  const copy = {
+    reviewDraft: {
+      ko: "초안 검토",
+      en: "Review draft",
+      ja: "下書きを確認",
+      zh: "查看草稿",
+    },
+    deleteDraft: {
+      ko: "초안 삭제",
+      en: "Delete draft",
+      ja: "下書きを削除",
+      zh: "删除草稿",
+    },
+  };
+  const locale = window.SellerLocale?.getLocale?.() ?? "ko";
+  return copy[action]?.[locale] ?? copy[action]?.ko ?? "";
+}
+
 function sellerProductText(value) {
   const source = String(value ?? "").trim();
   const locale = window.SellerLocale?.getLocale?.() ?? "ko";
@@ -155,7 +174,11 @@ async function requestSellerProductTranslations() {
       result.translations.forEach(({ source, translation }) => {
         if (source && translation) cache?.set(source, translation);
       });
-      if ((window.SellerLocale?.getLocale?.() ?? "ko") === locale) renderPosts();
+      if ((window.SellerLocale?.getLocale?.() ?? "ko") === locale) {
+        renderPosts();
+        renderReservations();
+        renderContracts();
+      }
     })
     .catch((error) => {
       console.error("Seller product translation failed:", error.message);
@@ -998,6 +1021,7 @@ function renderReservations() {
   reservationList.innerHTML = sellerState.reservations
     .map((reservation) => {
       const contract = reservation.contract;
+      const activity = sellerProductText(reservation.activity);
       const cancelled = reservation.status === "CANCELLED";
       const sellerCancelled = reservation.status === "SELLER_CANCELLED";
       const cancellationRequested =
@@ -1038,7 +1062,7 @@ function renderReservations() {
               data-review-contract-draft="${escapeHtml(contract.id)}"
               data-draft-reservation="${escapeHtml(reservation.id)}"
             >
-              초안 검토·수정 <span>→</span>
+              ${sellerContractActionText("reviewDraft")} <span>→</span>
             </button>
           `);
         }
@@ -1059,7 +1083,7 @@ function renderReservations() {
               >
                 ${
                   sellerState.modusignConfigured
-                    ? "계약 초안 만들기"
+                    ? sellerText("sendContract")
                     : sellerText("eContractSetupRequired")
                 }
                 <span>→</span>
@@ -1106,7 +1130,7 @@ function renderReservations() {
             <span class="card-status ${status.className}">${escapeHtml(status.label)}</span>
             <time>${formatDate(reservation.createdAt, true)}</time>
           </div>
-          <h4>${escapeHtml(reservation.activity)}</h4>
+          <h4>${escapeHtml(activity)}</h4>
           <div class="reservation-customer">
             <strong>${escapeHtml(reservation.name)}</strong>
             <span>${escapeHtml(reservation.email)}</span>
@@ -1140,6 +1164,7 @@ function renderContracts() {
   contractList.innerHTML = sellerState.contracts
     .map((contract) => {
       const status = contractStatusDetails(contract.status);
+      const postTitle = sellerProductText(contract.postTitle);
       const needsUnifiedResend =
         contract.documentId &&
         !contract.deliveryMode &&
@@ -1148,7 +1173,7 @@ function renderContracts() {
       const actions = [];
       if (contract.status === "DRAFT") {
         actions.push(
-          `<button class="seller-small-button is-primary" type="button" data-review-contract-draft="${escapeHtml(contract.id)}">초안 검토·수정</button>`,
+          `<button class="seller-small-button is-primary" type="button" data-review-contract-draft="${escapeHtml(contract.id)}">${sellerContractActionText("reviewDraft")}</button>`,
         );
       } else if (contract.status === "SEND_FAILED" || needsUnifiedResend) {
         actions.push(
@@ -1161,7 +1186,7 @@ function renderContracts() {
       }
       if (canArchiveContract) {
         actions.push(
-          `<button class="seller-small-button is-archive" type="button" data-archive-contract="${escapeHtml(contract.id)}">${contract.status === "DRAFT" ? "초안 삭제" : "확인 후 목록에서 삭제"}</button>`,
+          `<button class="seller-small-button is-archive" type="button" data-archive-contract="${escapeHtml(contract.id)}">${contract.status === "DRAFT" ? sellerContractActionText("deleteDraft") : sellerText("confirmAndRemove")}</button>`,
         );
       }
       const action = actions.join("");
@@ -1172,7 +1197,7 @@ function renderContracts() {
             <span class="card-status ${status.className}">${escapeHtml(status.label)}</span>
             <time>${formatDate(contract.createdAt, true)}</time>
           </div>
-          <h4>${escapeHtml(contract.postTitle)}</h4>
+          <h4>${escapeHtml(postTitle)}</h4>
           <div class="reservation-customer">
             <strong>${escapeHtml(contract.customerName)}</strong>
             <span>${escapeHtml(contract.customerEmail)}</span>
