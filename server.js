@@ -3144,6 +3144,25 @@ function getAllProducts() {
   ];
 }
 
+function splitSellerProductIntroduction(description) {
+  const text = cleanText(description, 800);
+  if (!text) return { title: "", detail: "" };
+
+  const firstSentence = text.match(/^([\s\S]*?[.!?。！？])\s*([\s\S]*)$/);
+  if (firstSentence) {
+    return {
+      title: firstSentence[1].trim(),
+      detail: firstSentence[2].trim(),
+    };
+  }
+
+  const [firstLine, ...remainingLines] = text.split(/\r?\n/);
+  return {
+    title: firstLine.trim(),
+    detail: remainingLines.join("\n").trim(),
+  };
+}
+
 function getProductContent(productId) {
   const product =
     getAllProducts().find((item) => item.id === productId) || null;
@@ -3151,11 +3170,14 @@ function getProductContent(productId) {
     return { product: null, detail: null, contract: null };
   }
 
+  const sellerIntroduction = product.sellerCreated
+    ? splitSellerProductIntroduction(product.description)
+    : null;
   const detail =
     productDetails[productId] ||
     (product.sellerCreated
       ? {
-          promotion: product.description,
+          promotion: sellerIntroduction.title,
           highlights: product.included?.length
             ? product.included
             : ["판매자가 직접 등록한 WAVEON 파트너 상품"],
@@ -3168,7 +3190,7 @@ function getProductContent(productId) {
     (product.sellerCreated
       ? {
           riskLevel: "확인필요",
-          story: [product.description],
+          story: sellerIntroduction.detail ? [sellerIntroduction.detail] : [],
           itinerary: [
             `운영 요일: ${(product.availableDays || []).join(" · ")}`,
             `운영 시간: ${(product.timeSlots || []).join(" · ") || "예약 후 협의"}`,

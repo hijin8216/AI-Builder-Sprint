@@ -2943,12 +2943,32 @@ async function requestProductCardTranslations(productList) {
   await translationRequest;
 }
 
+function splitSellerProductIntroduction(description) {
+  const text = String(description || "").trim();
+  if (!text) return { title: "", detail: "" };
+
+  const firstSentence = text.match(/^([\s\S]*?[.!?。！？])\s*([\s\S]*)$/);
+  if (firstSentence) {
+    return {
+      title: firstSentence[1].trim(),
+      detail: firstSentence[2].trim(),
+    };
+  }
+
+  const [firstLine, ...remainingLines] = text.split(/\r?\n/);
+  return {
+    title: firstLine.trim(),
+    detail: remainingLines.join("\n").trim(),
+  };
+}
+
 function addSellerProductDetailData() {
   experiences
     .filter((product) => product.sellerCreated)
     .forEach((product) => {
+      const introduction = splitSellerProductIntroduction(product.description);
       productDetails[product.id] = {
-        promotion: product.description,
+        promotion: introduction.title,
         highlights: product.included?.length
           ? product.included
           : ["판매자가 직접 등록한 WAVEON 파트너 상품"],
@@ -2957,7 +2977,7 @@ function addSellerProductDetailData() {
       };
       productContracts[product.id] = {
         riskLevel: "확인필요",
-        story: [product.description],
+        story: introduction.detail ? [introduction.detail] : [],
         itinerary: [
           `운영 요일: ${(product.availableDays || []).join(" · ")}`,
           `운영 시간: ${(product.timeSlots || []).join(" · ") || "예약 후 협의"}`,
