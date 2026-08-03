@@ -65,10 +65,10 @@ AI 협업 시 적용한 프로젝트 규칙은 [AGENTS.md](AGENTS.md)에, 제품
 
 ### 2. 저장소 내려받기
 
-최종 구현 브랜치는 `develop`입니다. 대회 제출 시 GitHub의 default 브랜치도 `develop`으로 지정해 실행 코드와 AI 관련 파일이 처음부터 함께 보이도록 구성합니다.
+최종 구현은 대회 개발 안내에 따라 `develop` 브랜치에서 관리합니다.
 
 ```bash
-git clone https://github.com/hijin8216/AI-Builder-Sprint.git
+git clone --branch develop --single-branch https://github.com/hijin8216/AI-Builder-Sprint.git
 cd AI-Builder-Sprint
 npm install
 ```
