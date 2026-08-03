@@ -37,6 +37,23 @@ WAVEON BUSAN은 이 흐름을 예약 단계로 앞당깁니다.
 
 결제 화면은 사용자 흐름을 보여주기 위한 데모이며 실제 금액이 결제되지 않습니다.
 
+## 개발 과정에서 AI를 활용한 방식
+
+서비스에 탑재된 Upstage AI와 별개로, 팀 개발 과정에서는 **OpenAI Codex**를 코딩 협업 도구로 활용했습니다. 팀원이 기능 목표와 화면 요구사항을 정하고 결과를 검토했으며, Codex는 기존 코드를 먼저 분석한 뒤 필요한 범위만 수정하는 방식으로 작업을 보조했습니다.
+
+| 활용 단계 | 실제 활용 방식 |
+| --- | --- |
+| 요구사항 정리 | 구매자·판매자 흐름, AI 약관 점검, 모두싸인 전자서명 단계를 작은 작업으로 나누고 변경 범위를 확인 |
+| 코드 탐색 | 파일 검색과 Git diff를 이용해 기존 함수, API 경로, 예약·계약 상태 구조를 파악 |
+| 구현 보조 | 전체 파일을 다시 만들지 않고 필요한 HTML·CSS·JavaScript·서버 로직만 부분 수정 |
+| 오류 점검 | `npm run check`, `git diff --check`, Git 상태 확인으로 문법 오류와 의도하지 않은 파일 변경을 검사 |
+| Git 협업 | Codex의 GitHub 플러그인으로 저장소·브랜치·Pull Request 흐름을 확인하고, 팀원의 최신 변경을 먼저 반영한 뒤 로컬 변경을 임시 보관·재적용해 충돌을 줄이는 절차를 사용 |
+| 문서화 | 실제 사용 모델, API 호출 파일, 주요 프롬프트, 개인정보 보호와 장애 시 대체 동작을 코드와 대조해 기록 |
+
+GitHub 플러그인은 현재 브랜치와 default 브랜치 상태 확인, 변경 범위 점검, Pull Request 방향 판단에 활용했습니다. 실제 커밋·push 여부는 팀원이 확인하고 승인하는 방식으로 운영했습니다.
+
+AI 협업 시 적용한 프로젝트 규칙은 [AGENTS.md](AGENTS.md)에, 제품 내부 AI의 모델·프롬프트·설정은 [docs/AI_USAGE.md](docs/AI_USAGE.md)에 기록했습니다. 제출용 AI 관련 파일의 역할과 민감정보 제외 원칙은 [.agents/README.md](.agents/README.md)에 정리했습니다. API 키, 계정 비밀번호와 개인정보는 AI 설정 파일이나 GitHub에 포함하지 않았습니다.
+
 ## 빠른 실행
 
 ### 1. 준비 환경
@@ -48,10 +65,10 @@ WAVEON BUSAN은 이 흐름을 예약 단계로 앞당깁니다.
 
 ### 2. 저장소 내려받기
 
-최신 구현은 `develop` 브랜치에 있습니다.
+최종 구현 브랜치는 `develop`입니다. 대회 제출 시 GitHub의 default 브랜치도 `develop`으로 지정해 실행 코드와 AI 관련 파일이 처음부터 함께 보이도록 구성합니다.
 
 ```bash
-git clone --branch develop --single-branch https://github.com/hijin8216/AI-Builder-Sprint.git
+git clone https://github.com/hijin8216/AI-Builder-Sprint.git
 cd AI-Builder-Sprint
 npm install
 ```
@@ -207,6 +224,7 @@ npm.cmd run check
 
 - [AI 사용 기록](docs/AI_USAGE.md): 모델, API 호출 위치, 프롬프트 규칙, 개인정보 보호, 캐시와 대체 동작
 - [개발 에이전트 지침](AGENTS.md): 기능 목표, 코드 수정·검증·보안 원칙
+- [AI 협업 파일 안내](.agents/README.md): Codex 활용 범위, 관련 설정·기록 파일과 민감정보 제외 원칙
 
 ## 현재 한계
 
